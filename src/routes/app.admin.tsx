@@ -49,17 +49,30 @@ function Admin() {
   const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+  const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPwd, setShowPwd] = useState(false);
+  const [createdInfo, setCreatedInfo] = useState<{ email: string; senha: string } | null>(null);
 
   const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
     setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
   };
 
   const openNew = () => {
-    setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+    setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
     setFormError(null);
+    setShowPwd(false);
     setOpen(true);
+  };
+
+  const gerarSenha = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let s = "";
+    const arr = new Uint32Array(12);
+    crypto.getRandomValues(arr);
+    for (const n of arr) s += chars[n % chars.length];
+    setForm(f => ({ ...f, senha: s, confirmar: s }));
+    setShowPwd(true);
   };
 
   const submitNew = (e: React.FormEvent) => {
@@ -69,12 +82,16 @@ function Admin() {
     if (!nome || !email) return setFormError("Preencha nome e e-mail.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setFormError("E-mail inválido.");
     if (users.some(u => u.email.toLowerCase() === email)) return setFormError("Já existe um usuário com esse e-mail.");
+    if (form.senha.length < 8) return setFormError("A senha deve ter ao menos 8 caracteres.");
+    if (form.senha !== form.confirmar) return setFormError("As senhas não coincidem.");
     const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
     const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
     setUsers(prev => [...prev, novo]);
     setMatrix(prev => ({ ...prev, [id]: permsForPerfil(form.perfil) }));
+    setCreatedInfo({ email, senha: form.senha });
     setOpen(false);
   };
+
 
   const confirmDelete = () => {
     if (!toDelete) return;
