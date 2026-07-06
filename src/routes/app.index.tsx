@@ -25,7 +25,7 @@ function PainelHome() {
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-extrabold text-[#213368]">Olá, Rafael 👋</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Aqui está um resumo do seu dia no Grupo GRD Brasil.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Aqui está um resumo do seu dia no Grupo GRD.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
