@@ -73,7 +73,7 @@ function Home() {
           <div>
             <Reveal>
               <span className="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-                Grupo GRD Brasil
+                Grupo GRD
               </span>
             </Reveal>
             <Reveal delay={120}>
@@ -236,7 +236,7 @@ function Home() {
               <p className="mt-4 text-muted-foreground">Nossa equipe comercial está pronta para entender seu projeto e propor a melhor solução.</p>
               <ul className="mt-6 space-y-3 text-sm">
                 <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-[#F37032]" /> (11) 4000-0000</li>
-                <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#F37032]" /> contato@grupogrdbrasil.com.br</li>
+                <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#F37032]" /> contato@grupogrd.com.br</li>
                 <li className="flex items-center gap-3"><MapPin className="h-4 w-4 text-[#F37032]" /> São Paulo, SP</li>
               </ul>
             </Reveal>
@@ -286,7 +286,7 @@ function ContatoForm() {
           <CheckCircle2 className="h-6 w-6" />
         </div>
         <h3 className="text-xl font-bold text-[#213368]">Mensagem enviada!</h3>
-        <p className="text-sm text-muted-foreground">Recebemos seu contato e retornaremos em breve. Obrigado por falar com o Grupo GRD Brasil.</p>
+        <p className="text-sm text-muted-foreground">Recebemos seu contato e retornaremos em breve. Obrigado por falar com o Grupo GRD.</p>
         <Button variant="outline" onClick={() => setStatus("idle")}>Enviar outra mensagem</Button>
       </Card>
     );
