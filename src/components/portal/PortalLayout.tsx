@@ -88,13 +88,13 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2">
-                <Avatar className="h-9 w-9"><AvatarFallback className="bg-[#213368] text-white">RS</AvatarFallback></Avatar>
+                <Avatar className="h-9 w-9"><AvatarFallback className="bg-[#213368] text-white">UD</AvatarFallback></Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <div className="font-semibold">Rafael Silva</div>
-                <div className="text-xs font-normal text-muted-foreground">rafael.silva@grupogrd.com.br</div>
+                <div className="font-semibold">Usuário Demo</div>
+                <div className="text-xs font-normal text-muted-foreground">demo@exemplo.com</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem><UserIcon className="mr-2 h-4 w-4" /> Perfil</DropdownMenuItem>
