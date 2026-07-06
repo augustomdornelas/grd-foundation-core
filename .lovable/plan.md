@@ -1,26 +1,17 @@
-# Login com credenciais fixas de demo
+## Problema
 
-Manter a v1 sem backend, mas fazer o formulário de `/login` validar as credenciais no cliente contra um par fixo. Credenciais erradas mostram erro; credenciais corretas seguem para `/app` como já acontece.
+O arquivo `src/routes/app.projetos.tsx` funciona como rota PAI de `src/routes/app.projetos.$id.tsx`. Como o pai renderiza a listagem sem `<Outlet />`, ao clicar em "Ver detalhe" a URL muda para `/app/projetos/P-001`, o filho até casa, mas não há onde ele aparecer — então a tela continua mostrando a listagem (aparenta "não abrir nada").
 
-## Credenciais
+## Correção
 
-- **Usuário:** `demo@grupogrd.com.br`
-- **Senha:** `grd2026`
+Converter a listagem em rota leaf `index`, seguindo a convenção do TanStack:
 
-Exibidas de forma discreta na própria tela de login, num bloco de "Credenciais de demonstração", para quem estiver testando saber o que digitar.
+1. Renomear `src/routes/app.projetos.tsx` → `src/routes/app.projetos.index.tsx` (conteúdo idêntico, só muda o `createFileRoute("/app/projetos")` — que continua igual, pois `.index` mapeia para o mesmo path).
+2. Assim `/app/projetos` passa a ser leaf (listagem) e `/app/projetos/$id` é outro leaf independente — sem necessidade de Outlet compartilhado.
+3. O plugin do Router regenera `routeTree.gen.ts` automaticamente.
 
-## Mudanças
+Nenhuma alteração é necessária em `app.projetos.$id.tsx`, no `Link` da listagem, nem no layout `/app`.
 
-1. **`src/routes/login.tsx`**
-   - Adicionar constantes `DEMO_USER` e `DEMO_PASSWORD`.
-   - Trocar o `submit` atual (que sempre navega) por: validar campos com `zod` (obrigatórios, e-mail válido), comparar com as constantes.
-     - Se bater: navegar para `/app` (comportamento atual).
-     - Se não bater: mostrar mensagem de erro em vermelho abaixo do formulário ("Usuário ou senha incorretos").
-   - Adicionar um card informativo abaixo do botão "Entrar" com as credenciais de demo em `<code>`, sinalizando que é ambiente de demonstração.
-   - Manter o aviso "Acesso exclusivo para equipe autorizada".
+## Observação (fora do escopo desta correção, mas relevante)
 
-2. **Nenhuma outra rota é alterada.** As rotas `/app/*` continuam sem `beforeLoad` guard — isso é coerente com o escopo mock aceito na memória de segurança. Não estou reintroduzindo o finding `no_real_auth`; ele permanece aceito até habilitarmos backend real.
-
-## Fora do escopo
-
-- Backend, banco de usuários, sessão real, logout com invalidação, guard em `/app/*`, hashing de senha. Tudo isso fica para quando ativarmos o Lovable Cloud.
+Há um warning de hidratação por causa de `new Date(...).toLocaleDateString("pt-BR")` (fuso do server vs client). Não impede a navegação, mas se quiser posso corrigir em seguida formatando a data de forma determinística (`dd/mm/yyyy` manual a partir da string ISO).
