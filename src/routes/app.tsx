@@ -16,5 +16,6 @@ function AppLayout() {
   const pathname = useRouterState({ select: s => s.location.pathname });
   let title = titles[pathname] ?? "Portal";
   if (pathname.startsWith("/app/projetos/") && pathname !== "/app/projetos") title = "Detalhe do Projeto";
+  if (pathname.startsWith("/app/equipamentos/") && pathname !== "/app/equipamentos") title = "Detalhe do Equipamento";
   return <PortalLayout title={title} />;
 }
