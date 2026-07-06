@@ -7,14 +7,32 @@ import { useState } from "react";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
+const DEMO_USER = "demo@grupogrd.com.br";
+const DEMO_PASSWORD = "grd2026";
+
 function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    const u = user.trim().toLowerCase();
+    if (!u || !password) {
+      setError("Preencha usuário e senha.");
+      return;
+    }
+    if (u !== DEMO_USER || password !== DEMO_PASSWORD) {
+      setError("Usuário ou senha incorretos.");
+      return;
+    }
     setLoading(true);
     setTimeout(() => navigate({ to: "/app" }), 400);
   };
+
   return (
     <div className="grid min-h-screen md:grid-cols-2">
       <div className="relative hidden overflow-hidden bg-[#213368] p-10 text-white md:flex md:flex-col md:justify-between">
@@ -34,19 +52,51 @@ function LoginPage() {
           <h2 className="text-2xl font-extrabold">Entrar</h2>
           <p className="mt-2 text-sm text-muted-foreground">Use seu usuário corporativo para acessar o portal.</p>
           <p className="mt-1 text-xs text-muted-foreground">Acesso exclusivo para equipe autorizada.</p>
-          <form onSubmit={submit} className="mt-8 grid gap-4">
-            <div className="grid gap-2"><label className="text-sm font-medium">Usuário ou e-mail</label><Input placeholder="seu.nome@grupogrd.com.br" required /></div>
+          <form onSubmit={submit} className="mt-8 grid gap-4" noValidate>
+            <div className="grid gap-2">
+              <label htmlFor="user" className="text-sm font-medium">Usuário ou e-mail</label>
+              <Input
+                id="user"
+                type="email"
+                autoComplete="username"
+                placeholder="seu.nome@grupogrd.com.br"
+                value={user}
+                onChange={(e) => setUser(e.target.value)}
+              />
+            </div>
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Senha</label>
+                <label htmlFor="password" className="text-sm font-medium">Senha</label>
                 <a href="#" className="text-xs font-medium text-[#213368] hover:text-[#F37032]">Esqueci a senha</a>
               </div>
-              <Input type="password" placeholder="••••••••" required />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
+            {error && (
+              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                {error}
+              </p>
+            )}
             <Button disabled={loading} className="mt-2 bg-[#F37032] text-white hover:bg-[#ff8850]">
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
+
+          <div className="mt-6 rounded-lg border border-dashed border-[#213368]/25 bg-[#213368]/5 p-4 text-xs">
+            <div className="mb-1 font-semibold uppercase tracking-wider text-[#213368]">Credenciais de demonstração</div>
+            <div className="text-muted-foreground">Ambiente de demonstração — use as credenciais abaixo para acessar o portal.</div>
+            <div className="mt-2 grid gap-1 font-mono text-[13px] text-[#213368]">
+              <div>Usuário: <code className="rounded bg-white px-1.5 py-0.5">{DEMO_USER}</code></div>
+              <div>Senha: <code className="rounded bg-white px-1.5 py-0.5">{DEMO_PASSWORD}</code></div>
+            </div>
+          </div>
+
           <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link to="/" className="hover:text-primary">← Voltar ao site</Link>
           </p>
@@ -55,3 +105,4 @@ function LoginPage() {
     </div>
   );
 }
+
