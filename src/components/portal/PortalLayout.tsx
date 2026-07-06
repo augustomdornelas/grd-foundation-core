@@ -6,21 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState, type ReactNode } from "react";
+import { useCurrentUser, sessionActions, iniciaisDe, type ModuloKey } from "@/lib/current-user";
 
-const items = [
+const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: boolean; perm?: ModuloKey }[] = [
   { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
-  { to: "/app/comercial", label: "Comercial", icon: BriefcaseBusiness, exact: false },
-  { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false },
-  { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false },
-  { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false },
-  { to: "/app/admin", label: "Admin", icon: Users2, exact: false },
-] as const;
+  { to: "/app/comercial", label: "Comercial", icon: BriefcaseBusiness, exact: false, perm: "comercial" },
+  { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
+  { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false, perm: "equipamentos" },
+  { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
+  { to: "/app/admin", label: "Admin", icon: Users2, exact: false, perm: "admin" },
+];
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: s => s.location.pathname });
+  const user = useCurrentUser();
+  const visiveis = items.filter(it => !it.perm || user.permissoes.includes(it.perm));
   return (
     <nav className="flex flex-col gap-1 p-3">
-      {items.map(it => {
+      {visiveis.map(it => {
         const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
         return (
           <Link
@@ -43,6 +46,12 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function PortalLayout({ title, children }: { title: string; children?: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+  const user = useCurrentUser();
+  const iniciais = iniciaisDe(user.nome);
+  const handleLogout = () => {
+    sessionActions.logout();
+    navigate({ to: "/login" });
+  };
   return (
     <div className="flex min-h-screen w-full bg-[#F4F4F4]">
       {/* Desktop sidebar */}
@@ -88,17 +97,18 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2">
-                <Avatar className="h-9 w-9"><AvatarFallback className="bg-[#213368] text-white">UD</AvatarFallback></Avatar>
+                <Avatar className="h-9 w-9"><AvatarFallback className="bg-[#213368] text-white">{iniciais}</AvatarFallback></Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <div className="font-semibold">Usuário Demo</div>
-                <div className="text-xs font-normal text-muted-foreground">demo@exemplo.com</div>
+                <div className="font-semibold">{user.nome}</div>
+                <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
+                <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#F37032]">{user.perfil}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem><UserIcon className="mr-2 h-4 w-4" /> Perfil</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: "/login" })}><LogOut className="mr-2 h-4 w-4" /> Sair</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" /> Sair</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
