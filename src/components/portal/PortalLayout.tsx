@@ -1,5 +1,5 @@
 import { Link, useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, BriefcaseBusiness, FolderKanban, Wrench, Mail, Clock, Users2, Bell, Search, LogOut, User as UserIcon, Menu, X } from "lucide-react";
+import { LayoutDashboard, BriefcaseBusiness, FolderKanban, Wrench, Mail, Clock, Users2, Search, LogOut, User as UserIcon, Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
