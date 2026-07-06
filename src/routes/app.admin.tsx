@@ -182,7 +182,7 @@ function Admin() {
           <Table>
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-24 text-right">Ações</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-36 text-right">Ações</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {users.map(u => (
