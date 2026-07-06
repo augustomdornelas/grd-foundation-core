@@ -1,17 +1,26 @@
-## Problema
+# Editar usuário no módulo Admin
 
-O arquivo `src/routes/app.projetos.tsx` funciona como rota PAI de `src/routes/app.projetos.$id.tsx`. Como o pai renderiza a listagem sem `<Outlet />`, ao clicar em "Ver detalhe" a URL muda para `/app/projetos/P-001`, o filho até casa, mas não há onde ele aparecer — então a tela continua mostrando a listagem (aparenta "não abrir nada").
+Adicionar um botão **Editar** (ícone de lápis) ao lado do botão de excluir na coluna "Ações" da tabela de Usuários, em `/app/admin`, abrindo um diálogo para alterar os dados do usuário selecionado.
 
-## Correção
+## O que muda na tela
 
-Converter a listagem em rota leaf `index`, seguindo a convenção do TanStack:
+- Na coluna **Ações**, ao lado do ícone vermelho de excluir, aparece um novo ícone azul-marinho de **lápis** (rótulo acessível "Editar {nome}").
+- Ao clicar, abre um **Dialog** "Editar usuário" pré-preenchido com: nome, e-mail, perfil e status.
+- Botões do diálogo: **Cancelar** e **Salvar alterações** (laranja GRD).
+- Validações iguais às do "Novo usuário": nome e e-mail obrigatórios, formato de e-mail válido, e-mail único (ignorando o próprio usuário em edição).
+- Ao salvar:
+  - atualiza o usuário na lista (`users`);
+  - se o **perfil** foi alterado, a matriz de permissões daquele usuário é redefinida pela função `permsForPerfil(novoPerfil)` — mesma regra usada na criação, mantendo consistência;
+  - fecha o diálogo.
+- A senha **não** é editada aqui (mantém o padrão do módulo — senha só é definida na criação). Fica pronto para, quando o Supabase estiver ligado, virar "Redefinir senha" via Auth Admin.
 
-1. Renomear `src/routes/app.projetos.tsx` → `src/routes/app.projetos.index.tsx` (conteúdo idêntico, só muda o `createFileRoute("/app/projetos")` — que continua igual, pois `.index` mapeia para o mesmo path).
-2. Assim `/app/projetos` passa a ser leaf (listagem) e `/app/projetos/$id` é outro leaf independente — sem necessidade de Outlet compartilhado.
-3. O plugin do Router regenera `routeTree.gen.ts` automaticamente.
+## Detalhes técnicos
 
-Nenhuma alteração é necessária em `app.projetos.$id.tsx`, no `Link` da listagem, nem no layout `/app`.
+Arquivo único afetado: `src/routes/app.admin.tsx`.
 
-## Observação (fora do escopo desta correção, mas relevante)
-
-Há um warning de hidratação por causa de `new Date(...).toLocaleDateString("pt-BR")` (fuso do server vs client). Não impede a navegação, mas se quiser posso corrigir em seguida formatando a data de forma determinística (`dd/mm/yyyy` manual a partir da string ISO).
+- Novo estado: `const [editing, setEditing] = useState<Usuario | null>(null)` e `const [editForm, setEditForm] = useState({ nome, email, perfil, status })` + `editError`.
+- Nova função `openEdit(u: Usuario)` que popula `editForm` e abre o diálogo.
+- Nova função `submitEdit(e)` que valida, chama `setUsers(prev => prev.map(...))` e, se `perfil` mudou, `setMatrix(prev => ({ ...prev, [id]: permsForPerfil(novoPerfil) }))`.
+- Novo `<Dialog open={!!editing}>` com os mesmos campos do "Novo usuário", exceto senha/confirmar.
+- Ícone `Pencil` do `lucide-react` (adicionar ao import existente).
+- Como o estado é em memória (mesma store atual), a alteração reflete imediatamente na tabela e na "Matriz de permissões" logo abaixo.
