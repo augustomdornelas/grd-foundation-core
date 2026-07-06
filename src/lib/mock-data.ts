@@ -1,11 +1,11 @@
 export const orcamentos = [
-  { id: "ORC-2041", cliente: "Vale Verde Logística", obra: "Galpão Industrial Fase 2", valor: 4_820_000, data: "2026-06-14", status: "Aprovado", responsavel: "Rafael Silva" },
-  { id: "ORC-2042", cliente: "Construtora Aurora", obra: "Edifício Corporativo", valor: 2_340_000, data: "2026-06-18", status: "Em análise", responsavel: "Camila Souza" },
-  { id: "ORC-2043", cliente: "Prefeitura de Ubatuba", obra: "Escola Municipal", valor: 1_180_000, data: "2026-06-22", status: "Enviado", responsavel: "Rafael Silva" },
-  { id: "ORC-2044", cliente: "AutoTech Indústria", obra: "Ampliação Fábrica", valor: 6_950_000, data: "2026-06-25", status: "Aprovado", responsavel: "Diego Martins" },
-  { id: "ORC-2045", cliente: "Hospital Norte", obra: "Reforma Ala B", valor: 890_000, data: "2026-06-28", status: "Recusado", responsavel: "Camila Souza" },
-  { id: "ORC-2046", cliente: "Grupo Águas Claras", obra: "Condomínio Residencial", valor: 3_420_000, data: "2026-07-01", status: "Em análise", responsavel: "Diego Martins" },
-  { id: "ORC-2047", cliente: "BR-Sul Concessão", obra: "Passarela Km 128", valor: 720_000, data: "2026-07-03", status: "Aprovado", responsavel: "Rafael Silva" },
+  { id: "ORC-2041", cliente: "Vale Verde Logística", obra: "Galpão Industrial Fase 2", valor: 4_820_000, data: "2026-06-14", status: "Aprovado", responsavel: "Usuário Demo 1" },
+  { id: "ORC-2042", cliente: "Construtora Aurora", obra: "Edifício Corporativo", valor: 2_340_000, data: "2026-06-18", status: "Em análise", responsavel: "Usuário Demo 2" },
+  { id: "ORC-2043", cliente: "Prefeitura de Ubatuba", obra: "Escola Municipal", valor: 1_180_000, data: "2026-06-22", status: "Enviado", responsavel: "Usuário Demo 1" },
+  { id: "ORC-2044", cliente: "AutoTech Indústria", obra: "Ampliação Fábrica", valor: 6_950_000, data: "2026-06-25", status: "Aprovado", responsavel: "Usuário Demo 3" },
+  { id: "ORC-2045", cliente: "Hospital Norte", obra: "Reforma Ala B", valor: 890_000, data: "2026-06-28", status: "Recusado", responsavel: "Usuário Demo 2" },
+  { id: "ORC-2046", cliente: "Grupo Águas Claras", obra: "Condomínio Residencial", valor: 3_420_000, data: "2026-07-01", status: "Em análise", responsavel: "Usuário Demo 3" },
+  { id: "ORC-2047", cliente: "BR-Sul Concessão", obra: "Passarela Km 128", valor: 720_000, data: "2026-07-03", status: "Aprovado", responsavel: "Usuário Demo 1" },
 ];
 
 export const comercialSerie = [
