@@ -29,7 +29,7 @@ export function Footer() {
           <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Contato</h4>
           <ul className="space-y-2 text-sm text-white/70">
             <li className="flex items-center gap-2"><Phone className="h-4 w-4" /> (11) 4000-0000</li>
-            <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> contato@grupogrd.com.br</li>
+            <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> contato@grupogrdbrasil.com.br</li>
             <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> São Paulo, SP</li>
           </ul>
         </div>
