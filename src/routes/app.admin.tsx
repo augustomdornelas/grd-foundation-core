@@ -205,6 +205,15 @@ function Admin() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        onClick={() => openPwd(u)}
+                        aria-label={`Trocar senha de ${u.nome}`}
+                        className="text-[#F37032] hover:bg-[#F37032]/10 hover:text-[#F37032]"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
                         onClick={() => setToDelete(u)}
                         aria-label={`Excluir ${u.nome}`}
                         className="text-red-600 hover:bg-red-50 hover:text-red-700"
