@@ -137,6 +137,35 @@ function Admin() {
     setEditing(null);
   };
 
+  const openPwd = (u: Usuario) => {
+    setPwdForm({ senha: "", confirmar: "" });
+    setPwdError(null);
+    setShowPwdEdit(false);
+    setPwdUser(u);
+  };
+
+  const gerarSenhaEdit = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let s = "";
+    const arr = new Uint32Array(12);
+    crypto.getRandomValues(arr);
+    for (const n of arr) s += chars[n % chars.length];
+    setPwdForm({ senha: s, confirmar: s });
+    setShowPwdEdit(true);
+  };
+
+  const submitPwd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pwdUser) return;
+    if (pwdForm.senha.length < 8) return setPwdError("A senha deve ter ao menos 8 caracteres.");
+    if (pwdForm.senha !== pwdForm.confirmar) return setPwdError("As senhas não coincidem.");
+    // NOTA: quando o Supabase for conectado, esta ação deve chamar a Auth Admin API
+    // (auth.admin.updateUserById) via edge function protegida por role de administrador.
+    // No modo local em memória, apenas exibimos a nova credencial para repasse manual.
+    setPwdResetInfo({ email: pwdUser.email, senha: pwdForm.senha });
+    setPwdUser(null);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
