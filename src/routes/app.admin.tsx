@@ -108,6 +108,30 @@ function Admin() {
     setToDelete(null);
   };
 
+  const openEdit = (u: Usuario) => {
+    setEditForm({ nome: u.nome, email: u.email, perfil: u.perfil, status: u.status });
+    setEditError(null);
+    setEditing(u);
+  };
+
+  const submitEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    const nome = editForm.nome.trim();
+    const email = editForm.email.trim().toLowerCase();
+    if (!nome || !email) return setEditError("Preencha nome e e-mail.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setEditError("E-mail inválido.");
+    if (users.some(u => u.id !== editing.id && u.email.toLowerCase() === email)) {
+      return setEditError("Já existe outro usuário com esse e-mail.");
+    }
+    const perfilMudou = editing.perfil !== editForm.perfil;
+    setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, nome, email, perfil: editForm.perfil, status: editForm.status } : u));
+    if (perfilMudou) {
+      setMatrix(prev => ({ ...prev, [editing.id]: permsForPerfil(editForm.perfil) }));
+    }
+    setEditing(null);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
