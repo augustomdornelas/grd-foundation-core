@@ -56,6 +56,11 @@ function Admin() {
   const [formError, setFormError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ email: string; senha: string } | null>(null);
+  const [pwdUser, setPwdUser] = useState<Usuario | null>(null);
+  const [pwdForm, setPwdForm] = useState({ senha: "", confirmar: "" });
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [showPwdEdit, setShowPwdEdit] = useState(false);
+  const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
 
   const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
     setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
