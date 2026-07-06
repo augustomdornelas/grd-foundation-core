@@ -88,14 +88,8 @@ function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 rounded-lg border border-dashed border-[#213368]/25 bg-[#213368]/5 p-4 text-xs">
-            <div className="mb-1 font-semibold uppercase tracking-wider text-[#213368]">Credenciais de demonstração</div>
-            <div className="text-muted-foreground">Ambiente de demonstração — use as credenciais abaixo para acessar o portal.</div>
-            <div className="mt-2 grid gap-1 font-mono text-[13px] text-[#213368]">
-              <div>Usuário: <code className="rounded bg-white px-1.5 py-0.5">{DEMO_USER}</code></div>
-              <div>Senha: <code className="rounded bg-white px-1.5 py-0.5">{DEMO_PASSWORD}</code></div>
-            </div>
-          </div>
+
+
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link to="/" className="hover:text-primary">← Voltar ao site</Link>
