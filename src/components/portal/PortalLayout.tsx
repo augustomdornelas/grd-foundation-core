@@ -97,17 +97,18 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2">
-                <Avatar className="h-9 w-9"><AvatarFallback className="bg-[#213368] text-white">UD</AvatarFallback></Avatar>
+                <Avatar className="h-9 w-9"><AvatarFallback className="bg-[#213368] text-white">{iniciais}</AvatarFallback></Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
-                <div className="font-semibold">Usuário Demo</div>
-                <div className="text-xs font-normal text-muted-foreground">demo@exemplo.com</div>
+                <div className="font-semibold">{user.nome}</div>
+                <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
+                <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#F37032]">{user.perfil}</div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem><UserIcon className="mr-2 h-4 w-4" /> Perfil</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: "/login" })}><LogOut className="mr-2 h-4 w-4" /> Sair</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" /> Sair</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
