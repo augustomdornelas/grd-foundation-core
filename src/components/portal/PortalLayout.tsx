@@ -1,5 +1,5 @@
 import { Link, useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, BriefcaseBusiness, FolderKanban, Wrench, Mail, Clock, Users2, Bell, Search, LogOut, User as UserIcon, Menu, X } from "lucide-react";
+import { LayoutDashboard, BriefcaseBusiness, FolderKanban, Wrench, Mail, Clock, Users2, Search, LogOut, User as UserIcon, Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -91,10 +91,6 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
               <Input placeholder="Buscar..." className="pl-9" />
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#F37032]" />
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2">
