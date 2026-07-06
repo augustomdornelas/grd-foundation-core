@@ -81,6 +81,7 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  html { scroll-behavior: smooth; }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -88,6 +89,11 @@
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4 { color: var(--color-brand-navy); font-weight: 700; letter-spacing: -0.01em; }
+  section[id] { scroll-margin-top: 80px; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
 }
 
 @utility grid-motif {
