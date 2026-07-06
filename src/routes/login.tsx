@@ -33,6 +33,7 @@ function LoginPage() {
           <div className="mb-8 md:hidden"><Logo /></div>
           <h2 className="text-2xl font-extrabold">Entrar</h2>
           <p className="mt-2 text-sm text-muted-foreground">Use seu usuário corporativo para acessar o portal.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Acesso exclusivo para equipe autorizada.</p>
           <form onSubmit={submit} className="mt-8 grid gap-4">
             <div className="grid gap-2"><label className="text-sm font-medium">Usuário ou e-mail</label><Input placeholder="seu.nome@grupogrd.com.br" required /></div>
             <div className="grid gap-2">
