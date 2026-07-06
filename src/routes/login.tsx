@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/brand/Logo";
 import { GridMotif } from "@/components/brand/GridMotif";
 import { useState } from "react";
+import { sessionActions } from "@/lib/current-user";
+import { usuarios as seedUsuarios } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
-const DEMO_USER = "demo@grupogrd.com.br";
 const DEMO_PASSWORD = "grd2026";
 
 function LoginPage() {
@@ -25,12 +26,15 @@ function LoginPage() {
       setError("Preencha usuário e senha.");
       return;
     }
-    if (u !== DEMO_USER || password !== DEMO_PASSWORD) {
+    // Aceita: demo@grupogrd.com.br OU qualquer e-mail cadastrado no mock de usuários.
+    const emailsValidos = ["demo@grupogrd.com.br", ...seedUsuarios.map(x => x.email.toLowerCase())];
+    if (!emailsValidos.includes(u) || password !== DEMO_PASSWORD) {
       setError("Usuário ou senha incorretos.");
       return;
     }
     setLoading(true);
-    setTimeout(() => navigate({ to: "/app" }), 400);
+    sessionActions.loginPorEmail(u);
+    setTimeout(() => navigate({ to: "/app" }), 300);
   };
 
   return (
