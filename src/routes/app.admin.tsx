@@ -49,17 +49,30 @@ function Admin() {
   const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+  const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPwd, setShowPwd] = useState(false);
+  const [createdInfo, setCreatedInfo] = useState<{ email: string; senha: string } | null>(null);
 
   const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
     setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
   };
 
   const openNew = () => {
-    setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+    setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
     setFormError(null);
+    setShowPwd(false);
     setOpen(true);
+  };
+
+  const gerarSenha = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let s = "";
+    const arr = new Uint32Array(12);
+    crypto.getRandomValues(arr);
+    for (const n of arr) s += chars[n % chars.length];
+    setForm(f => ({ ...f, senha: s, confirmar: s }));
+    setShowPwd(true);
   };
 
   const submitNew = (e: React.FormEvent) => {
@@ -69,12 +82,16 @@ function Admin() {
     if (!nome || !email) return setFormError("Preencha nome e e-mail.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setFormError("E-mail inválido.");
     if (users.some(u => u.email.toLowerCase() === email)) return setFormError("Já existe um usuário com esse e-mail.");
+    if (form.senha.length < 8) return setFormError("A senha deve ter ao menos 8 caracteres.");
+    if (form.senha !== form.confirmar) return setFormError("As senhas não coincidem.");
     const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
     const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
     setUsers(prev => [...prev, novo]);
     setMatrix(prev => ({ ...prev, [id]: permsForPerfil(form.perfil) }));
+    setCreatedInfo({ email, senha: form.senha });
     setOpen(false);
   };
+
 
   const confirmDelete = () => {
     if (!toDelete) return;
@@ -215,6 +232,38 @@ function Admin() {
                 </Select>
               </div>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="senha">Senha</Label>
+                  <button type="button" onClick={() => setShowPwd(v => !v)} className="text-xs font-medium text-[#213368] hover:text-[#F37032]">
+                    {showPwd ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
+                <Input
+                  id="senha"
+                  type={showPwd ? "text" : "password"}
+                  value={form.senha}
+                  onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
+                  placeholder="Mínimo 8 caracteres"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="confirmar">Confirmar senha</Label>
+                <Input
+                  id="confirmar"
+                  type={showPwd ? "text" : "password"}
+                  value={form.confirmar}
+                  onChange={e => setForm(f => ({ ...f, confirmar: e.target.value }))}
+                  placeholder="Repita a senha"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            <button type="button" onClick={gerarSenha} className="justify-self-start text-xs font-semibold text-[#213368] hover:text-[#F37032]">
+              Gerar senha automática
+            </button>
             {formError && (
               <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</p>
             )}
@@ -225,6 +274,33 @@ function Admin() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: credenciais criadas */}
+      <Dialog open={!!createdInfo} onOpenChange={o => !o && setCreatedInfo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Usuário criado</DialogTitle>
+            <DialogDescription>Anote e envie as credenciais ao funcionário — a senha não poderá ser recuperada depois.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 rounded-lg border border-dashed border-[#213368]/25 bg-[#213368]/5 p-4 font-mono text-sm text-[#213368]">
+            <div>Usuário: <code className="rounded bg-white px-1.5 py-0.5">{createdInfo?.email}</code></div>
+            <div>Senha: <code className="rounded bg-white px-1.5 py-0.5">{createdInfo?.senha}</code></div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigator.clipboard?.writeText(`Usuário: ${createdInfo?.email}\nSenha: ${createdInfo?.senha}`)}
+            >
+              Copiar
+            </Button>
+            <Button type="button" className="bg-[#F37032] text-white hover:bg-[#ff8850]" onClick={() => setCreatedInfo(null)}>
+              Concluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Alert: confirmação de exclusão */}
       <AlertDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}>
