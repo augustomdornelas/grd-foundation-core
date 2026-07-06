@@ -148,7 +148,7 @@ function Admin() {
           <Table>
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-16 text-right">Ações</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {users.map(u => (
@@ -158,15 +158,26 @@ function Admin() {
                   <TableCell>{u.perfil}</TableCell>
                   <TableCell><StatusBadge status={u.status} /></TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setToDelete(u)}
-                      aria-label={`Excluir ${u.nome}`}
-                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openEdit(u)}
+                        aria-label={`Editar ${u.nome}`}
+                        className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setToDelete(u)}
+                        aria-label={`Excluir ${u.nome}`}
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
