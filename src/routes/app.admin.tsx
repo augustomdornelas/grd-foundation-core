@@ -1,13 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus } from "lucide-react";
-import { usuarios } from "@/lib/mock-data";
-import { useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { usuarios as seedUsuarios } from "@/lib/mock-data";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
@@ -15,22 +26,68 @@ const modulos = ["Comercial", "Projetos", "Equipamentos", "Webmail"] as const;
 type Modulo = typeof modulos[number];
 type Perm = { ver: boolean; editar: boolean };
 type Matrix = Record<number, Record<Modulo, Perm>>;
+type Usuario = { id: number; nome: string; email: string; perfil: string; status: string };
 
-const seed: Matrix = usuarios.reduce((acc, u) => {
-  acc[u.id] = {
-    "Comercial": { ver: u.perfil !== "Almoxarifado", editar: u.perfil === "Comercial" || u.perfil === "Administrador" },
-    "Projetos": { ver: true, editar: u.perfil === "Projetos" || u.perfil === "Administrador" },
-    "Equipamentos": { ver: true, editar: u.perfil === "Almoxarifado" || u.perfil === "Administrador" },
+const perfis = ["Administrador", "Comercial", "Projetos", "Almoxarifado"] as const;
+
+function permsForPerfil(perfil: string): Record<Modulo, Perm> {
+  return {
+    "Comercial": { ver: perfil !== "Almoxarifado", editar: perfil === "Comercial" || perfil === "Administrador" },
+    "Projetos": { ver: true, editar: perfil === "Projetos" || perfil === "Administrador" },
+    "Equipamentos": { ver: true, editar: perfil === "Almoxarifado" || perfil === "Administrador" },
     "Webmail": { ver: true, editar: true },
   };
+}
+
+const initialMatrix: Matrix = seedUsuarios.reduce((acc, u) => {
+  acc[u.id] = permsForPerfil(u.perfil);
   return acc;
 }, {} as Matrix);
 
 function Admin() {
-  const [matrix, setMatrix] = useState<Matrix>(seed);
+  const [users, setUsers] = useState<Usuario[]>(seedUsuarios);
+  const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
+  const [open, setOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<Usuario | null>(null);
+  const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+  const [formError, setFormError] = useState<string | null>(null);
+
   const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
     setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
   };
+
+  const openNew = () => {
+    setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+    setFormError(null);
+    setOpen(true);
+  };
+
+  const submitNew = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nome = form.nome.trim();
+    const email = form.email.trim().toLowerCase();
+    if (!nome || !email) return setFormError("Preencha nome e e-mail.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setFormError("E-mail inválido.");
+    if (users.some(u => u.email.toLowerCase() === email)) return setFormError("Já existe um usuário com esse e-mail.");
+    const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
+    const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
+    setUsers(prev => [...prev, novo]);
+    setMatrix(prev => ({ ...prev, [id]: permsForPerfil(form.perfil) }));
+    setOpen(false);
+  };
+
+  const confirmDelete = () => {
+    if (!toDelete) return;
+    const id = toDelete.id;
+    setUsers(prev => prev.filter(u => u.id !== id));
+    setMatrix(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setToDelete(null);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -39,22 +96,43 @@ function Admin() {
             <h3 className="text-lg font-bold text-[#213368]">Usuários</h3>
             <p className="text-xs text-muted-foreground">Gerencie contas e perfis de acesso.</p>
           </div>
-          <Button className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Novo usuário</Button>
+          <Button onClick={openNew} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Plus className="mr-1 h-4 w-4" /> Novo usuário
+          </Button>
         </div>
         <div className="mt-5 overflow-x-auto">
           <Table>
             <TableHeader><TableRow>
-              <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead><TableHead>Status</TableHead>
+              <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-16 text-right">Ações</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {usuarios.map(u => (
+              {users.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-semibold">{u.nome}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.perfil}</TableCell>
                   <TableCell><StatusBadge status={u.status} /></TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setToDelete(u)}
+                      aria-label={`Excluir ${u.nome}`}
+                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
+              {users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                    Nenhum usuário cadastrado.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
@@ -80,16 +158,16 @@ function Admin() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {usuarios.map(u => (
+              {users.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-semibold">{u.nome}<div className="text-xs font-normal text-muted-foreground">{u.perfil}</div></TableCell>
                   {modulos.map(m => (
                     <Fragment key={m}>
                       <TableCell className="text-center">
-                        <Checkbox checked={matrix[u.id][m].ver} onCheckedChange={() => toggle(u.id, m, "ver")} />
+                        <Checkbox checked={matrix[u.id]?.[m].ver} onCheckedChange={() => toggle(u.id, m, "ver")} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <Checkbox checked={matrix[u.id][m].editar} onCheckedChange={() => toggle(u.id, m, "editar")} />
+                        <Checkbox checked={matrix[u.id]?.[m].editar} onCheckedChange={() => toggle(u.id, m, "editar")} />
                       </TableCell>
                     </Fragment>
                   ))}
@@ -99,6 +177,72 @@ function Admin() {
           </Table>
         </div>
       </Card>
+
+      {/* Dialog: novo usuário */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo usuário</DialogTitle>
+            <DialogDescription>Cadastre manualmente um funcionário no portal.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitNew} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="nome">Nome completo</Label>
+              <Input id="nome" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex.: Ana Ribeiro" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input id="email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="ana.ribeiro@grupogrd.com.br" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Perfil</Label>
+                <Select value={form.perfil} onValueChange={v => setForm(f => ({ ...f, perfil: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {perfis.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {formError && (
+              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Cadastrar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert: confirmação de exclusão */}
+      <AlertDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá <strong>{toDelete?.nome}</strong> ({toDelete?.email}) da lista e das permissões. Não é possível desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
