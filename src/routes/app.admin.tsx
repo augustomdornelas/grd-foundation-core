@@ -49,6 +49,9 @@ function Admin() {
   const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
+  const [editing, setEditing] = useState<Usuario | null>(null);
+  const [editForm, setEditForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+  const [editError, setEditError] = useState<string | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
   const [formError, setFormError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
