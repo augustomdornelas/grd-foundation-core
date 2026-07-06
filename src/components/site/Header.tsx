@@ -43,7 +43,7 @@ export function Header() {
               </a>
             ))}
             <Button asChild className="mt-2 bg-[#F37032] text-white hover:bg-[#ff8850]">
-              <Link to="/login">Área do Colaborador</Link>
+              <Link to="/login">Acesso Restrito</Link>
             </Button>
           </div>
         </div>
