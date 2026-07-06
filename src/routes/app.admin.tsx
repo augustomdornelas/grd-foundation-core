@@ -84,14 +84,14 @@ function Admin() {
                 <TableRow key={u.id}>
                   <TableCell className="font-semibold">{u.nome}<div className="text-xs font-normal text-muted-foreground">{u.perfil}</div></TableCell>
                   {modulos.map(m => (
-                    <>
-                      <TableCell key={`${u.id}-${m}-v`} className="text-center">
+                    <Fragment key={m}>
+                      <TableCell className="text-center">
                         <Checkbox checked={matrix[u.id][m].ver} onCheckedChange={() => toggle(u.id, m, "ver")} />
                       </TableCell>
-                      <TableCell key={`${u.id}-${m}-e`} className="text-center">
+                      <TableCell className="text-center">
                         <Checkbox checked={matrix[u.id][m].editar} onCheckedChange={() => toggle(u.id, m, "editar")} />
                       </TableCell>
-                    </>
+                    </Fragment>
                   ))}
                 </TableRow>
               ))}
