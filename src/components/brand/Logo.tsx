@@ -1,15 +1,19 @@
-type Props = { variant?: "light" | "dark"; className?: string; showText?: boolean; size?: number };
+import logo from "@/assets/logo_grd.png";
 
-export function Logo({ variant = "dark", className = "", showText = true, size = 40 }: Props) {
-  const textColor = variant === "light" ? "#ffffff" : "#213368";
+type Props = { variant?: "light" | "dark"; className?: string; size?: number };
+
+export function Logo({ variant = "dark", className = "", size = 44 }: Props) {
+  const isLight = variant === "light";
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <LogoMark size={size} />
-      {showText && (
-        <div className="leading-none" style={{ color: textColor }}>
-          <div className="text-lg font-extrabold tracking-tight">GRUPO GRD</div>
-        </div>
-      )}
+    <div
+      className={`inline-flex items-center ${isLight ? "rounded-lg bg-white px-2.5 py-1.5 shadow-sm" : ""} ${className}`}
+    >
+      <img
+        src={logo}
+        alt="Grupo GRD"
+        style={{ height: size, width: "auto" }}
+        className="block"
+      />
     </div>
   );
 }
@@ -30,4 +34,3 @@ export function LogoMark({ size = 40 }: { size?: number }) {
     </svg>
   );
 }
-
