@@ -6,15 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState, type ReactNode } from "react";
+import { useCurrentUser, sessionActions, iniciaisDe, type ModuloKey } from "@/lib/current-user";
 
-const items = [
+const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: boolean; perm?: ModuloKey }[] = [
   { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
-  { to: "/app/comercial", label: "Comercial", icon: BriefcaseBusiness, exact: false },
-  { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false },
-  { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false },
-  { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false },
-  { to: "/app/admin", label: "Admin", icon: Users2, exact: false },
-] as const;
+  { to: "/app/comercial", label: "Comercial", icon: BriefcaseBusiness, exact: false, perm: "comercial" },
+  { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
+  { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false, perm: "equipamentos" },
+  { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
+  { to: "/app/admin", label: "Admin", icon: Users2, exact: false, perm: "admin" },
+];
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: s => s.location.pathname });
