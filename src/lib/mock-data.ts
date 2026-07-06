@@ -1,11 +1,11 @@
 export const orcamentos = [
-  { id: "ORC-2041", cliente: "Vale Verde Logística", obra: "Galpão Industrial Fase 2", valor: 4_820_000, data: "2026-06-14", status: "Aprovado", responsavel: "Rafael Silva" },
-  { id: "ORC-2042", cliente: "Construtora Aurora", obra: "Edifício Corporativo", valor: 2_340_000, data: "2026-06-18", status: "Em análise", responsavel: "Camila Souza" },
-  { id: "ORC-2043", cliente: "Prefeitura de Ubatuba", obra: "Escola Municipal", valor: 1_180_000, data: "2026-06-22", status: "Enviado", responsavel: "Rafael Silva" },
-  { id: "ORC-2044", cliente: "AutoTech Indústria", obra: "Ampliação Fábrica", valor: 6_950_000, data: "2026-06-25", status: "Aprovado", responsavel: "Diego Martins" },
-  { id: "ORC-2045", cliente: "Hospital Norte", obra: "Reforma Ala B", valor: 890_000, data: "2026-06-28", status: "Recusado", responsavel: "Camila Souza" },
-  { id: "ORC-2046", cliente: "Grupo Águas Claras", obra: "Condomínio Residencial", valor: 3_420_000, data: "2026-07-01", status: "Em análise", responsavel: "Diego Martins" },
-  { id: "ORC-2047", cliente: "BR-Sul Concessão", obra: "Passarela Km 128", valor: 720_000, data: "2026-07-03", status: "Aprovado", responsavel: "Rafael Silva" },
+  { id: "ORC-2041", cliente: "Vale Verde Logística", obra: "Galpão Industrial Fase 2", valor: 4_820_000, data: "2026-06-14", status: "Aprovado", responsavel: "Usuário Demo 1" },
+  { id: "ORC-2042", cliente: "Construtora Aurora", obra: "Edifício Corporativo", valor: 2_340_000, data: "2026-06-18", status: "Em análise", responsavel: "Usuário Demo 2" },
+  { id: "ORC-2043", cliente: "Prefeitura de Ubatuba", obra: "Escola Municipal", valor: 1_180_000, data: "2026-06-22", status: "Enviado", responsavel: "Usuário Demo 1" },
+  { id: "ORC-2044", cliente: "AutoTech Indústria", obra: "Ampliação Fábrica", valor: 6_950_000, data: "2026-06-25", status: "Aprovado", responsavel: "Usuário Demo 3" },
+  { id: "ORC-2045", cliente: "Hospital Norte", obra: "Reforma Ala B", valor: 890_000, data: "2026-06-28", status: "Recusado", responsavel: "Usuário Demo 2" },
+  { id: "ORC-2046", cliente: "Grupo Águas Claras", obra: "Condomínio Residencial", valor: 3_420_000, data: "2026-07-01", status: "Em análise", responsavel: "Usuário Demo 3" },
+  { id: "ORC-2047", cliente: "BR-Sul Concessão", obra: "Passarela Km 128", valor: 720_000, data: "2026-07-03", status: "Aprovado", responsavel: "Usuário Demo 1" },
 ];
 
 export const comercialSerie = [
@@ -53,19 +53,19 @@ export const equipamentos = [
 ];
 
 export const usuarios = [
-  { id: 1, nome: "Rafael Silva", email: "rafael.silva@grupogrd.com.br", perfil: "Administrador", status: "Ativo" },
-  { id: 2, nome: "Camila Souza", email: "camila.souza@grupogrd.com.br", perfil: "Comercial", status: "Ativo" },
-  { id: 3, nome: "Diego Martins", email: "diego.martins@grupogrd.com.br", perfil: "Comercial", status: "Ativo" },
-  { id: 4, nome: "Ana Ribeiro", email: "ana.ribeiro@grupogrd.com.br", perfil: "Projetos", status: "Ativo" },
-  { id: 5, nome: "Bruno Alves", email: "bruno.alves@grupogrd.com.br", perfil: "Almoxarifado", status: "Inativo" },
+  { id: 1, nome: "Usuário Demo 1", email: "demo1@exemplo.com", perfil: "Administrador", status: "Ativo" },
+  { id: 2, nome: "Usuário Demo 2", email: "demo2@exemplo.com", perfil: "Comercial", status: "Ativo" },
+  { id: 3, nome: "Usuário Demo 3", email: "demo3@exemplo.com", perfil: "Comercial", status: "Ativo" },
+  { id: 4, nome: "Usuário Demo 4", email: "demo4@exemplo.com", perfil: "Projetos", status: "Ativo" },
+  { id: 5, nome: "Usuário Demo 5", email: "demo5@exemplo.com", perfil: "Almoxarifado", status: "Inativo" },
 ];
 
 export const emails = [
-  { id: 1, de: "financeiro@vale-verde.com.br", assunto: "Aprovação do orçamento ORC-2041", preview: "Boa tarde, Rafael. Segue em anexo a aprovação...", data: "10:24", nao_lido: true },
-  { id: 2, de: "obras@aurora.com.br", assunto: "Cronograma revisado — Edifício Aurora", preview: "Conforme conversamos, encaminho o cronograma revisto...", data: "09:12", nao_lido: true },
-  { id: 3, de: "compras@grupogrd.com.br", assunto: "Cotações fechadas — insumos julho", preview: "Todas as cotações foram concluídas dentro do prazo...", data: "Ontem", nao_lido: false },
-  { id: 4, de: "rh@grupogrd.com.br", assunto: "Treinamento NR-35", preview: "Lembramos que o treinamento será realizado na próxima...", data: "Ontem", nao_lido: false },
-  { id: 5, de: "diretoria@grupogrd.com.br", assunto: "Reunião mensal de resultados", preview: "Segue convocação para a reunião mensal de resultados...", data: "Seg", nao_lido: false },
+  { id: 1, de: "financeiro@cliente-exemplo.com", assunto: "Aprovação do orçamento ORC-2041", preview: "Boa tarde. Segue em anexo a aprovação...", data: "10:24", nao_lido: true },
+  { id: 2, de: "obras@cliente-exemplo.com", assunto: "Cronograma revisado — Edifício Aurora", preview: "Conforme conversamos, encaminho o cronograma revisto...", data: "09:12", nao_lido: true },
+  { id: 3, de: "compras@exemplo.com", assunto: "Cotações fechadas — insumos julho", preview: "Todas as cotações foram concluídas dentro do prazo...", data: "Ontem", nao_lido: false },
+  { id: 4, de: "rh@exemplo.com", assunto: "Treinamento NR-35", preview: "Lembramos que o treinamento será realizado na próxima...", data: "Ontem", nao_lido: false },
+  { id: 5, de: "diretoria@exemplo.com", assunto: "Reunião mensal de resultados", preview: "Segue convocação para a reunião mensal de resultados...", data: "Seg", nao_lido: false },
 ];
 
 export function brl(n: number) {
