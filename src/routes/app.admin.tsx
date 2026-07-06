@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { usuarios as seedUsuarios } from "@/lib/mock-data";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -49,6 +49,9 @@ function Admin() {
   const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
+  const [editing, setEditing] = useState<Usuario | null>(null);
+  const [editForm, setEditForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
+  const [editError, setEditError] = useState<string | null>(null);
   const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
   const [formError, setFormError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
@@ -105,6 +108,30 @@ function Admin() {
     setToDelete(null);
   };
 
+  const openEdit = (u: Usuario) => {
+    setEditForm({ nome: u.nome, email: u.email, perfil: u.perfil, status: u.status });
+    setEditError(null);
+    setEditing(u);
+  };
+
+  const submitEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    const nome = editForm.nome.trim();
+    const email = editForm.email.trim().toLowerCase();
+    if (!nome || !email) return setEditError("Preencha nome e e-mail.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setEditError("E-mail inválido.");
+    if (users.some(u => u.id !== editing.id && u.email.toLowerCase() === email)) {
+      return setEditError("Já existe outro usuário com esse e-mail.");
+    }
+    const perfilMudou = editing.perfil !== editForm.perfil;
+    setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, nome, email, perfil: editForm.perfil, status: editForm.status } : u));
+    if (perfilMudou) {
+      setMatrix(prev => ({ ...prev, [editing.id]: permsForPerfil(editForm.perfil) }));
+    }
+    setEditing(null);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -121,7 +148,7 @@ function Admin() {
           <Table>
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-16 text-right">Ações</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-24 text-right">Ações</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {users.map(u => (
@@ -131,15 +158,26 @@ function Admin() {
                   <TableCell>{u.perfil}</TableCell>
                   <TableCell><StatusBadge status={u.status} /></TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setToDelete(u)}
-                      aria-label={`Excluir ${u.nome}`}
-                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openEdit(u)}
+                        aria-label={`Editar ${u.nome}`}
+                        className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setToDelete(u)}
+                        aria-label={`Excluir ${u.nome}`}
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -194,6 +232,57 @@ function Admin() {
           </Table>
         </div>
       </Card>
+
+      {/* Dialog: editar usuário */}
+      <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar usuário</DialogTitle>
+            <DialogDescription>Altere os dados do funcionário. A senha não é modificada aqui.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitEdit} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-nome">Nome completo</Label>
+              <Input id="edit-nome" value={editForm.nome} onChange={e => setEditForm(f => ({ ...f, nome: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">E-mail</Label>
+              <Input id="edit-email" type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Perfil</Label>
+                <Select value={editForm.perfil} onValueChange={v => setEditForm(f => ({ ...f, perfil: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {perfis.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {editError && (
+              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{editError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Alterar o perfil redefine as permissões deste usuário para o padrão do novo perfil.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar alterações</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: novo usuário */}
       <Dialog open={open} onOpenChange={setOpen}>
