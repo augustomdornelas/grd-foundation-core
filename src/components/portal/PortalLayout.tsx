@@ -14,6 +14,7 @@ const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: b
   { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
   { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false, perm: "equipamentos" },
   { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
+  { to: "/app/ponto", label: "Ponto", icon: Clock, exact: false },
   { to: "/app/admin", label: "Admin", icon: Users2, exact: false, perm: "admin" },
 ];
 
