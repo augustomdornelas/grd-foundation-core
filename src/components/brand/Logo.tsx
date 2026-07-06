@@ -1,10 +1,10 @@
-type Props = { variant?: "light" | "dark"; className?: string; showText?: boolean };
+type Props = { variant?: "light" | "dark"; className?: string; showText?: boolean; size?: number };
 
-export function Logo({ variant = "dark", className = "", showText = true }: Props) {
+export function Logo({ variant = "dark", className = "", showText = false, size = 40 }: Props) {
   const textColor = variant === "light" ? "#ffffff" : "#213368";
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <LogoMark />
+      <LogoMark size={size} />
       {showText && (
         <div className="leading-none" style={{ color: textColor }}>
           <div className="text-lg font-extrabold tracking-tight">GRUPO GRD</div>
@@ -15,15 +15,14 @@ export function Logo({ variant = "dark", className = "", showText = true }: Prop
   );
 }
 
-export function LogoMark({ size = 36 }: { size?: number }) {
-  // 3x3 grid — orange dominant with navy accents, echoing the brand motif
+export function LogoMark({ size = 40 }: { size?: number }) {
   const cells = [
     "#F37032", "#213368", "#F37032",
     "#213368", "#F37032", "#213368",
     "#F37032", "#213368", "#F37032",
   ];
   return (
-    <svg width={size} height={size} viewBox="0 0 36 36" aria-label="Grupo GRD">
+    <svg width={size} height={size} viewBox="0 0 36 36" aria-label="Grupo GRD Brasil" role="img">
       {cells.map((c, i) => {
         const x = (i % 3) * 12;
         const y = Math.floor(i / 3) * 12;
