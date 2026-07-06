@@ -233,6 +233,57 @@ function Admin() {
         </div>
       </Card>
 
+      {/* Dialog: editar usuário */}
+      <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar usuário</DialogTitle>
+            <DialogDescription>Altere os dados do funcionário. A senha não é modificada aqui.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitEdit} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-nome">Nome completo</Label>
+              <Input id="edit-nome" value={editForm.nome} onChange={e => setEditForm(f => ({ ...f, nome: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">E-mail</Label>
+              <Input id="edit-email" type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Perfil</Label>
+                <Select value={editForm.perfil} onValueChange={v => setEditForm(f => ({ ...f, perfil: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {perfis.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {editError && (
+              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{editError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Alterar o perfil redefine as permissões deste usuário para o padrão do novo perfil.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
+              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar alterações</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: novo usuário */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
