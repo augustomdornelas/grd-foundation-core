@@ -19,9 +19,11 @@ const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: b
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: s => s.location.pathname });
+  const user = useCurrentUser();
+  const visiveis = items.filter(it => !it.perm || user.permissoes.includes(it.perm));
   return (
     <nav className="flex flex-col gap-1 p-3">
-      {items.map(it => {
+      {visiveis.map(it => {
         const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
         return (
           <Link
