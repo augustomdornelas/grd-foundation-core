@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, KeyRound } from "lucide-react";
 import { usuarios as seedUsuarios } from "@/lib/mock-data";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -56,6 +56,11 @@ function Admin() {
   const [formError, setFormError] = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
   const [createdInfo, setCreatedInfo] = useState<{ email: string; senha: string } | null>(null);
+  const [pwdUser, setPwdUser] = useState<Usuario | null>(null);
+  const [pwdForm, setPwdForm] = useState({ senha: "", confirmar: "" });
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [showPwdEdit, setShowPwdEdit] = useState(false);
+  const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
 
   const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
     setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
@@ -132,6 +137,35 @@ function Admin() {
     setEditing(null);
   };
 
+  const openPwd = (u: Usuario) => {
+    setPwdForm({ senha: "", confirmar: "" });
+    setPwdError(null);
+    setShowPwdEdit(false);
+    setPwdUser(u);
+  };
+
+  const gerarSenhaEdit = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let s = "";
+    const arr = new Uint32Array(12);
+    crypto.getRandomValues(arr);
+    for (const n of arr) s += chars[n % chars.length];
+    setPwdForm({ senha: s, confirmar: s });
+    setShowPwdEdit(true);
+  };
+
+  const submitPwd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pwdUser) return;
+    if (pwdForm.senha.length < 8) return setPwdError("A senha deve ter ao menos 8 caracteres.");
+    if (pwdForm.senha !== pwdForm.confirmar) return setPwdError("As senhas não coincidem.");
+    // NOTA: quando o Supabase for conectado, esta ação deve chamar a Auth Admin API
+    // (auth.admin.updateUserById) via edge function protegida por role de administrador.
+    // No modo local em memória, apenas exibimos a nova credencial para repasse manual.
+    setPwdResetInfo({ email: pwdUser.email, senha: pwdForm.senha });
+    setPwdUser(null);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -148,7 +182,7 @@ function Admin() {
           <Table>
             <TableHeader><TableRow>
               <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-24 text-right">Ações</TableHead>
+              <TableHead>Status</TableHead><TableHead className="w-36 text-right">Ações</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {users.map(u => (
@@ -167,6 +201,15 @@ function Admin() {
                         className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openPwd(u)}
+                        aria-label={`Trocar senha de ${u.nome}`}
+                        className="text-[#F37032] hover:bg-[#F37032]/10 hover:text-[#F37032]"
+                      >
+                        <KeyRound className="h-4 w-4" />
                       </Button>
                       <Button
                         size="icon"
@@ -390,6 +433,88 @@ function Admin() {
         </DialogContent>
       </Dialog>
 
+
+      {/* Dialog: trocar senha */}
+      <Dialog open={!!pwdUser} onOpenChange={o => !o && setPwdUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Trocar senha</DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha para <strong>{pwdUser?.nome}</strong> ({pwdUser?.email}).
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitPwd} className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="pwd-nova">Nova senha</Label>
+                  <button type="button" onClick={() => setShowPwdEdit(v => !v)} className="text-xs font-medium text-[#213368] hover:text-[#F37032]">
+                    {showPwdEdit ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
+                <Input
+                  id="pwd-nova"
+                  type={showPwdEdit ? "text" : "password"}
+                  value={pwdForm.senha}
+                  onChange={e => setPwdForm(f => ({ ...f, senha: e.target.value }))}
+                  placeholder="Mínimo 8 caracteres"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pwd-conf">Confirmar</Label>
+                <Input
+                  id="pwd-conf"
+                  type={showPwdEdit ? "text" : "password"}
+                  value={pwdForm.confirmar}
+                  onChange={e => setPwdForm(f => ({ ...f, confirmar: e.target.value }))}
+                  placeholder="Repita a nova senha"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            <button type="button" onClick={gerarSenhaEdit} className="justify-self-start text-xs font-semibold text-[#213368] hover:text-[#F37032]">
+              Gerar senha automática
+            </button>
+            {pwdError && (
+              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{pwdError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              A senha antiga deixa de funcionar imediatamente. Anote e envie a nova ao usuário.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPwdUser(null)}>Cancelar</Button>
+              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar nova senha</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: senha redefinida */}
+      <Dialog open={!!pwdResetInfo} onOpenChange={o => !o && setPwdResetInfo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Senha redefinida</DialogTitle>
+            <DialogDescription>Envie as novas credenciais ao funcionário — a senha não poderá ser recuperada depois.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 rounded-lg border border-dashed border-[#213368]/25 bg-[#213368]/5 p-4 font-mono text-sm text-[#213368]">
+            <div>Usuário: <code className="rounded bg-white px-1.5 py-0.5">{pwdResetInfo?.email}</code></div>
+            <div>Nova senha: <code className="rounded bg-white px-1.5 py-0.5">{pwdResetInfo?.senha}</code></div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigator.clipboard?.writeText(`Usuário: ${pwdResetInfo?.email}\nSenha: ${pwdResetInfo?.senha}`)}
+            >
+              Copiar
+            </Button>
+            <Button type="button" className="bg-[#F37032] text-white hover:bg-[#ff8850]" onClick={() => setPwdResetInfo(null)}>
+              Concluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Alert: confirmação de exclusão */}
       <AlertDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}>
