@@ -46,6 +46,12 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 export function PortalLayout({ title, children }: { title: string; children?: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
+  const user = useCurrentUser();
+  const iniciais = iniciaisDe(user.nome);
+  const handleLogout = () => {
+    sessionActions.logout();
+    navigate({ to: "/login" });
+  };
   return (
     <div className="flex min-h-screen w-full bg-[#F4F4F4]">
       {/* Desktop sidebar */}
