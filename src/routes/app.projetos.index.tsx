@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
 import { brl } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/app/projetos")({ component: ProjetosList });
+export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList });
 
 const STATUS_OPTIONS: ProjetoStatus[] = ["Planejamento", "Em andamento", "Paralisado", "Concluído"];
 

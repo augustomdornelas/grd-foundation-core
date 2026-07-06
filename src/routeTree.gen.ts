@@ -14,10 +14,10 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppWebmailRouteImport } from './routes/app.webmail'
-import { Route as AppProjetosRouteImport } from './routes/app.projetos'
 import { Route as AppEquipamentosRouteImport } from './routes/app.equipamentos'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
 import { Route as AppProjetosIdRouteImport } from './routes/app.projetos.$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -45,11 +45,6 @@ const AppWebmailRoute = AppWebmailRouteImport.update({
   path: '/webmail',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProjetosRoute = AppProjetosRouteImport.update({
-  id: '/projetos',
-  path: '/projetos',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppEquipamentosRoute = AppEquipamentosRouteImport.update({
   id: '/equipamentos',
   path: '/equipamentos',
@@ -65,10 +60,15 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProjetosIndexRoute = AppProjetosIndexRouteImport.update({
+  id: '/projetos/',
+  path: '/projetos/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProjetosIdRoute = AppProjetosIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AppProjetosRoute,
+  id: '/projetos/$id',
+  path: '/projetos/$id',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -78,10 +78,10 @@ export interface FileRoutesByFullPath {
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/equipamentos': typeof AppEquipamentosRoute
-  '/app/projetos': typeof AppProjetosRouteWithChildren
   '/app/webmail': typeof AppWebmailRoute
   '/app/': typeof AppIndexRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
+  '/app/projetos/': typeof AppProjetosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,10 +89,10 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/equipamentos': typeof AppEquipamentosRoute
-  '/app/projetos': typeof AppProjetosRouteWithChildren
   '/app/webmail': typeof AppWebmailRoute
   '/app': typeof AppIndexRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
+  '/app/projetos': typeof AppProjetosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,10 +102,10 @@ export interface FileRoutesById {
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/equipamentos': typeof AppEquipamentosRoute
-  '/app/projetos': typeof AppProjetosRouteWithChildren
   '/app/webmail': typeof AppWebmailRoute
   '/app/': typeof AppIndexRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
+  '/app/projetos/': typeof AppProjetosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -116,10 +116,10 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/comercial'
     | '/app/equipamentos'
-    | '/app/projetos'
     | '/app/webmail'
     | '/app/'
     | '/app/projetos/$id'
+    | '/app/projetos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -127,10 +127,10 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/comercial'
     | '/app/equipamentos'
-    | '/app/projetos'
     | '/app/webmail'
     | '/app'
     | '/app/projetos/$id'
+    | '/app/projetos'
   id:
     | '__root__'
     | '/'
@@ -139,10 +139,10 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/comercial'
     | '/app/equipamentos'
-    | '/app/projetos'
     | '/app/webmail'
     | '/app/'
     | '/app/projetos/$id'
+    | '/app/projetos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -188,13 +188,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWebmailRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/projetos': {
-      id: '/app/projetos'
-      path: '/projetos'
-      fullPath: '/app/projetos'
-      preLoaderRoute: typeof AppProjetosRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/equipamentos': {
       id: '/app/equipamentos'
       path: '/equipamentos'
@@ -216,44 +209,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/projetos/': {
+      id: '/app/projetos/'
+      path: '/projetos'
+      fullPath: '/app/projetos/'
+      preLoaderRoute: typeof AppProjetosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/projetos/$id': {
       id: '/app/projetos/$id'
-      path: '/$id'
+      path: '/projetos/$id'
       fullPath: '/app/projetos/$id'
       preLoaderRoute: typeof AppProjetosIdRouteImport
-      parentRoute: typeof AppProjetosRoute
+      parentRoute: typeof AppRoute
     }
   }
 }
-
-interface AppProjetosRouteChildren {
-  AppProjetosIdRoute: typeof AppProjetosIdRoute
-}
-
-const AppProjetosRouteChildren: AppProjetosRouteChildren = {
-  AppProjetosIdRoute: AppProjetosIdRoute,
-}
-
-const AppProjetosRouteWithChildren = AppProjetosRoute._addFileChildren(
-  AppProjetosRouteChildren,
-)
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppComercialRoute: typeof AppComercialRoute
   AppEquipamentosRoute: typeof AppEquipamentosRoute
-  AppProjetosRoute: typeof AppProjetosRouteWithChildren
   AppWebmailRoute: typeof AppWebmailRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppProjetosIdRoute: typeof AppProjetosIdRoute
+  AppProjetosIndexRoute: typeof AppProjetosIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppComercialRoute: AppComercialRoute,
   AppEquipamentosRoute: AppEquipamentosRoute,
-  AppProjetosRoute: AppProjetosRouteWithChildren,
   AppWebmailRoute: AppWebmailRoute,
   AppIndexRoute: AppIndexRoute,
+  AppProjetosIdRoute: AppProjetosIdRoute,
+  AppProjetosIndexRoute: AppProjetosIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
