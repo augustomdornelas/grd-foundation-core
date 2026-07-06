@@ -31,10 +31,10 @@ export function Reveal({
   children: React.ReactNode;
   delay?: number;
   className?: string;
-  as?: keyof JSX.IntrinsicElements;
+  as?: React.ElementType;
 }) {
   const { ref, visible } = useReveal<HTMLDivElement>();
-  const Comp = Tag as any;
+  const Comp: React.ElementType = Tag;
   return (
     <Comp
       ref={ref}
