@@ -15,7 +15,7 @@ function Webmail() {
       <Button
         size="lg"
         className="bg-[#F37032] text-white hover:bg-[#ff8850]"
-        onClick={() => window.open("https://grupogrdbrasil.com.br/webmail", "_blank", "noopener,noreferrer")}
+        onClick={() => window.open("https://grupogrdbrasil.com.br:2096/", "_blank", "noopener,noreferrer")}
       >
         <ExternalLink className="mr-2 h-5 w-5" />
         Abrir meu e-mail
