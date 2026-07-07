@@ -153,6 +153,7 @@ function Vazio({ msg }: { msg?: string }) {
 // COMERCIAL
 // ============================================================
 function SecaoComercial({ periodo }: { periodo: Periodo }) {
+  const orcamentos = useOrcamentos(s => s);
   const dados = useMemo(() => {
     const noPer = orcamentos.filter(o => noPeriodo(o.data, periodo));
     const total = noPer.reduce((a, o) => a + o.valor, 0);
