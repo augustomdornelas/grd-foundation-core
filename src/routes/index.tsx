@@ -34,14 +34,8 @@ const servicos = [
   { n: "05", icon: Cog, title: "Frezamento, Lavagem Química e Polimento", desc: "Revestimentos especiais uretano e epóxi para ambientes industriais de alta exigência." },
 ];
 
-const projetos = [
-  { titulo: "Engenharia e Construção", img: heroImg.url },
-  { titulo: "Obras Corporativas", img: portCorporativas.url },
-  { titulo: "Construções e Reformas Industriais", img: portReformas.url },
-  { titulo: "Câmara Frigorífica", img: portCamara.url },
-  { titulo: "Pisos Industriais", img: null, icon: Layers },
-  { titulo: "Estruturas Metálicas", img: portEngenharia.url },
-];
+
+
 
 const parceiros = ["Dexco", "Portinari", "Duratex", "Durafloor", "Frigol", "Bracell", "Madeiranit", "Mondelli", "Century", "Asmountec", "ITS Informov", "Portex"];
 
