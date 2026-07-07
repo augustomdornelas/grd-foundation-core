@@ -464,6 +464,8 @@ function Comercial() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PrevisaoEntrada />
     </div>
   );
 }
