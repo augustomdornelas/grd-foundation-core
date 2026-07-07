@@ -29,6 +29,7 @@ import { useProjetosStore } from "@/lib/projetos-store";
 import { useEquipStore, periodos } from "@/lib/equipamentos-store";
 import { brl } from "@/lib/mock-data";
 import { useOrcamentos, STATUS_COLORS } from "@/lib/orcamentos-store";
+import { useMedicoes, resumoDoOrcamento } from "@/lib/medicoes-comercial-store";
 
 export const Route = createFileRoute("/app/")({ component: PainelHome });
 
