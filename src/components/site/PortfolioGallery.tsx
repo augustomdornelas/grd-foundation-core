@@ -6,8 +6,13 @@ import img1 from "@/assets/portfolio_nova_1.jpeg.asset.json";
 import img2 from "@/assets/portfolio_nova_2.png.asset.json";
 import img3 from "@/assets/portfolio_nova_3.png.asset.json";
 import img4 from "@/assets/portfolio_nova_4.jpg.asset.json";
+import img5 from "@/assets/portfolio_nova_5.jpeg.asset.json";
+import img6 from "@/assets/portfolio_nova_6.jpeg.asset.json";
+import img7 from "@/assets/portfolio_nova_7.jpeg.asset.json";
+import img8 from "@/assets/portfolio_nova_8.jpeg.asset.json";
 
-const photos = [img1.url, img2.url, img3.url, img4.url];
+const photos = [img1.url, img2.url, img3.url, img4.url, img5.url, img6.url, img7.url, img8.url];
+const PAGE_SIZE = 6;
 
 export function PortfolioGallery() {
   const [open, setOpen] = useState<number | null>(null);
