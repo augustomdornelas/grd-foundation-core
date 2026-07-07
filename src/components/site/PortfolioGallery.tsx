@@ -16,6 +16,10 @@ const PAGE_SIZE = 6;
 
 export function PortfolioGallery() {
   const [open, setOpen] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(photos.length / PAGE_SIZE));
+  const pageStart = page * PAGE_SIZE;
+  const visible = photos.slice(pageStart, pageStart + PAGE_SIZE);
 
   const close = useCallback(() => setOpen(null), []);
   const prev = useCallback(
