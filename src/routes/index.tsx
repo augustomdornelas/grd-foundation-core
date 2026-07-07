@@ -180,39 +180,7 @@ function Home() {
       </section>
 
       {/* Projetos */}
-      <section id="projetos" className="py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <Reveal className="max-w-3xl">
-            <span className="text-sm font-semibold uppercase tracking-wider text-[#F37032]">Portfólio</span>
-            <h2 className="mt-3 text-3xl font-extrabold md:text-4xl">Portfólio de projetos</h2>
-            <p className="mt-4 text-muted-foreground">
-              Ao longo de nossa história, acumulamos projetos de alta complexidade e exigência técnica. Nossas obras falam por si.
-            </p>
-          </Reveal>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {projetos.map((p, i) => (
-              <Reveal key={p.titulo} delay={i * 90}>
-                <Card className="group h-full overflow-hidden border p-0 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-                  <div className="relative aspect-[4/3] overflow-hidden bg-[#213368]">
-                    {p.img ? (
-                      <img src={p.img} alt={p.titulo} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1a2a55] to-[#213368]">
-                        {p.icon && <p.icon className="h-16 w-16 text-white/25" />}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#213368]/80 via-transparent to-transparent" />
-                    <h3 className="absolute bottom-4 left-5 right-5 text-lg font-bold text-white">{p.titulo}</h3>
-                  </div>
-                  <div className="flex items-center justify-between px-5 py-4">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">Projeto GRD</span>
-                  </div>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PortfolioGallery />
 
 
       {/* Parceiros */}
