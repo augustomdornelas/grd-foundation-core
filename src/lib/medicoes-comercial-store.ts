@@ -141,5 +141,5 @@ export function resumoDoOrcamento(o: Orcamento, medicoes: Medicao[]): ResumoOrca
 export function useAprovadosResumo(): ResumoOrcamento[] {
   const orcamentos = useOrcamentos(s => s.filter(o => o.status === "Aprovado"));
   const medicoes = useMedicoes(s => s);
-  return orcamentos.map(o => resumoDoOrcamento(o, medicoes));
+  return useMemo(() => orcamentos.map(o => resumoDoOrcamento(o, medicoes)), [orcamentos, medicoes]);
 }
