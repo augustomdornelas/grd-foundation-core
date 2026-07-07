@@ -5,7 +5,7 @@
 // Compartilhada entre /app/comercial (seção Previsão de Entrada)
 // e o painel /app (bloco resumo).
 // ============================================================
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useOrcamentos, type Orcamento } from "@/lib/orcamentos-store";
 
 export type MedStatus = "Lançada" | "Em aprovação" | "Recebida" | "Prevista";
@@ -79,8 +79,13 @@ const listeners = new Set<() => void>();
 function emit() { save(); listeners.forEach(l => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 
+const SSR_EMPTY: Medicao[] = Object.freeze([]) as unknown as Medicao[];
+const getSnapshot = () => state;
+const getServerSnapshot = () => SSR_EMPTY;
+
 export function useMedicoes<T>(selector: (s: Medicao[]) => T): T {
-  return useSyncExternalStore(subscribe, () => selector(state), () => selector(state));
+  const snap = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMemo(() => selector(snap), [snap, selector]);
 }
 
 function uid() { return `M-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`; }
@@ -136,5 +141,5 @@ export function resumoDoOrcamento(o: Orcamento, medicoes: Medicao[]): ResumoOrca
 export function useAprovadosResumo(): ResumoOrcamento[] {
   const orcamentos = useOrcamentos(s => s.filter(o => o.status === "Aprovado"));
   const medicoes = useMedicoes(s => s);
-  return orcamentos.map(o => resumoDoOrcamento(o, medicoes));
+  return useMemo(() => orcamentos.map(o => resumoDoOrcamento(o, medicoes)), [orcamentos, medicoes]);
 }

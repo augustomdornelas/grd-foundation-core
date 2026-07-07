@@ -8,7 +8,7 @@
 // actions por chamadas ao banco — os componentes que consomem
 // via useOrcamentosStore não precisam mudar.
 // ============================================================
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 export type OrcStatus =
   | "Aprovado"
@@ -177,8 +177,13 @@ const listeners = new Set<() => void>();
 function emit() { save(); listeners.forEach(l => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 
+const SSR_EMPTY: Orcamento[] = Object.freeze([]) as unknown as Orcamento[];
+const getSnapshot = () => state;
+const getServerSnapshot = () => SSR_EMPTY;
+
 export function useOrcamentos<T>(selector: (s: Orcamento[]) => T): T {
-  return useSyncExternalStore(subscribe, () => selector(state), () => selector(state));
+  const snap = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMemo(() => selector(snap), [snap, selector]);
 }
 
 function uid() { return `O-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`; }
