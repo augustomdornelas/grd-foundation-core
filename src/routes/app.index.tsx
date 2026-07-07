@@ -171,7 +171,7 @@ function Vazio({ msg }: { msg?: string }) {
 // ============================================================
 // COMERCIAL
 // ============================================================
-function SecaoComercial({ periodo }: { periodo: Periodo }) {
+function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevisao: boolean }) {
   const orcamentos = useOrcamentos(s => s);
   const dados = useMemo(() => {
     const noPer = orcamentos.filter(o => noPeriodo(o.data, periodo));
@@ -303,7 +303,7 @@ function SecaoComercial({ periodo }: { periodo: Periodo }) {
         </Card>
       </div>
 
-      <PrevisaoEntradaResumo />
+      {showPrevisao && <PrevisaoEntradaResumo />}
     </Secao>
   );
 }
