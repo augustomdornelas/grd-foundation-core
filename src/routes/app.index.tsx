@@ -24,7 +24,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { useCurrentUser, useHasPermission, type ModuloKey } from "@/lib/current-user";
+import { useCurrentUser, useHasPermission, useCanShowPainel, type ModuloKey } from "@/lib/current-user";
 import { useProjetosStore } from "@/lib/projetos-store";
 import { useEquipStore, periodos } from "@/lib/equipamentos-store";
 import { brl } from "@/lib/mock-data";
@@ -63,6 +63,14 @@ function PainelHome() {
   const podeEquip = useHasPermission("equipamentos");
   const podeFinanceiro = useHasPermission("financeiro");
 
+  const showComercial = useCanShowPainel("comercial");
+  const showPrevisao = useCanShowPainel("previsao");
+  const showProjetos = useCanShowPainel("projetos");
+  const showEquip = useCanShowPainel("equipamentos");
+  const showFinanceiro = useCanShowPainel("financeiro");
+
+  const nada = !showComercial && !showPrevisao && !showProjetos && !showEquip && !showFinanceiro;
+
   return (
     <div className="space-y-8">
       {/* Cabeçalho + filtro global */}
@@ -90,19 +98,29 @@ function PainelHome() {
         </div>
       </div>
 
-      {podeComercial && <SecaoComercial periodo={periodo} />}
-      {podeProjetos && <SecaoProjetos periodo={periodo} />}
-      {podeEquip && <SecaoEquipamentos periodo={periodo} />}
-      {podeFinanceiro && <SecaoFinanceiro periodo={periodo} />}
+      {podeComercial && showComercial && <SecaoComercial periodo={periodo} showPrevisao={showPrevisao} />}
+      {podeComercial && !showComercial && showPrevisao && <SecaoPrevisaoAvulsa />}
+      {podeProjetos && showProjetos && <SecaoProjetos periodo={periodo} />}
+      {podeEquip && showEquip && <SecaoEquipamentos periodo={periodo} />}
+      {podeFinanceiro && showFinanceiro && <SecaoFinanceiro periodo={periodo} />}
 
-      {!podeComercial && !podeProjetos && !podeEquip && !podeFinanceiro && (
+      {nada && (
         <Card className="p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            Você não tem permissão para visualizar relatórios. Fale com o administrador.
+            Nenhum bloco do painel está liberado para você. Fale com o administrador.
           </p>
         </Card>
       )}
     </div>
+  );
+}
+
+// Seção com apenas o resumo de Previsão de Entrada, quando o usuário só habilitou esse bloco.
+function SecaoPrevisaoAvulsa() {
+  return (
+    <Secao titulo="Previsão de Entrada" subtitulo="Receita por orçamento aprovado" icon={TrendingUp} modulo="comercial">
+      <PrevisaoEntradaResumo />
+    </Secao>
   );
 }
 
