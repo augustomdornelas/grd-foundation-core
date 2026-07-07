@@ -3,7 +3,7 @@ import logoDarkBg from "@/assets/logo_grd_dark.png.asset.json";
 
 type Props = { variant?: "light" | "dark"; className?: string; size?: number };
 
-export function Logo({ variant = "dark", className = "", size = 44 }: Props) {
+export function Logo({ variant = "dark", className = "", size = 64 }: Props) {
   const isOnDarkBg = variant === "light";
   const src = isOnDarkBg ? logoDarkBg.url : logoLight;
   return (
