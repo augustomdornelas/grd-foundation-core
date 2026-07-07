@@ -8,7 +8,7 @@ export const Route = createFileRoute("/app/ponto")({ component: Ponto });
 function Ponto() {
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-20 text-center">
-      <Logo size={80} />
+      <Logo size={112} />
       <p className="max-w-md text-lg text-muted-foreground">
         Acesse o controle de ponto do Grupo GRD
       </p>
