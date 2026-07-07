@@ -87,8 +87,20 @@ export function useCurrentUser(): CurrentUser {
 
 export function useHasPermission(mod: ModuloKey): boolean {
   const u = useCurrentUser();
-  return u.permissoes.includes(mod);
+  // Delega para a store de acesso (que respeita overrides do Admin).
+  // Import dinâmico via require-like para evitar ciclo de módulos.
+  const { useCanSeeModule } = accessHooks;
+  return useCanSeeModule(u.id, u.perfil, mod);
 }
+
+export function useCanShowPainel(painel: import("@/lib/access-store").PainelKey): boolean {
+  const u = useCurrentUser();
+  const { useCanShowPainel: hook } = accessHooks;
+  return hook(u.id, u.perfil, painel);
+}
+
+// Late-bound para evitar ciclo estático com access-store.
+import * as accessHooks from "@/lib/access-store";
 
 export const sessionActions = {
   loginPorEmail(email: string): CurrentUser {
