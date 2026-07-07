@@ -1,46 +1,56 @@
-## Diagnóstico
+## Objetivo
 
-Depois que a Previsão de Entrada foi conectada aos stores (`orcamentos-store`, `medicoes-comercial-store`), dois bugs derrubaram a aplicação inteira:
+Permitir que o Administrador defina, por usuário:
+1. Quais **abas** do sistema ele pode ver/editar (Comercial, Previsão, Projetos, Equipamentos, Webmail, Admin).
+2. Quais **gráficos/seções** aparecem no Painel inicial (`/app`).
 
-### 1. Loop infinito → "Maximum update depth exceeded" (bloco `PrevisaoEntradaResumo` no `/app`)
-Os hooks `useOrcamentos(s => s.filter(...))` e `useAprovadosResumo()` passam um selector que retorna **um array novo a cada chamada** (`.filter(...)` / `.map(...)`). Como o `useSyncExternalStore` usa `() => selector(state)` como `getSnapshot`, cada leitura devolve uma referência diferente → React acredita que a store mudou → re-renderiza → novo array → loop.
+Tudo persistido em `localStorage` (mesma camada mock atual — pronto para migrar ao Supabase depois).
 
-### 2. Hydration mismatch (`10d` vs `9d` no bloco Equipamentos, seeds de datas)
-O `seed()` de orçamentos/medições usa `new Date()` **no momento em que o módulo é importado**. Isso acontece tanto no SSR quanto no cliente, em instantes diferentes, produzindo datas divergentes. Como o `/app` consome esses stores diretamente (sem o gate `mounted` que o `/previsao` já tem), o HTML do servidor e o do cliente ficam diferentes.
+## O que muda
 
-## Correções
+### 1. Nova store `src/lib/access-store.ts`
+- Guarda `Record<userId, { modulos: Record<ModuloKey, {ver:boolean; editar:boolean}>; paineis: Record<PainelKey, boolean> }>`.
+- `PainelKey`: `"comercial" | "previsao" | "projetos" | "equipamentos" | "financeiro"` (cada bloco/seção do painel).
+- Se um usuário ainda não tem entrada, usa o default do perfil (mesma matriz atual `permsForPerfil` + todos os painéis dos módulos que ele pode ver).
+- API: `useAccess(userId)`, `useCanSeeModule(userId, mod)`, `useCanShowPainel(userId, painel)`, `accessActions.setModulo(...)`, `accessActions.setPainel(...)`, `accessActions.resetToPerfil(userId, perfil)`.
+- Segue o mesmo padrão dos stores existentes (`useSyncExternalStore` + `SSR_EMPTY` + `useMemo`) para não regressar o bug de loop/hydration.
 
-### A. Tornar os stores estáveis para `useSyncExternalStore`
-Em `src/lib/orcamentos-store.ts` e `src/lib/medicoes-comercial-store.ts`:
+### 2. `src/lib/current-user.ts`
+- `useHasPermission(mod)` passa a ler da `access-store` (efetivo) em vez do array estático `permissoes` do perfil, com fallback para o default do perfil quando não houver override.
+- Adiciona `useCanShowPainel(painel)` que lê da mesma store.
+- Sidebar (`PortalLayout`) e painel (`app.index.tsx`) continuam usando os hooks — nenhum call site muda.
 
-- Trocar a implementação dos hooks para **sempre inscrever no state raiz** (referência estável, só muda quando `emit()` roda) e aplicar o selector fora, no componente, via `useMemo`:
-  ```ts
-  export function useOrcamentos<T>(selector: (s: Orcamento[]) => T): T {
-    const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-    return useMemo(() => selector(state), [state, selector]);
-  }
-  ```
-  onde `getSnapshot = () => state` e `getServerSnapshot = () => SSR_EMPTY` (array vazio congelado).
-- Mesma mudança em `useMedicoes`.
-- `useAprovadosResumo` passa a computar via `useMemo` sobre as duas fontes.
+### 3. `src/routes/app.admin.tsx`
+Substitui a "Matriz de permissões" local por duas seções conectadas à `access-store`:
 
-Isso elimina o loop sem exigir mudanças nos componentes que já chamam `useOrcamentos(s => s.filter(...))`.
+**a) Matriz de acesso às abas** (por usuário × módulo, Ver/Editar):
+- Módulos passam a incluir também: Comercial, Previsão de Entrada, Projetos, Equipamentos, Webmail. Administrador (Admin) fica travado só para perfil Administrador.
+- Checkbox altera direto na store → todas as sessões do usuário no navegador refletem na hora.
+- Botão "Restaurar padrão do perfil" por linha.
 
-### B. Evitar hydration mismatch das datas dos seeds
-Retornar `[]` no `getServerSnapshot` faz o SSR renderizar com estado vazio e o cliente hidratar com o mesmo vazio, depois `useSyncExternalStore` re-renderiza com o state real do cliente. É o padrão oficial para stores que dependem de `localStorage`/hora atual e resolve o mismatch de `10d/9d` no `/app` sem precisar espalhar flags `mounted` pelos blocos.
+**b) Painel inicial — gráficos visíveis** (por usuário × painel):
+- Grid com colunas: Comercial · Previsão de Entrada · Projetos · Equipamentos · Financeiro.
+- Um checkbox por célula. Se o usuário não tem permissão para o módulo, a célula fica desabilitada.
 
-Como consequência positiva: o gate `mounted` do `/app/previsao` pode continuar como está (não vou mexer), e o `/app` deixa de crashar.
+### 4. `src/routes/app.index.tsx`
+- Cada seção (`SecaoComercial`, `SecaoProjetos`, `SecaoEquipamentos`, `SecaoFinanceiro`, `PrevisaoEntradaResumo`) passa a ser renderizada apenas se `podeVerModulo && podeMostrarPainel(painelKey)`.
+- Mensagem vazia quando o usuário não tem nenhum painel liberado permanece.
 
-### C. Nada mais muda
-- Não mexo em `PrevisaoEntrada.tsx`, `app.comercial.tsx`, sidebar, rotas, seeds ou visual.
-- Não mexo em Supabase/auth.
+## Detalhes técnicos
+
+- Persistência: `localStorage` key `grd_access_matrix_v1`.
+- Nada muda no Supabase/RLS (a nota de segurança do topo de `app.index.tsx` continua válida — front só controla exibição).
+- Sem novos pacotes.
+- Sem alterações de rotas ou sidebar (a sidebar já filtra por `useHasPermission`, então passa a respeitar a nova store automaticamente).
 
 ## Arquivos afetados
-- `src/lib/orcamentos-store.ts` — reescrever apenas o hook `useOrcamentos` + adicionar `getServerSnapshot`.
-- `src/lib/medicoes-comercial-store.ts` — mesma mudança em `useMedicoes` e ajuste do `useAprovadosResumo` para usar `useMemo`.
+- **novo:** `src/lib/access-store.ts`
+- **editado:** `src/lib/current-user.ts` (hooks passam a consultar a store)
+- **editado:** `src/routes/app.admin.tsx` (matriz + painel de gráficos conectados à store)
+- **editado:** `src/routes/app.index.tsx` (cada seção respeita `useCanShowPainel`)
 
 ## Validação
-- Abrir `/app` → sem "Maximum update depth" no console, sem tela de erro.
-- Abrir `/app/previsao` → continua funcionando.
-- Abrir `/app/comercial` → continua funcionando.
-- Sem warning de hydration mismatch nos blocos que usam datas relativas.
+- Como admin, desmarcar "Projetos → Ver" para um usuário → esse usuário perde o item na sidebar e a seção Projetos some do painel.
+- Desmarcar "Painel · Comercial" mantendo "Aba · Comercial" ligada → o usuário continua acessando `/app/comercial`, mas o bloco Comercial some do `/app`.
+- Recarregar a página mantém as escolhas (localStorage).
+- Sem regressão de loop infinito (usa mesmo padrão `useSyncExternalStore + useMemo`).

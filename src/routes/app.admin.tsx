@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2, Pencil, KeyRound } from "lucide-react";
+import { Plus, Trash2, Pencil, KeyRound, RotateCcw } from "lucide-react";
 import { usuarios as seedUsuarios } from "@/lib/mock-data";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -19,34 +19,21 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  accessActions, useUserAccess, MODULO_KEYS, MODULO_LABEL,
+  PAINEL_KEYS, PAINEL_LABEL, PAINEL_MODULO,
+} from "@/lib/access-store";
+import type { ModuloKey } from "@/lib/current-user";
+import type { PainelKey } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-const modulos = ["Comercial", "Projetos", "Equipamentos", "Webmail"] as const;
-type Modulo = typeof modulos[number];
-type Perm = { ver: boolean; editar: boolean };
-type Matrix = Record<number, Record<Modulo, Perm>>;
 type Usuario = { id: number; nome: string; email: string; perfil: string; status: string };
 
 const perfis = ["Administrador", "Comercial", "Projetos", "Almoxarifado"] as const;
 
-function permsForPerfil(perfil: string): Record<Modulo, Perm> {
-  return {
-    "Comercial": { ver: perfil !== "Almoxarifado", editar: perfil === "Comercial" || perfil === "Administrador" },
-    "Projetos": { ver: true, editar: perfil === "Projetos" || perfil === "Administrador" },
-    "Equipamentos": { ver: true, editar: perfil === "Almoxarifado" || perfil === "Administrador" },
-    "Webmail": { ver: true, editar: true },
-  };
-}
-
-const initialMatrix: Matrix = seedUsuarios.reduce((acc, u) => {
-  acc[u.id] = permsForPerfil(u.perfil);
-  return acc;
-}, {} as Matrix);
-
 function Admin() {
   const [users, setUsers] = useState<Usuario[]>(seedUsuarios);
-  const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
   const [editing, setEditing] = useState<Usuario | null>(null);
@@ -61,10 +48,6 @@ function Admin() {
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [showPwdEdit, setShowPwdEdit] = useState(false);
   const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
-
-  const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
-    setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
-  };
 
   const openNew = () => {
     setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
@@ -95,7 +78,7 @@ function Admin() {
     const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
     const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
     setUsers(prev => [...prev, novo]);
-    setMatrix(prev => ({ ...prev, [id]: permsForPerfil(form.perfil) }));
+    accessActions.resetToPerfil(id);
     setCreatedInfo({ email, senha: form.senha });
     setOpen(false);
   };
@@ -105,11 +88,7 @@ function Admin() {
     if (!toDelete) return;
     const id = toDelete.id;
     setUsers(prev => prev.filter(u => u.id !== id));
-    setMatrix(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    accessActions.removeUser(id);
     setToDelete(null);
   };
 
@@ -132,7 +111,7 @@ function Admin() {
     const perfilMudou = editing.perfil !== editForm.perfil;
     setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, nome, email, perfil: editForm.perfil, status: editForm.status } : u));
     if (perfilMudou) {
-      setMatrix(prev => ({ ...prev, [editing.id]: permsForPerfil(editForm.perfil) }));
+      accessActions.resetToPerfil(editing.id);
     }
     setEditing(null);
   };
@@ -237,17 +216,20 @@ function Admin() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-bold text-[#213368]">Matriz de permissões</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Marque o nível de acesso de cada usuário por módulo.</p>
+        <h3 className="text-lg font-bold text-[#213368]">Acesso às abas do sistema</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Controle, por usuário, o que ele pode ver e editar em cada módulo. Alterações valem imediatamente.
+        </p>
         <div className="mt-5 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead rowSpan={2} className="align-bottom">Usuário</TableHead>
-                {modulos.map(m => <TableHead key={m} colSpan={2} className="text-center">{m}</TableHead>)}
+                {MODULO_KEYS.map(m => <TableHead key={m} colSpan={2} className="text-center">{MODULO_LABEL[m]}</TableHead>)}
+                <TableHead rowSpan={2} className="w-24 text-right align-bottom">Padrão</TableHead>
               </TableRow>
               <TableRow>
-                {modulos.map(m => (
+                {MODULO_KEYS.map(m => (
                   <Fragment key={m}>
                     <TableHead className="text-center text-xs">Ver</TableHead>
                     <TableHead className="text-center text-xs">Editar</TableHead>
@@ -257,19 +239,29 @@ function Admin() {
             </TableHeader>
             <TableBody>
               {users.map(u => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-semibold">{u.nome}<div className="text-xs font-normal text-muted-foreground">{u.perfil}</div></TableCell>
-                  {modulos.map(m => (
-                    <Fragment key={m}>
-                      <TableCell className="text-center">
-                        <Checkbox checked={matrix[u.id]?.[m].ver} onCheckedChange={() => toggle(u.id, m, "ver")} />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Checkbox checked={matrix[u.id]?.[m].editar} onCheckedChange={() => toggle(u.id, m, "editar")} />
-                      </TableCell>
-                    </Fragment>
-                  ))}
-                </TableRow>
+                <UserAccessRow key={u.id} user={u} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-bold text-[#213368]">Gráficos do painel inicial</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Escolha quais blocos aparecem em <code>/app</code> para cada usuário. Blocos ficam desabilitados quando o módulo correspondente está bloqueado acima.
+        </p>
+        <div className="mt-5 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Usuário</TableHead>
+                {PAINEL_KEYS.map(p => <TableHead key={p} className="text-center">{PAINEL_LABEL[p]}</TableHead>)}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map(u => (
+                <UserPainelRow key={u.id} user={u} />
               ))}
             </TableBody>
           </Table>
@@ -534,5 +526,78 @@ function Admin() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function UserAccessRow({ user }: { user: Usuario }) {
+  const acc = useUserAccess(user.id, user.perfil);
+  return (
+    <TableRow>
+      <TableCell className="font-semibold">
+        {user.nome}
+        <div className="text-xs font-normal text-muted-foreground">{user.perfil}</div>
+      </TableCell>
+      {MODULO_KEYS.map(m => {
+        const cell = acc.modulos[m];
+        const isAdminMod = m === "admin";
+        const disabled = isAdminMod && user.perfil !== "Administrador";
+        return (
+          <Fragment key={m}>
+            <TableCell className="text-center">
+              <Checkbox
+                checked={cell?.ver}
+                disabled={disabled}
+                onCheckedChange={v => accessActions.setModulo(user.id, user.perfil, m as ModuloKey, { ver: !!v })}
+              />
+            </TableCell>
+            <TableCell className="text-center">
+              <Checkbox
+                checked={cell?.editar}
+                disabled={disabled || !cell?.ver}
+                onCheckedChange={v => accessActions.setModulo(user.id, user.perfil, m as ModuloKey, { editar: !!v })}
+              />
+            </TableCell>
+          </Fragment>
+        );
+      })}
+      <TableCell className="text-right">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => accessActions.resetToPerfil(user.id)}
+          aria-label={`Restaurar padrão de ${user.nome}`}
+          className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
+          title="Restaurar padrão do perfil"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function UserPainelRow({ user }: { user: Usuario }) {
+  const acc = useUserAccess(user.id, user.perfil);
+  return (
+    <TableRow>
+      <TableCell className="font-semibold">
+        {user.nome}
+        <div className="text-xs font-normal text-muted-foreground">{user.perfil}</div>
+      </TableCell>
+      {PAINEL_KEYS.map(p => {
+        const modOk = acc.modulos[PAINEL_MODULO[p]]?.ver ?? false;
+        const val = acc.paineis[p] ?? false;
+        return (
+          <TableCell key={p} className="text-center">
+            <Checkbox
+              checked={modOk && val}
+              disabled={!modOk}
+              onCheckedChange={v => accessActions.setPainel(user.id, p as PainelKey, !!v)}
+            />
+            {!modOk && <div className="mt-1 text-[10px] text-muted-foreground">bloqueado</div>}
+          </TableCell>
+        );
+      })}
+    </TableRow>
   );
 }
