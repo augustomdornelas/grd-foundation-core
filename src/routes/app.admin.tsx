@@ -78,7 +78,7 @@ function Admin() {
     const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
     const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
     setUsers(prev => [...prev, novo]);
-    setMatrix(prev => ({ ...prev, [id]: permsForPerfil(form.perfil) }));
+    accessActions.resetToPerfil(id);
     setCreatedInfo({ email, senha: form.senha });
     setOpen(false);
   };
@@ -88,11 +88,7 @@ function Admin() {
     if (!toDelete) return;
     const id = toDelete.id;
     setUsers(prev => prev.filter(u => u.id !== id));
-    setMatrix(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    accessActions.removeUser(id);
     setToDelete(null);
   };
 
@@ -115,7 +111,7 @@ function Admin() {
     const perfilMudou = editing.perfil !== editForm.perfil;
     setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, nome, email, perfil: editForm.perfil, status: editForm.status } : u));
     if (perfilMudou) {
-      setMatrix(prev => ({ ...prev, [editing.id]: permsForPerfil(editForm.perfil) }));
+      accessActions.resetToPerfil(editing.id);
     }
     setEditing(null);
   };
@@ -220,17 +216,20 @@ function Admin() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-bold text-[#213368]">Matriz de permissões</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Marque o nível de acesso de cada usuário por módulo.</p>
+        <h3 className="text-lg font-bold text-[#213368]">Acesso às abas do sistema</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Controle, por usuário, o que ele pode ver e editar em cada módulo. Alterações valem imediatamente.
+        </p>
         <div className="mt-5 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead rowSpan={2} className="align-bottom">Usuário</TableHead>
-                {modulos.map(m => <TableHead key={m} colSpan={2} className="text-center">{m}</TableHead>)}
+                {MODULO_KEYS.map(m => <TableHead key={m} colSpan={2} className="text-center">{MODULO_LABEL[m]}</TableHead>)}
+                <TableHead rowSpan={2} className="w-24 text-right align-bottom">Padrão</TableHead>
               </TableRow>
               <TableRow>
-                {modulos.map(m => (
+                {MODULO_KEYS.map(m => (
                   <Fragment key={m}>
                     <TableHead className="text-center text-xs">Ver</TableHead>
                     <TableHead className="text-center text-xs">Editar</TableHead>
@@ -240,19 +239,29 @@ function Admin() {
             </TableHeader>
             <TableBody>
               {users.map(u => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-semibold">{u.nome}<div className="text-xs font-normal text-muted-foreground">{u.perfil}</div></TableCell>
-                  {modulos.map(m => (
-                    <Fragment key={m}>
-                      <TableCell className="text-center">
-                        <Checkbox checked={matrix[u.id]?.[m].ver} onCheckedChange={() => toggle(u.id, m, "ver")} />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Checkbox checked={matrix[u.id]?.[m].editar} onCheckedChange={() => toggle(u.id, m, "editar")} />
-                      </TableCell>
-                    </Fragment>
-                  ))}
-                </TableRow>
+                <UserAccessRow key={u.id} user={u} />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-bold text-[#213368]">Gráficos do painel inicial</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Escolha quais blocos aparecem em <code>/app</code> para cada usuário. Blocos ficam desabilitados quando o módulo correspondente está bloqueado acima.
+        </p>
+        <div className="mt-5 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Usuário</TableHead>
+                {PAINEL_KEYS.map(p => <TableHead key={p} className="text-center">{PAINEL_LABEL[p]}</TableHead>)}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map(u => (
+                <UserPainelRow key={u.id} user={u} />
               ))}
             </TableBody>
           </Table>
