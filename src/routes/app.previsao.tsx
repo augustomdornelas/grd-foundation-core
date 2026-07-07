@@ -1,26 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ClientOnly } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { PrevisaoEntrada } from "@/components/comercial/PrevisaoEntrada";
 
 export const Route = createFileRoute("/app/previsao")({ component: PrevisaoPage });
 
 function PrevisaoPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <div className="space-y-6">
-      <ClientOnly fallback={<PrevisaoFallback />}>
+      {mounted ? (
         <PrevisaoEntrada />
-      </ClientOnly>
+      ) : (
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-extrabold text-[#213368]">Previsão de Entrada</h2>
+            <p className="text-xs text-muted-foreground">Carregando...</p>
+          </div>
+        </section>
+      )}
     </div>
-  );
-}
-
-function PrevisaoFallback() {
-  return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-extrabold text-[#213368]">Previsão de Entrada</h2>
-        <p className="text-xs text-muted-foreground">Carregando...</p>
-      </div>
-    </section>
   );
 }
