@@ -58,7 +58,7 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
     <div className="flex min-h-screen w-full bg-[#F4F4F4]">
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col bg-[#213368] md:flex">
-        <div className="flex h-16 items-center border-b border-white/10 px-5">
+        <div className="flex h-20 items-center border-b border-white/10 px-5">
           <Logo variant="light" />
         </div>
         <div className="flex-1 overflow-y-auto"><SidebarNav /></div>
@@ -72,7 +72,7 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
           <aside className="relative flex h-full w-64 flex-col bg-[#213368]">
-            <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+            <div className="flex h-20 items-center justify-between border-b border-white/10 px-5">
               <Logo variant="light" />
               <button onClick={() => setMobileOpen(false)} className="text-white"><X /></button>
             </div>

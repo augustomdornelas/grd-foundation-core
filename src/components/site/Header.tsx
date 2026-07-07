@@ -26,7 +26,7 @@ export function Header() {
     <header
       className={`sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur transition-shadow ${scrolled ? "shadow-md" : "shadow-none"}`}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link to="/"><Logo /></Link>
         <nav className="hidden items-center gap-7 md:flex">
           {nav.map(n => (
