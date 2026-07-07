@@ -8,7 +8,7 @@
 // actions por chamadas ao banco — os componentes que consomem
 // via useOrcamentosStore não precisam mudar.
 // ============================================================
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 export type OrcStatus =
   | "Aprovado"
