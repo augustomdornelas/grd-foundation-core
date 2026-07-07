@@ -32,6 +32,7 @@ const servicos = [
   { n: "03", icon: Wrench, title: "Construções e Reformas Industriais", desc: "Ampliação, transformação ou construção do zero, com visão estratégica, agilidade e foco total em custo-benefício." },
   { n: "04", icon: Droplets, title: "Sistemas de Esgoto Sanitário Industrial", desc: "ETEs, canais e dutos industriais, drenagem técnica, controle de erosão e sistemas de contenção." },
   { n: "05", icon: Cog, title: "Frezamento, Lavagem Química e Polimento", desc: "Revestimentos especiais uretano e epóxi para ambientes industriais de alta exigência." },
+  { n: "06", icon: Layers, title: "Manutenção Industrial e Retrofit", desc: "Serviços de manutenção preventiva, corretiva e retrofit em plantas industriais, com foco em disponibilidade, segurança e vida útil dos ativos." },
 ];
 
 
