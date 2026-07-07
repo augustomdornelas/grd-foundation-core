@@ -32,6 +32,7 @@ import {
   STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico, type EstagioFunil,
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
+import { PrevisaoEntrada } from "@/components/comercial/PrevisaoEntrada";
 
 export const Route = createFileRoute("/app/comercial")({ component: Comercial });
 
@@ -464,6 +465,8 @@ function Comercial() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PrevisaoEntrada />
     </div>
   );
 }

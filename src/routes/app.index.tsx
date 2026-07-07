@@ -29,6 +29,7 @@ import { useProjetosStore } from "@/lib/projetos-store";
 import { useEquipStore, periodos } from "@/lib/equipamentos-store";
 import { brl } from "@/lib/mock-data";
 import { useOrcamentos, STATUS_COLORS } from "@/lib/orcamentos-store";
+import { useMedicoes, resumoDoOrcamento } from "@/lib/medicoes-comercial-store";
 
 export const Route = createFileRoute("/app/")({ component: PainelHome });
 
@@ -283,9 +284,90 @@ function SecaoComercial({ periodo }: { periodo: Periodo }) {
           </div>
         </Card>
       </div>
+
+      <PrevisaoEntradaResumo />
     </Secao>
   );
 }
+
+// ------------------------------------------------------------
+// Bloco resumo — Previsão de Entrada (painel /app)
+// ------------------------------------------------------------
+function PrevisaoEntradaResumo() {
+  const aprovados = useOrcamentos(s => s.filter(o => o.status === "Aprovado"));
+  const medicoes = useMedicoes(s => s);
+  const resumos = aprovados.map(o => resumoDoOrcamento(o, medicoes));
+  const prevista = resumos.reduce((a, r) => a + r.orcamento.valor, 0);
+  const faturado = resumos.reduce((a, r) => a + r.faturado, 0);
+  const saldo = Math.max(0, prevista - faturado);
+  const pct = prevista > 0 ? (faturado / prevista) * 100 : 0;
+  const top3 = [...resumos].sort((a, b) => b.saldo - a.saldo).slice(0, 3);
+
+  // Fluxo mensal compacto (últimos 4 + próximos 2)
+  const hoje = new Date();
+  const fluxo: { mes: string; previsto: number; realizado: number }[] = [];
+  for (let i = -3; i <= 2; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+    const dNext = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, 1);
+    const previsto = medicoes.filter(m => { const md = new Date(m.previsaoRecebimento); return md >= d && md < dNext; }).reduce((a, m) => a + m.valor, 0);
+    const realizado = medicoes.filter(m => { const md = new Date(m.data); return md >= d && md < dNext && m.status === "Recebida"; }).reduce((a, m) => a + m.valor, 0);
+    fluxo.push({ mes: NOMES_MES[d.getMonth()], previsto, realizado });
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-3">
+      <Card className="p-6">
+        <div className="text-sm font-semibold text-muted-foreground">Previsão de entrada</div>
+        <div className="mt-3 space-y-2 text-sm">
+          <div className="flex justify-between"><span className="text-muted-foreground">Prevista</span><span className="font-bold text-[#213368]">{brl(prevista)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Faturado</span><span className="font-bold text-[#F37032]">{brl(faturado)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Saldo</span><span className="font-bold text-[#213368]">{brl(saldo)}</span></div>
+        </div>
+        <div className="mt-3">
+          <div className="flex justify-between text-xs"><span className="text-muted-foreground">Executado</span><span className="font-semibold text-[#213368]">{pct.toFixed(0)}%</span></div>
+          <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#213368]/10">
+            <div className="h-full bg-green-600 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </Card>
+      <Card className="p-6">
+        <div className="text-sm font-semibold text-muted-foreground">Fluxo mensal</div>
+        <div className="mt-2 h-40">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={fluxo}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="mes" stroke="#6E7280" fontSize={11} />
+              <YAxis stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
+              <Tooltip formatter={(v: number) => brl(v)} />
+              <Bar dataKey="previsto" name="Previsto" fill="#213368" radius={[4,4,0,0]} />
+              <Bar dataKey="realizado" name="Realizado" fill="#F37032" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+      <Card className="p-6">
+        <div className="text-sm font-semibold text-muted-foreground">Maiores saldos a faturar</div>
+        <div className="mt-3 space-y-3">
+          {top3.length === 0 ? (
+            <div className="text-xs text-muted-foreground">Sem orçamentos aprovados.</div>
+          ) : top3.map(r => (
+            <div key={r.orcamento.id}>
+              <div className="flex justify-between text-xs">
+                <span className="font-semibold text-[#213368] truncate">{r.orcamento.cliente}</span>
+                <span className="text-muted-foreground">{brl(r.saldo)}</span>
+              </div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#213368]/10">
+                <div className="h-full bg-[#F37032]" style={{ width: `${r.pct}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
 
 // ============================================================
 // PROJETOS
