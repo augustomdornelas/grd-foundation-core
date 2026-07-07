@@ -2,10 +2,9 @@ import { useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 
 const setores = [
-  { nome: "Comercial", numero: "5511999990001" },
-  { nome: "Financeiro", numero: "5511999990002" },
-  { nome: "RH", numero: "5511999990003" },
-  { nome: "Suporte", numero: "5511999990004" },
+  { nome: "Comercial", numero: "5514997562761" },
+  { nome: "Financeiro", numero: "551432614194" },
+  { nome: "RH", numero: "5514996619004" },
 ];
 
 export function WhatsAppFab() {
@@ -13,8 +12,8 @@ export function WhatsAppFab() {
   return (
     <div className="fixed bottom-6 right-6 z-50">
       {open && (
-        <div className="mb-3 w-64 overflow-hidden rounded-xl border bg-white shadow-2xl">
-          <div className="bg-[#25D366] px-4 py-3 text-sm font-semibold text-white">Fale conosco</div>
+        <div className="mb-3 w-64 animate-fade-in overflow-hidden rounded-xl border bg-white shadow-2xl">
+          <div className="bg-[#25D366] px-4 py-3 text-sm font-semibold text-white">Fale com a GRD</div>
           <ul className="divide-y">
             {setores.map(s => (
               <li key={s.nome}>
@@ -24,7 +23,7 @@ export function WhatsAppFab() {
                   className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted"
                 >
                   <span className="font-medium">{s.nome}</span>
-                  <span className="text-xs text-muted-foreground">Chamar</span>
+                  <span className="text-xs text-[#25D366]">Chamar →</span>
                 </a>
               </li>
             ))}
