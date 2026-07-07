@@ -170,9 +170,7 @@ function Home() {
                   </div>
                   <h3 className="mt-5 text-lg font-bold text-[#213368]">{s.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
-                  <button onClick={() => scrollToId("contato")} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#F37032] hover:gap-2 transition-all">
-                    Saiba mais <ArrowRight className="h-4 w-4" />
-                  </button>
+
                 </Card>
               </Reveal>
             ))}
@@ -207,21 +205,14 @@ function Home() {
                   </div>
                   <div className="flex items-center justify-between px-5 py-4">
                     <span className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">Projeto GRD</span>
-                    <button onClick={() => scrollToId("contato")} className="inline-flex items-center gap-1 text-sm font-semibold text-[#213368] hover:gap-2 transition-all">
-                      Saiba mais <ArrowRight className="h-4 w-4" />
-                    </button>
                   </div>
                 </Card>
               </Reveal>
             ))}
           </div>
-          <div className="mt-10 text-center">
-            <Button variant="outline" className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white" onClick={() => scrollToId("contato")}>
-              Ver todos os projetos <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </section>
+
 
       {/* Parceiros */}
       <section id="parceiros" className="border-y bg-[#F4F4F4] py-16">
