@@ -1,15 +1,15 @@
-import logo from "@/assets/logo_grd.png";
+import logoLight from "@/assets/logo_grd.png";
+import logoDarkBg from "@/assets/logo_grd_dark.png.asset.json";
 
 type Props = { variant?: "light" | "dark"; className?: string; size?: number };
 
 export function Logo({ variant = "dark", className = "", size = 44 }: Props) {
-  const isLight = variant === "light";
+  const isOnDarkBg = variant === "light";
+  const src = isOnDarkBg ? logoDarkBg.url : logoLight;
   return (
-    <div
-      className={`inline-flex items-center ${isLight ? "rounded-lg bg-white px-2.5 py-1.5 shadow-sm" : ""} ${className}`}
-    >
+    <div className={`inline-flex items-center ${className}`}>
       <img
-        src={logo}
+        src={src}
         alt="Grupo GRD"
         style={{ height: size, width: "auto" }}
         className="block"
