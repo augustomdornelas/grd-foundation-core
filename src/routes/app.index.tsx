@@ -27,7 +27,8 @@ import {
 import { useCurrentUser, useHasPermission, type ModuloKey } from "@/lib/current-user";
 import { useProjetosStore } from "@/lib/projetos-store";
 import { useEquipStore, periodos } from "@/lib/equipamentos-store";
-import { orcamentos, brl } from "@/lib/mock-data";
+import { brl } from "@/lib/mock-data";
+import { useOrcamentos, STATUS_COLORS } from "@/lib/orcamentos-store";
 
 export const Route = createFileRoute("/app/")({ component: PainelHome });
 
