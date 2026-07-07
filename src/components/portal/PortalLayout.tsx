@@ -1,5 +1,5 @@
 import { Link, useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, BriefcaseBusiness, FolderKanban, Wrench, Mail, Clock, Users2, Search, LogOut, User as UserIcon, Menu, X } from "lucide-react";
+import { LayoutDashboard, BriefcaseBusiness, TrendingUp, FolderKanban, Wrench, Mail, Clock, Users2, Search, LogOut, User as UserIcon, Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useCurrentUser, sessionActions, iniciaisDe, type ModuloKey } from "@/li
 const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: boolean; perm?: ModuloKey }[] = [
   { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
   { to: "/app/comercial", label: "Comercial", icon: BriefcaseBusiness, exact: false, perm: "comercial" },
+  { to: "/app/previsao", label: "Previsão de Entrada", icon: TrendingUp, exact: false, perm: "comercial" },
   { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
   { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false, perm: "equipamentos" },
   { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
