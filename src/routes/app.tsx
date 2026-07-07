@@ -6,6 +6,7 @@ export const Route = createFileRoute("/app")({ component: AppLayout });
 const titles: Record<string, string> = {
   "/app": "Painel",
   "/app/comercial": "Dashboard Comercial",
+  "/app/previsao": "Previsão de Entrada",
   "/app/projetos": "Controle de Projetos",
   "/app/equipamentos": "Equipamentos",
   "/app/webmail": "Webmail",
