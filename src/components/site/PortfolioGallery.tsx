@@ -2,13 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 
-import img1 from "@/assets/port_corporativas.jpg.asset.json";
-import img2 from "@/assets/port_reformas.jpg.asset.json";
-import img3 from "@/assets/port_camara.jpg.asset.json";
-import img5 from "@/assets/gallery_501.jpg.asset.json";
-import img6 from "@/assets/empresa_grd.jpg.asset.json";
+import img1 from "@/assets/portfolio_nova_1.jpeg.asset.json";
+import img2 from "@/assets/portfolio_nova_2.png.asset.json";
+import img3 from "@/assets/portfolio_nova_3.png.asset.json";
+import img4 from "@/assets/portfolio_nova_4.jpg.asset.json";
 
-const photos = [img1.url, img2.url, img3.url, img5.url, img6.url];
+const photos = [img1.url, img2.url, img3.url, img4.url];
 
 export function PortfolioGallery() {
   const [open, setOpen] = useState<number | null>(null);
