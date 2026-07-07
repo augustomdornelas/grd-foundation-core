@@ -528,3 +528,76 @@ function Admin() {
     </div>
   );
 }
+
+function UserAccessRow({ user }: { user: Usuario }) {
+  const acc = useUserAccess(user.id, user.perfil);
+  return (
+    <TableRow>
+      <TableCell className="font-semibold">
+        {user.nome}
+        <div className="text-xs font-normal text-muted-foreground">{user.perfil}</div>
+      </TableCell>
+      {MODULO_KEYS.map(m => {
+        const cell = acc.modulos[m];
+        const isAdminMod = m === "admin";
+        const disabled = isAdminMod && user.perfil !== "Administrador";
+        return (
+          <Fragment key={m}>
+            <TableCell className="text-center">
+              <Checkbox
+                checked={cell?.ver}
+                disabled={disabled}
+                onCheckedChange={v => accessActions.setModulo(user.id, user.perfil, m as ModuloKey, { ver: !!v })}
+              />
+            </TableCell>
+            <TableCell className="text-center">
+              <Checkbox
+                checked={cell?.editar}
+                disabled={disabled || !cell?.ver}
+                onCheckedChange={v => accessActions.setModulo(user.id, user.perfil, m as ModuloKey, { editar: !!v })}
+              />
+            </TableCell>
+          </Fragment>
+        );
+      })}
+      <TableCell className="text-right">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => accessActions.resetToPerfil(user.id)}
+          aria-label={`Restaurar padrão de ${user.nome}`}
+          className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
+          title="Restaurar padrão do perfil"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function UserPainelRow({ user }: { user: Usuario }) {
+  const acc = useUserAccess(user.id, user.perfil);
+  return (
+    <TableRow>
+      <TableCell className="font-semibold">
+        {user.nome}
+        <div className="text-xs font-normal text-muted-foreground">{user.perfil}</div>
+      </TableCell>
+      {PAINEL_KEYS.map(p => {
+        const modOk = acc.modulos[PAINEL_MODULO[p]]?.ver ?? false;
+        const val = acc.paineis[p] ?? false;
+        return (
+          <TableCell key={p} className="text-center">
+            <Checkbox
+              checked={modOk && val}
+              disabled={!modOk}
+              onCheckedChange={v => accessActions.setPainel(user.id, p as PainelKey, !!v)}
+            />
+            {!modOk && <div className="mt-1 text-[10px] text-muted-foreground">bloqueado</div>}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  );
+}
