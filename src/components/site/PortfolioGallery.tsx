@@ -5,11 +5,10 @@ import { Reveal } from "@/components/site/Reveal";
 import img1 from "@/assets/port_corporativas.jpg.asset.json";
 import img2 from "@/assets/port_reformas.jpg.asset.json";
 import img3 from "@/assets/port_camara.jpg.asset.json";
-import img4 from "@/assets/gallery_facade.png.asset.json";
 import img5 from "@/assets/gallery_501.jpg.asset.json";
 import img6 from "@/assets/empresa_grd.jpg.asset.json";
 
-const photos = [img1.url, img2.url, img3.url, img4.url, img5.url, img6.url];
+const photos = [img1.url, img2.url, img3.url, img5.url, img6.url];
 
 export function PortfolioGallery() {
   const [open, setOpen] = useState<number | null>(null);
