@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { WhatsAppFab } from "@/components/site/WhatsAppFab";
+import { PortfolioGallery } from "@/components/site/PortfolioGallery";
 import { CookieBanner } from "@/components/site/CookieBanner";
 import { GridMotif } from "@/components/brand/GridMotif";
 import { Reveal, CountUp } from "@/components/site/Reveal";
