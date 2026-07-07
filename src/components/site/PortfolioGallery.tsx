@@ -6,11 +6,20 @@ import img1 from "@/assets/portfolio_nova_1.jpeg.asset.json";
 import img2 from "@/assets/portfolio_nova_2.png.asset.json";
 import img3 from "@/assets/portfolio_nova_3.png.asset.json";
 import img4 from "@/assets/portfolio_nova_4.jpg.asset.json";
+import img5 from "@/assets/portfolio_nova_5.jpeg.asset.json";
+import img6 from "@/assets/portfolio_nova_6.jpeg.asset.json";
+import img7 from "@/assets/portfolio_nova_7.jpeg.asset.json";
+import img8 from "@/assets/portfolio_nova_8.jpeg.asset.json";
 
-const photos = [img1.url, img2.url, img3.url, img4.url];
+const photos = [img1.url, img2.url, img3.url, img4.url, img5.url, img6.url, img7.url, img8.url];
+const PAGE_SIZE = 6;
 
 export function PortfolioGallery() {
   const [open, setOpen] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(photos.length / PAGE_SIZE));
+  const pageStart = page * PAGE_SIZE;
+  const visible = photos.slice(pageStart, pageStart + PAGE_SIZE);
 
   const close = useCallback(() => setOpen(null), []);
   const prev = useCallback(
@@ -50,28 +59,70 @@ export function PortfolioGallery() {
         </Reveal>
 
         <div className="mt-10 columns-1 gap-5 sm:columns-2 lg:columns-3 [column-fill:_balance]">
-          {photos.map((src, i) => (
-            <Reveal key={src} delay={i * 90} className="mb-5 block break-inside-avoid">
-              <button
-                type="button"
-                onClick={() => setOpen(i)}
-                className="group relative block w-full overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F37032]"
-              >
-                <img
-                  src={src}
-                  alt=""
-                  loading="lazy"
-                  className="w-full transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center bg-[#213368]/50 transition-transform duration-300 ease-out group-hover:translate-y-0">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-[#213368] shadow-lg">
-                    <Search className="h-6 w-6" />
+          {visible.map((src, idx) => {
+            const i = pageStart + idx;
+            return (
+              <Reveal key={src} delay={idx * 90} className="mb-5 block break-inside-avoid">
+                <button
+                  type="button"
+                  onClick={() => setOpen(i)}
+                  className="group relative block w-full overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F37032]"
+                >
+                  <img
+                    src={src}
+                    alt=""
+                    loading="lazy"
+                    className="w-full transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center bg-[#213368]/50 transition-transform duration-300 ease-out group-hover:translate-y-0">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-[#213368] shadow-lg">
+                      <Search className="h-6 w-6" />
+                    </div>
                   </div>
-                </div>
-              </button>
-            </Reveal>
-          ))}
+                </button>
+              </Reveal>
+            );
+          })}
         </div>
+
+        {totalPages > 1 && (
+          <div className="mt-10 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[#213368]/20 bg-white text-[#213368] transition hover:bg-[#213368] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#213368]"
+              aria-label="Página anterior"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            {Array.from({ length: totalPages }, (_, p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPage(p)}
+                className={`h-11 min-w-11 rounded-full px-4 text-sm font-semibold transition ${
+                  p === page
+                    ? "bg-[#F37032] text-white shadow-md"
+                    : "border border-[#213368]/20 bg-white text-[#213368] hover:bg-[#213368] hover:text-white"
+                }`}
+                aria-label={`Página ${p + 1}`}
+                aria-current={p === page ? "page" : undefined}
+              >
+                {p + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[#213368]/20 bg-white text-[#213368] transition hover:bg-[#213368] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#213368]"
+              aria-label="Próxima página"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {open !== null && (
