@@ -5,7 +5,7 @@
 // Compartilhada entre /app/comercial (seção Previsão de Entrada)
 // e o painel /app (bloco resumo).
 // ============================================================
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useOrcamentos, type Orcamento } from "@/lib/orcamentos-store";
 
 export type MedStatus = "Lançada" | "Em aprovação" | "Recebida" | "Prevista";
