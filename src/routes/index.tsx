@@ -21,6 +21,7 @@ import empresaImg from "@/assets/empresa_grd.jpg.asset.json";
 import portEngenharia from "@/assets/port_engenharia.jpg.asset.json";
 import portCorporativas from "@/assets/port_corporativas.jpg.asset.json";
 import portReformas from "@/assets/port_reformas.jpg.asset.json";
+import portCamara from "@/assets/port_camara.jpg.asset.json";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -36,7 +37,7 @@ const projetos = [
   { titulo: "Engenharia e Construção", img: heroImg.url },
   { titulo: "Obras Corporativas", img: portCorporativas.url },
   { titulo: "Construções e Reformas Industriais", img: portReformas.url },
-  { titulo: "Câmara Frigorífica", img: null, icon: Snowflake },
+  { titulo: "Câmara Frigorífica", img: portCamara.url },
   { titulo: "Pisos Industriais", img: null, icon: Layers },
   { titulo: "Estruturas Metálicas", img: portEngenharia.url },
 ];
