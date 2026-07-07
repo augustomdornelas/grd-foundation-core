@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2, Pencil, KeyRound } from "lucide-react";
+import { Plus, Trash2, Pencil, KeyRound, RotateCcw } from "lucide-react";
 import { usuarios as seedUsuarios } from "@/lib/mock-data";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -19,34 +19,21 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  accessActions, useUserAccess, MODULO_KEYS, MODULO_LABEL,
+  PAINEL_KEYS, PAINEL_LABEL, PAINEL_MODULO,
+} from "@/lib/access-store";
+import type { ModuloKey } from "@/lib/current-user";
+import type { PainelKey } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-const modulos = ["Comercial", "Projetos", "Equipamentos", "Webmail"] as const;
-type Modulo = typeof modulos[number];
-type Perm = { ver: boolean; editar: boolean };
-type Matrix = Record<number, Record<Modulo, Perm>>;
 type Usuario = { id: number; nome: string; email: string; perfil: string; status: string };
 
 const perfis = ["Administrador", "Comercial", "Projetos", "Almoxarifado"] as const;
 
-function permsForPerfil(perfil: string): Record<Modulo, Perm> {
-  return {
-    "Comercial": { ver: perfil !== "Almoxarifado", editar: perfil === "Comercial" || perfil === "Administrador" },
-    "Projetos": { ver: true, editar: perfil === "Projetos" || perfil === "Administrador" },
-    "Equipamentos": { ver: true, editar: perfil === "Almoxarifado" || perfil === "Administrador" },
-    "Webmail": { ver: true, editar: true },
-  };
-}
-
-const initialMatrix: Matrix = seedUsuarios.reduce((acc, u) => {
-  acc[u.id] = permsForPerfil(u.perfil);
-  return acc;
-}, {} as Matrix);
-
 function Admin() {
   const [users, setUsers] = useState<Usuario[]>(seedUsuarios);
-  const [matrix, setMatrix] = useState<Matrix>(initialMatrix);
   const [open, setOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
   const [editing, setEditing] = useState<Usuario | null>(null);
@@ -61,10 +48,6 @@ function Admin() {
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [showPwdEdit, setShowPwdEdit] = useState(false);
   const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
-
-  const toggle = (uid: number, mod: Modulo, key: keyof Perm) => {
-    setMatrix(m => ({ ...m, [uid]: { ...m[uid], [mod]: { ...m[uid][mod], [key]: !m[uid][mod][key] } } }));
-  };
 
   const openNew = () => {
     setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
