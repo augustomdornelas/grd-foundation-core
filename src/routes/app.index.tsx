@@ -283,6 +283,8 @@ function SecaoComercial({ periodo }: { periodo: Periodo }) {
           </div>
         </Card>
       </div>
+
+      <PrevisaoEntradaResumo />
     </Secao>
   );
 }
