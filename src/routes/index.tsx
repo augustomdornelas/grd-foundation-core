@@ -46,6 +46,7 @@ const diferenciais = [
   { icon: Clock, title: "Respeito ao prazo", desc: "Planejamento detalhado e execução disciplinada. Nosso histórico prova que somos uma empresa que faz acontecer." },
   { icon: Award, title: "Soluções personalizadas", desc: "Cada projeto tratado com visão estratégica, criatividade e foco total no cliente e no resultado." },
   { icon: MapPin, title: "Atendimento em todo o Brasil", desc: "Equipe capacitada para obras em qualquer região do país, com suporte do início ao fim." },
+  { icon: CheckCircle2, title: "Compromisso com a qualidade", desc: "Controle técnico rigoroso em cada etapa, entregas auditáveis e padrão de acabamento que atende às exigências dos maiores clientes industriais do país." },
 ];
 
 const contatoSchema = z.object({
