@@ -175,20 +175,17 @@ function SecaoComercial({ periodo }: { periodo: Periodo }) {
     }
 
     // Por status
-    const statusColors: Record<string, string> = {
-      "Aprovado": "#16A34A", "Em análise": "#F59E0B", "Enviado": "#213368", "Recusado": "#DC2626",
-    };
     const porStatus = Object.entries(
       noPer.reduce<Record<string, number>>((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {}),
-    ).map(([name, value]) => ({ name, value, color: statusColors[name] ?? "#94A3B8" }));
+    ).map(([name, value]) => ({ name, value, color: (STATUS_COLORS as Record<string, string>)[name] ?? "#94A3B8" }));
 
     const ultimos = [...noPer].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
-    const topClientes = Object.entries(
+    const topClientes = (Object.entries(
       noPer.reduce<Record<string, number>>((acc, o) => { acc[o.cliente] = (acc[o.cliente] || 0) + o.valor; return acc; }, {}),
-    ).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    ) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
     return { total, qtd, ticket, conv, meses, porStatus, ultimos, topClientes };
-  }, [periodo]);
+  }, [orcamentos, periodo]);
 
   return (
     <Secao titulo="Comercial" subtitulo={`Orçamentos e conversão · ${PERIODO_LABEL[periodo]}`} icon={BriefcaseBusiness} modulo="comercial">
