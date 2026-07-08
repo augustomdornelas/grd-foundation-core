@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState, type ReactNode } from "react";
 import { useCurrentUser, sessionActions, iniciaisDe, type ModuloKey } from "@/lib/current-user";
+import { supabase } from "@/integrations/supabase/client";
 
 const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: boolean; perm?: ModuloKey }[] = [
   { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
