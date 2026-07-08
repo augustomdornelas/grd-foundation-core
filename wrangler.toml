@@ -1,10 +1,6 @@
 name = "grd-foundation-core"
 compatibility_date = "2024-01-01"
-
-[vars]
-VITE_SUPABASE_URL = "https://fpuwyndpmcgwkuaqbcvm.supabase.co"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwdXd5bmRwbWNnd2t1YXFiY3ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1MjI1NzEsImV4cCI6MjA5OTA5ODU3MX0.3WXC6A7Xq54tigOMg25gcjoJNj_uzbQFahraeCUPFJE"name = "grd-foundation-core"
-compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 VITE_SUPABASE_URL = "https://fpuwyndpmcgwkuaqbcvm.supabase.co"
