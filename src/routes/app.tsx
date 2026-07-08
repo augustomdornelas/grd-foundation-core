@@ -1,7 +1,16 @@
-import { createFileRoute, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, useRouterState, redirect } from "@tanstack/react-router";
 import { PortalLayout } from "@/components/portal/PortalLayout";
+import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/app")({ component: AppLayout });
+export const Route = createFileRoute("/app")({
+  beforeLoad: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw redirect({ to: "/login" });
+    }
+  },
+  component: AppLayout
+});
 
 const titles: Record<string, string> = {
   "/app": "Painel",
