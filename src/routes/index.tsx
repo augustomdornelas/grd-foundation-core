@@ -17,8 +17,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-import heroImg from "@/assets/hero_grd.jpg.asset.json";
-import empresaImg from "@/assets/empresa_grd.jpg.asset.json";
+import heroImg from "@/assets/hero_grd.png";
+import empresaImg from "@/assets/empresa_grd.png";
 import portEngenharia from "@/assets/port_engenharia.jpg.asset.json";
 import portCorporativas from "@/assets/port_corporativas.jpg.asset.json";
 import portReformas from "@/assets/port_reformas.jpg.asset.json";
@@ -68,7 +68,7 @@ function Home() {
 
       {/* Hero */}
       <section id="inicio" className="relative overflow-hidden text-white">
-        <img src={heroImg.url} alt="Obra industrial da GRD" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={heroImg} alt="Obra industrial da GRD" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-[#213368]/60" />
         <GridMotif className="absolute -right-10 -top-10" opacity={0.15} />
         <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 md:py-36 lg:py-44">
@@ -138,7 +138,7 @@ function Home() {
             </Reveal>
             <Reveal>
               <div className="group relative aspect-[4/3] overflow-hidden rounded-2xl shadow-xl">
-                <img src={empresaImg.url} alt="Equipe do Grupo GRD em obra industrial" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                <img src={empresaImg} alt="Equipe do Grupo GRD em obra industrial" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-[#F37032]/0 transition duration-500 group-hover:bg-[#F37032]/20" />
               </div>
             </Reveal>
