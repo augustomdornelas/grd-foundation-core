@@ -51,7 +51,8 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
   const navigate = useNavigate();
   const user = useCurrentUser();
   const iniciais = iniciaisDe(user.nome);
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     sessionActions.logout();
     navigate({ to: "/login" });
   };
