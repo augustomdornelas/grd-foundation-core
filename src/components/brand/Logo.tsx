@@ -1,11 +1,11 @@
 import logoLight from "@/assets/logo_grd.png";
-import logoDarkBg from "@/assets/logo_grd_dark.png.asset.json";
+import logoDarkBg from "@/assets/logo_grd_dark.png";
 
 type Props = { variant?: "light" | "dark"; className?: string; size?: number };
 
 export function Logo({ variant = "dark", className = "", size = 64 }: Props) {
   const isOnDarkBg = variant === "light";
-  const src = isOnDarkBg ? logoDarkBg.url : logoLight;
+  const src = isOnDarkBg ? logoDarkBg : logoLight;
   return (
     <div className={`inline-flex items-center ${className}`}>
       <img
