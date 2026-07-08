@@ -4,12 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/brand/Logo";
 import { GridMotif } from "@/components/brand/GridMotif";
 import { useState } from "react";
-import { sessionActions } from "@/lib/current-user";
-import { usuarios as seedUsuarios } from "@/lib/mock-data";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
-
-const DEMO_PASSWORD = "grd2026";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -18,23 +15,20 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const u = user.trim().toLowerCase();
-    if (!u || !password) {
-      setError("Preencha usuário e senha.");
-      return;
-    }
-    // Aceita: demo@grupogrd.com.br OU qualquer e-mail cadastrado no mock de usuários.
-    const emailsValidos = ["demo@grupogrd.com.br", ...seedUsuarios.map(x => x.email.toLowerCase())];
-    if (!emailsValidos.includes(u) || password !== DEMO_PASSWORD) {
-      setError("Usuário ou senha incorretos.");
-      return;
-    }
     setLoading(true);
-    sessionActions.loginPorEmail(u);
-    setTimeout(() => navigate({ to: "/app" }), 300);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: user.trim(),
+      password: password,
+    });
+    if (error) {
+      setError("Usuário ou senha incorretos.");
+      setLoading(false);
+    } else {
+      navigate({ to: "/app" });
+    }
   };
 
   return (
@@ -91,10 +85,6 @@ function LoginPage() {
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
-
-
-
-
           <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link to="/" className="hover:text-primary">← Voltar ao site</Link>
           </p>
@@ -103,4 +93,3 @@ function LoginPage() {
     </div>
   );
 }
-
