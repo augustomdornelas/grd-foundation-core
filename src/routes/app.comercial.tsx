@@ -83,7 +83,6 @@ function Comercial() {
     const abertoValor = abertos.reduce((a, o) => a + o.valor, 0);
     const cresc = totalAnt > 0 ? ((total - totalAnt) / totalAnt) * 100 : total > 0 ? 100 : 0;
 
-    // Evolução mensal — últimos 12 meses (filtrada pelo range visível)
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
     for (let i = 11; i >= 0; i--) {
@@ -102,31 +101,26 @@ function Comercial() {
       });
     }
 
-    // Por status
     const porStatus = STATUS_LIST.map(st => ({
       name: st, value: noPer.filter(o => o.status === st).length, color: STATUS_COLORS[st],
     })).filter(x => x.value > 0);
 
-    // Por tipo de serviço
     const porTipo = TIPOS_SERVICO.map(t => {
       const lst = noPer.filter(o => o.tipo === t);
       return { tipo: t, valor: lst.reduce((a, o) => a + o.valor, 0), qtd: lst.length };
     }).sort((a, b) => b.valor - a.valor);
 
-    // Por responsável
     const porResp = RESPONSAVEIS.map(r => {
       const lst = noPer.filter(o => o.responsavel === r);
       return { responsavel: r.split(" ")[0], valor: lst.reduce((a, o) => a + o.valor, 0), qtd: lst.length };
     });
 
-    // Funil (usa todos os orçamentos do período, por estágio)
     const funil = ESTAGIO_LIST.map(e => ({
       estagio: e,
       qtd: noPer.filter(o => o.estagio === e).length,
       valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
     }));
 
-    // Projeção — realizado vs meta (últimos 6 meses)
     const projMeses: { mes: string; realizado: number; meta: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
@@ -180,9 +174,9 @@ function Comercial() {
   }
 
   function exportCSV() {
-    const header = ["Nº","Cliente","CNPJ","Tipo","Obra","Valor","Responsável","Data","Validade","Status","Estágio","Probabilidade"];
+    const header = ["Nº","Cliente","Técnico Responsável","Tipo","Obra","Valor","Responsável Comercial","Data","Status","Estágio","Probabilidade"];
     const linhas = filtered.map(o => [
-      o.numero, o.cliente, o.cnpj, o.tipo, o.obra, o.valor, o.responsavel, o.data, o.validade, o.status, o.estagio, `${o.probabilidade}%`,
+      o.numero, o.cliente, o.cnpj, o.tipo, o.obra, o.valor, o.responsavel, o.data, o.status, o.estagio, `${o.probabilidade}%`,
     ]);
     const csv = [header, ...linhas].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
@@ -466,7 +460,6 @@ function Comercial() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-
   );
 }
 
@@ -517,7 +510,6 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
   const [form, setForm] = useState(() => defaults(orcamento));
   const [erro, setErro] = useState("");
 
-  // Reset quando abre com outro orçamento
   useMemo(() => { if (open) { setForm(defaults(orcamento)); setErro(""); } }, [open, orcamento?.id]);
 
   function submit(e: React.FormEvent) {
@@ -534,14 +526,13 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       obra: form.obra.trim(),
       descricao: form.descricao.trim(),
       valor: Number(form.valor),
-      responsavel: form.responsavel,
+      responsavel: form.responsavel.trim(),
       data: form.data,
       validade: form.validade,
       status: form.status as OrcStatus,
       estagio: form.estagio as EstagioFunil,
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
-      anexo: form.anexo,
     };
     if (editing && orcamento) {
       orcamentosActions.atualizar(orcamento.id, payload);
@@ -561,23 +552,16 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
           <Campo label="Nº do orçamento"><Input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} /></Campo>
           <Campo label="Data de emissão"><Input type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })} /></Campo>
           <Campo label="Cliente *"><Input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} placeholder="Nome do cliente" /></Campo>
-          <Campo label="CNPJ"><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0000-00" /></Campo>
+          <Campo label="Técnico responsável"><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="Nome do técnico responsável" /></Campo>
           <Campo label="Tipo de serviço">
-            <Select value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{TIPOS_SERVICO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-            </Select>
+            <Input value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} placeholder="Tipo de serviço" />
           </Campo>
           <Campo label="Responsável comercial">
-            <Select value={form.responsavel} onValueChange={v => setForm({ ...form, responsavel: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{RESPONSAVEIS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-            </Select>
+            <Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} placeholder="Nome do responsável comercial" />
           </Campo>
           <Campo label="Obra *" className="md:col-span-2"><Input value={form.obra} onChange={e => setForm({ ...form, obra: e.target.value })} placeholder="Descrição da obra" /></Campo>
           <Campo label="Descrição" className="md:col-span-2"><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></Campo>
           <Campo label="Valor estimado (R$) *"><Input type="number" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></Campo>
-          <Campo label="Prazo de validade"><Input type="date" value={form.validade} onChange={e => setForm({ ...form, validade: e.target.value })} /></Campo>
           <Campo label="Status">
             <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -594,10 +578,6 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
             <Slider value={[form.probabilidade]} min={0} max={100} step={5} onValueChange={([v]) => setForm({ ...form, probabilidade: v })} />
           </Campo>
           <Campo label="Observações" className="md:col-span-2"><Textarea rows={3} value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} /></Campo>
-          <Campo label="Anexo (mock)" className="md:col-span-2">
-            <Input type="file" onChange={e => setForm({ ...form, anexo: e.target.files?.[0]?.name })} />
-            {form.anexo && <div className="mt-1 text-xs text-muted-foreground">Selecionado: {form.anexo}</div>}
-          </Campo>
 
           {erro && <div className="md:col-span-2 text-sm text-red-600">{erro}</div>}
           <DialogFooter className="md:col-span-2">
@@ -617,18 +597,17 @@ function defaults(o?: Orcamento) {
     numero: o?.numero ?? orcamentosActions.proximoNumero(),
     cliente: o?.cliente ?? "",
     cnpj: o?.cnpj ?? "",
-    tipo: (o?.tipo ?? TIPOS_SERVICO[0]) as string,
+    tipo: (o?.tipo ?? "") as string,
     obra: o?.obra ?? "",
     descricao: o?.descricao ?? "",
     valor: o?.valor ? String(o.valor) : "",
-    responsavel: o?.responsavel ?? RESPONSAVEIS[0],
+    responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
     status: (o?.status ?? "Em análise") as string,
     estagio: (o?.estagio ?? "Proposta enviada") as string,
     probabilidade: o?.probabilidade ?? 50,
     observacoes: o?.observacoes ?? "",
-    anexo: o?.anexo as string | undefined,
   };
 }
 
@@ -671,14 +650,12 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
           <div className="grid grid-cols-2 gap-4">
             <Info label="Valor" value={brl(o.valor)} />
             <Info label="Probabilidade" value={`${o.probabilidade}%`} />
-            <Info label="Responsável" value={o.responsavel} />
-            <Info label="CNPJ" value={o.cnpj || "—"} />
+            <Info label="Responsável comercial" value={o.responsavel} />
+            <Info label="Técnico responsável" value={o.cnpj || "—"} />
             <Info label="Emissão" value={new Date(o.data).toLocaleDateString("pt-BR")} />
-            <Info label="Validade" value={new Date(o.validade).toLocaleDateString("pt-BR")} />
           </div>
           {o.observacoes && <Info label="Observações" value={o.observacoes} />}
 
-          {/* Alterar status rápido */}
           <div>
             <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Alterar status</div>
             <Select value={o.status} onValueChange={(v) => { orcamentosActions.atualizar(o.id, { status: v as OrcStatus }); toast.success("Status atualizado."); }}>
@@ -687,7 +664,6 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
             </Select>
           </div>
 
-          {/* Timeline */}
           <div>
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Histórico de status</div>
             <ol className="relative border-l-2 border-[#213368]/20 pl-4">
@@ -701,7 +677,6 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
             </ol>
           </div>
 
-          {/* Notas */}
           <div>
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notas</div>
             <div className="space-y-2">
