@@ -29,20 +29,20 @@ export type CurrentUser = {
 
 // Mapa perfil -> permissoes (mesma matriz do modulo Admin).
 export function permissoesDoPerfil(perfil: string): ModuloKey[] {
-    switch (perfil) {
-      case "Administrador":
+    switch (perfil.toLowerCase()) {
+      case "administrador":
+      case "admin":
               return ["comercial", "projetos", "equipamentos", "webmail", "admin", "financeiro"];
-      case "Comercial":
+      case "comercial":
               return ["comercial", "webmail"];
-      case "Projetos":
+      case "projetos":
               return ["projetos", "webmail", "financeiro"];
-      case "Almoxarifado":
+      case "almoxarifado":
               return ["equipamentos", "webmail"];
       default:
               return ["webmail"];
     }
 }
-
 const GUEST_USER: CurrentUser = {
     id: "",
     nome: "",
