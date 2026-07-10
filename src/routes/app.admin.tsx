@@ -287,7 +287,21 @@ function Admin() {
                   </TableCell>
                 </TableRow>
               ))}
-              {users.length === 0 && (
+              {loadingUsers && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Carregando usuários...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loadingUsers && loadError && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-red-700">
+                    Erro ao carregar usuários: {loadError}
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loadingUsers && !loadError && users.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                     Nenhum usuário cadastrado.
