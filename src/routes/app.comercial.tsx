@@ -619,7 +619,7 @@ function defaults(o?: Orcamento) {
     tipo: (o?.tipo ?? "") as string,
     obra: o?.obra ?? "",
     descricao: o?.descricao ?? "",
-    valor: o?.valor ? String(o.valor) : "",
+    valor: o?.valor ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
