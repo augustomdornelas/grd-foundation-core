@@ -1,9 +1,9 @@
 // ============================================================
 // Store de Medições Comerciais — integração real com Supabase
-// Sincroniza com orcamentos-store (previsão de entrada)
 // ============================================================
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Orcamento } from "@/lib/orcamentos-store";
 
 export type MedicaoStatus = "Lançada" | "Em aprovação" | "Recebida";
 
@@ -16,8 +16,17 @@ export type MedicaoComercial = {
   valor: number;
   percentualFisico: number;
   dataRecebimento: string;
+  previsaoRecebimento: string;
   status: MedicaoStatus;
   observacoes: string;
+};
+
+export type ResumoOrcamento = {
+  orcamento: Orcamento;
+  faturado: number;
+  saldo: number;
+  pct: number;
+  medicoes: MedicaoComercial[];
 };
 
 const SSR: MedicaoComercial[] = [];
@@ -40,7 +49,8 @@ async function fetchAll() {
     valor: r.valor ?? 0,
     percentualFisico: r.percentual_fisico ?? 0,
     dataRecebimento: r.data_recebimento ?? "",
-    status: r.status ?? "Lançada",
+    previsaoRecebimento: r.data_recebimento ?? "",
+    status: (r.status ?? "Lançada") as MedicaoStatus,
     observacoes: r.observacoes ?? "",
   }));
   emit();
@@ -48,8 +58,8 @@ async function fetchAll() {
 
 if (typeof window !== "undefined") void fetchAll();
 
-export function useMedicoesComercial(): MedicaoComercial[] {
-  return useSyncExternalStore(subscribe, () => state, () => SSR);
+export function useMedicoes<T>(selector: (s: MedicaoComercial[]) => T): T {
+  return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
 }
 
 export function useMedicoesPorOrcamento(orcamentoId: string): MedicaoComercial[] {
@@ -58,6 +68,14 @@ export function useMedicoesPorOrcamento(orcamentoId: string): MedicaoComercial[]
     () => state.filter(m => m.orcamentoId === orcamentoId),
     () => [],
   );
+}
+
+export function resumoDoOrcamento(orcamento: Orcamento, medicoes: MedicaoComercial[]): ResumoOrcamento {
+  const minhas = medicoes.filter(m => m.orcamentoId === orcamento.id);
+  const faturado = minhas.reduce((a, m) => a + m.valor, 0);
+  const saldo = Math.max(0, orcamento.valor - faturado);
+  const pct = orcamento.valor > 0 ? Math.min(100, (faturado / orcamento.valor) * 100) : 0;
+  return { orcamento, faturado, saldo, pct, medicoes: minhas };
 }
 
 function uid() {
@@ -70,12 +88,12 @@ export function proximoNumeroMedicao(orcamentoId: string): string {
 }
 
 export const medicoesComercialActions = {
-  async criar(input: Omit<MedicaoComercial, "id">) {
+  criar(input: Omit<MedicaoComercial, "id">) {
     const id = uid();
     const nova = { ...input, id };
     state = [nova, ...state];
     emit();
-    await supabase.from("medicoes").insert({
+    void supabase.from("medicoes").insert({
       id,
       orcamento_id: input.orcamentoId,
       numero: input.numero,
@@ -89,7 +107,7 @@ export const medicoesComercialActions = {
     });
     return id;
   },
-  async atualizar(id: string, patch: Partial<MedicaoComercial>) {
+  atualizar(id: string, patch: Partial<MedicaoComercial>) {
     state = state.map(m => m.id === id ? { ...m, ...patch } : m);
     emit();
     const row: Record<string, unknown> = {};
@@ -99,13 +117,14 @@ export const medicoesComercialActions = {
     if (patch.valor !== undefined) row.valor = patch.valor;
     if (patch.percentualFisico !== undefined) row.percentual_fisico = patch.percentualFisico;
     if (patch.dataRecebimento !== undefined) row.data_recebimento = patch.dataRecebimento;
+    if (patch.previsaoRecebimento !== undefined) row.data_recebimento = patch.previsaoRecebimento;
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
-    await supabase.from("medicoes").update(row).eq("id", id);
+    void supabase.from("medicoes").update(row).eq("id", id);
   },
-  async excluir(id: string) {
+  excluir(id: string) {
     state = state.filter(m => m.id !== id);
     emit();
-    await supabase.from("medicoes").delete().eq("id", id);
+    void supabase.from("medicoes").delete().eq("id", id);
   },
 };
