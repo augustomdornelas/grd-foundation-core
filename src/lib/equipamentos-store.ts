@@ -69,31 +69,40 @@ export function periodos(inicio: string, fim: string, unidade: UnidadePeriodo): 
   return Math.max(1, Math.ceil(dias / 30));
 }
 
+export function custoAtivoTotal(s: State): number {
+  return s.emprestimos
+    .filter(e => e.ativo)
+    .reduce((a, e) => a + e.custoTotal, 0);
+}
+
 async function fetchAll() {
-  const [e, em, m] = await Promise.all([
+  const [eq, emp, man] = await Promise.all([
     supabase.from("equipamentos").select("*").order("created_at", { ascending: false }),
     supabase.from("emprestimos").select("*").order("data_inicio", { ascending: false }),
     supabase.from("manutencoes").select("*").order("data", { ascending: false }),
   ]);
   state = {
-    equipamentos: (e.data ?? []).map((r: any) => ({
+    equipamentos: (eq.data ?? []).map((r: any) => ({
       id: r.id, nome: r.nome ?? "", codigo: r.codigo ?? "",
       categoria: r.categoria ?? "", descricao: r.descricao ?? "",
       valor: r.valor ?? 0, custoPeriodo: r.custo_periodo ?? 0,
-      unidade: r.unidade ?? "dia", status: r.status ?? "Disponível",
+      unidade: (r.unidade_periodo ?? r.unidade ?? "dia") as UnidadePeriodo,
+      status: (r.status ?? "Disponível") as EquipStatus,
       localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
       responsavelAtual: r.responsavel_atual ?? undefined,
     })),
-    emprestimos: (em.data ?? []).map((r: any) => ({
+    emprestimos: (emp.data ?? []).map((r: any) => ({
       id: r.id, equipamentoId: r.equipamento_id ?? "",
       destino: r.destino ?? "", responsavel: r.responsavel ?? "",
-      dataInicio: r.data_inicio ?? "", dataDevolucaoPrevista: r.data_devolucao_prevista ?? "",
-      dataDevolucaoReal: r.data_devolucao_real ?? undefined,
-      custoPeriodo: r.custo_periodo ?? 0, unidade: r.unidade ?? "dia",
+      dataInicio: r.data_inicio ?? "",
+      dataDevolucaoPrevista: r.data_devolucao_prevista ?? r.data_prevista ?? "",
+      dataDevolucaoReal: r.data_devolucao_real ?? r.data_real ?? undefined,
+      custoPeriodo: r.custo_periodo ?? 0,
+      unidade: (r.unidade ?? "dia") as UnidadePeriodo,
       observacoes: r.observacoes ?? undefined,
       custoTotal: r.custo_total ?? 0, ativo: r.ativo ?? true,
     })),
-    manutencoes: (m.data ?? []).map((r: any) => ({
+    manutencoes: (man.data ?? []).map((r: any) => ({
       id: r.id, equipamentoId: r.equipamento_id ?? "",
       data: r.data ?? "", dataFim: r.data_fim ?? undefined,
       descricao: r.descricao ?? "", custo: r.custo ?? 0, aberta: r.aberta ?? true,
@@ -104,7 +113,7 @@ async function fetchAll() {
 
 if (typeof window !== "undefined") void fetchAll();
 
-export function useEquipamentosStore<T>(selector: (s: State) => T): T {
+export function useEquipStore<T>(selector: (s: State) => T): T {
   return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
 }
 
@@ -112,20 +121,21 @@ function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
 }
 
-export const equipamentosActions = {
-  async criar(input: Omit<Equipamento, "id">) {
+export const equipActions = {
+  criarEquipamento(input: Omit<Equipamento, "id">) {
     const id = uid("E");
     state = { ...state, equipamentos: [...state.equipamentos, { ...input, id }] };
     emit();
-    await supabase.from("equipamentos").insert({
+    void supabase.from("equipamentos").insert({
       id, nome: input.nome, codigo: input.codigo, categoria: input.categoria,
       descricao: input.descricao, valor: input.valor, custo_periodo: input.custoPeriodo,
-      unidade: input.unidade, status: input.status, local_base: input.localBase,
-      local_atual: input.localAtual, responsavel_atual: input.responsavelAtual,
+      unidade_periodo: input.unidade, status: input.status,
+      local_base: input.localBase, local_atual: input.localAtual,
+      responsavel_atual: input.responsavelAtual ?? null,
     });
     return id;
   },
-  async atualizar(id: string, patch: Partial<Equipamento>) {
+  atualizarEquipamento(id: string, patch: Partial<Equipamento>) {
     state = { ...state, equipamentos: state.equipamentos.map(e => e.id === id ? { ...e, ...patch } : e) };
     emit();
     const row: Record<string, unknown> = {};
@@ -135,27 +145,30 @@ export const equipamentosActions = {
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.valor !== undefined) row.valor = patch.valor;
     if (patch.custoPeriodo !== undefined) row.custo_periodo = patch.custoPeriodo;
-    if (patch.unidade !== undefined) row.unidade = patch.unidade;
+    if (patch.unidade !== undefined) row.unidade_periodo = patch.unidade;
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.localBase !== undefined) row.local_base = patch.localBase;
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
-    await supabase.from("equipamentos").update(row).eq("id", id);
+    void supabase.from("equipamentos").update(row).eq("id", id);
   },
-  async excluir(id: string) {
+  excluirEquipamento(id: string) {
     state = {
       equipamentos: state.equipamentos.filter(e => e.id !== id),
       emprestimos: state.emprestimos.filter(e => e.equipamentoId !== id),
       manutencoes: state.manutencoes.filter(m => m.equipamentoId !== id),
     };
     emit();
-    await supabase.from("equipamentos").delete().eq("id", id);
+    void supabase.from("equipamentos").delete().eq("id", id);
   },
-  async registrarEmprestimo(input: Omit<Emprestimo, "id">) {
+  registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">) {
     const id = uid("EM");
+    const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
+    const custoTotal = qtd * input.custoPeriodo;
+    const novo: Emprestimo = { ...input, id, custoTotal, ativo: true };
     state = {
       ...state,
-      emprestimos: [...state.emprestimos, { ...input, id }],
+      emprestimos: [...state.emprestimos, novo],
       equipamentos: state.equipamentos.map(e =>
         e.id === input.equipamentoId
           ? { ...e, status: "Emprestado" as EquipStatus, localAtual: input.destino, responsavelAtual: input.responsavel }
@@ -163,19 +176,19 @@ export const equipamentosActions = {
       ),
     };
     emit();
-    await supabase.from("emprestimos").insert({
+    void supabase.from("emprestimos").insert({
       id, equipamento_id: input.equipamentoId, destino: input.destino,
       responsavel: input.responsavel, data_inicio: input.dataInicio,
       data_devolucao_prevista: input.dataDevolucaoPrevista,
       custo_periodo: input.custoPeriodo, unidade: input.unidade,
-      observacoes: input.observacoes, custo_total: input.custoTotal, ativo: true,
+      observacoes: input.observacoes ?? null, custo_total: custoTotal, ativo: true,
     });
-    await supabase.from("equipamentos").update({
+    void supabase.from("equipamentos").update({
       status: "Emprestado", local_atual: input.destino, responsavel_atual: input.responsavel,
     }).eq("id", input.equipamentoId);
     return id;
   },
-  async registrarDevolucao(emprestimoId: string, dataReal: string) {
+  registrarDevolucao(emprestimoId: string, dataReal: string) {
     const emp = state.emprestimos.find(e => e.id === emprestimoId);
     if (!emp) return;
     const qtd = periodos(emp.dataInicio, dataReal, emp.unidade);
@@ -192,13 +205,15 @@ export const equipamentosActions = {
       ),
     };
     emit();
-    await supabase.from("emprestimos").update({ data_devolucao_real: dataReal, custo_total: custoFinal, ativo: false }).eq("id", emprestimoId);
+    void supabase.from("emprestimos").update({
+      data_devolucao_real: dataReal, custo_total: custoFinal, ativo: false,
+    }).eq("id", emprestimoId);
     const equip = state.equipamentos.find(e => e.id === emp.equipamentoId);
-    await supabase.from("equipamentos").update({
+    void supabase.from("equipamentos").update({
       status: "Disponível", local_atual: equip?.localBase ?? "", responsavel_atual: null,
     }).eq("id", emp.equipamentoId);
   },
-  async registrarManutencao(input: Omit<Manutencao, "id">) {
+  registrarManutencao(input: Omit<Manutencao, "id">) {
     const id = uid("MAN");
     state = {
       ...state,
@@ -208,13 +223,13 @@ export const equipamentosActions = {
       ),
     };
     emit();
-    await supabase.from("manutencoes").insert({
+    void supabase.from("manutencoes").insert({
       id, equipamento_id: input.equipamentoId, data: input.data,
       descricao: input.descricao, custo: input.custo, aberta: true,
     });
-    await supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId);
+    void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId);
   },
-  async fecharManutencao(id: string, dataFim: string) {
+  fecharManutencao(id: string, dataFim: string) {
     const man = state.manutencoes.find(m => m.id === id);
     if (!man) return;
     state = {
@@ -225,7 +240,7 @@ export const equipamentosActions = {
       ),
     };
     emit();
-    await supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false }).eq("id", id);
-    await supabase.from("equipamentos").update({ status: "Disponível" }).eq("id", man.equipamentoId);
+    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false }).eq("id", id);
+    void supabase.from("equipamentos").update({ status: "Disponível" }).eq("id", man.equipamentoId);
   },
 };
