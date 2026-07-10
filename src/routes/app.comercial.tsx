@@ -529,7 +529,8 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.cliente.trim() || !form.obra.trim() || !form.valor || Number(form.valor) <= 0) {
+    const valorNum = parseValorBR(form.valor);
+    if (!form.cliente.trim() || !form.obra.trim() || valorNum <= 0) {
       setErro("Cliente, obra e valor são obrigatórios.");
       return;
     }
@@ -540,7 +541,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       tipo: form.tipo as TipoServico,
       obra: form.obra.trim(),
       descricao: form.descricao.trim(),
-      valor: Number(form.valor),
+      valor: valorNum,
       responsavel: form.responsavel.trim(),
       data: form.data,
       validade: form.validade,
@@ -549,6 +550,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
     };
+
     if (editing && orcamento) {
       orcamentosActions.atualizar(orcamento.id, payload);
       toast.success("Orçamento atualizado.");
