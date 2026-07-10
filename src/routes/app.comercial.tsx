@@ -275,41 +275,6 @@ function Comercial() {
         </Card>
       </div>
 
-      {/* Gráficos linha 2 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Por área de atuação</div>
-          <div className="mt-4 h-72">
-            {metricas.porTipo.some(t => t.valor > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metricas.porTipo} layout="vertical" margin={{ left: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis type="number" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-                  <YAxis type="category" dataKey="tipo" stroke="#6E7280" fontSize={11} width={140} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="valor" fill="#213368" radius={[0,6,6,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Por responsável</div>
-          <div className="mt-4 h-72">
-            {metricas.porResp.some(r => r.valor > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metricas.porResp}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="responsavel" stroke="#6E7280" fontSize={12} />
-                  <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="valor" name="Valor" fill="#F37032" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-      </div>
 
       {/* Gráficos linha 3 */}
       <div className="grid gap-6 lg:grid-cols-2">
