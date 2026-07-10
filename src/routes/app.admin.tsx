@@ -1,628 +1,313 @@
+// ============================================================
+// /app/admin — Administração de usuários e permissões
+// Integrado com Supabase (tabela profiles)
+// ============================================================
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment, useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2, Pencil, KeyRound, RotateCcw, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Plus, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  accessActions, useUserAccess, MODULO_KEYS, MODULO_LABEL,
-  PAINEL_KEYS, PAINEL_LABEL, PAINEL_MODULO,
-  defaultModulosDoPerfil, defaultPaineisDoPerfil,
-} from "@/lib/access-store";
-import type { ModuloKey } from "@/lib/current-user";
-import type { PainelKey } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-type Usuario = { id: string; nome: string; email: string; perfil: string; status: string };
+type ModuloKey = "comercial" | "projetos" | "equipamentos" | "webmail" | "admin" | "financeiro";
+type PainelKey = "comercial" | "previsao" | "projetos" | "equipamentos" | "financeiro";
 
-const perfis = ["Administrador", "Comercial", "Projetos", "Almoxarifado"] as const;
+const MODULOS: { key: ModuloKey; label: string }[] = [
+  { key: "comercial", label: "Comercial" },
+  { key: "projetos", label: "Projetos" },
+  { key: "equipamentos", label: "Equipamentos" },
+  { key: "webmail", label: "Webmail" },
+  { key: "financeiro", label: "Financeiro" },
+  { key: "admin", label: "Administração" },
+];
 
-// Cliente secundário só para criar contas: NÃO persiste sessão, então o
-// signUp do novo usuário não substitui a sessão do admin que está logado.
-const signupClient = createClient(
-  import.meta.env.VITE_SUPABASE_URL as string,
-  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-  { auth: { persistSession: false, autoRefreshToken: false, storageKey: "sb-signup-only" } },
-);
+const PAINEIS: { key: PainelKey; label: string; modulo: ModuloKey }[] = [
+  { key: "comercial", label: "Comercial", modulo: "comercial" },
+  { key: "previsao", label: "Previsao de Entrada", modulo: "comercial" },
+  { key: "projetos", label: "Projetos", modulo: "projetos" },
+  { key: "equipamentos", label: "Equipamentos", modulo: "equipamentos" },
+  { key: "financeiro", label: "Financeiro", modulo: "financeiro" },
+];
+
+const PERFIS = ["Administrador", "Comercial", "Projetos", "Almoxarifado", "Colaborador"];
+
+type Usuario = {
+  id: string;
+  nome: string;
+  email: string;
+  perfil: string;
+  status: string;
+  permissoes: Record<string, boolean>;
+  paineis: Record<string, boolean>;
+};
+
+function permissoesDoPerfil(perfil: string): Record<ModuloKey, boolean> {
+  switch (perfil) {
+    case "Administrador":
+    case "admin":
+      return { comercial: true, projetos: true, equipamentos: true, webmail: true, admin: true, financeiro: true };
+    case "Comercial":
+      return { comercial: true, projetos: false, equipamentos: false, webmail: true, admin: false, financeiro: false };
+    case "Projetos":
+      return { comercial: false, projetos: true, equipamentos: false, webmail: true, admin: false, financeiro: true };
+    case "Almoxarifado":
+      return { comercial: false, projetos: false, equipamentos: true, webmail: true, admin: false, financeiro: false };
+    default:
+      return { comercial: false, projetos: false, equipamentos: false, webmail: true, admin: false, financeiro: false };
+  }
+}
 
 function Admin() {
-  const [users, setUsers] = useState<Usuario[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [toDelete, setToDelete] = useState<Usuario | null>(null);
-  const [editing, setEditing] = useState<Usuario | null>(null);
-  const [editForm, setEditForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
-  const [editError, setEditError] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [showPwd, setShowPwd] = useState(false);
-  const [createdInfo, setCreatedInfo] = useState<{ email: string; senha: string } | null>(null);
-  const [pwdUser, setPwdUser] = useState<Usuario | null>(null);
-  const [pwdForm, setPwdForm] = useState({ senha: "", confirmar: "" });
-  const [pwdError, setPwdError] = useState<string | null>(null);
-  const [showPwdEdit, setShowPwdEdit] = useState(false);
-  const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [novoOpen, setNovoOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<Usuario | null>(null);
+  const [excluirId, setExcluirId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoadingUsers(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, nome, email, perfil, status")
-        .order("nome", { ascending: true });
-      if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
-        setUsers([]);
-      } else {
-        setLoadError(null);
-        setUsers((data ?? []).map((r: any) => ({
-          id: String(r.id),
-          nome: r.nome ?? "",
-          email: r.email ?? "",
-          perfil: r.perfil ?? "Colaborador",
-          status: r.status ?? "Ativo",
-        })));
-      }
-      setLoadingUsers(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  async function fetchUsuarios() {
+    setLoading(true);
+    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: true });
+    setUsuarios((data ?? []).map((r: any) => ({
+      id: r.id,
+      nome: r.nome ?? "",
+      email: r.email ?? "",
+      perfil: r.perfil ?? "colaborador",
+      status: r.status ?? "ativo",
+      permissoes: typeof r.permissoes === "object" && r.permissoes !== null ? r.permissoes : {},
+      paineis: typeof r.paineis === "object" && r.paineis !== null ? r.paineis : {},
+    })));
+    setLoading(false);
+  }
 
-  const openNew = () => {
-    setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
-    setFormError(null);
-    setShowPwd(false);
-    setOpen(true);
-  };
+  useEffect(() => { void fetchUsuarios(); }, []);
 
-  const gerarSenha = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-    let s = "";
-    const arr = new Uint32Array(12);
-    crypto.getRandomValues(arr);
-    for (const n of arr) s += chars[n % chars.length];
-    setForm(f => ({ ...f, senha: s, confirmar: s }));
-    setShowPwd(true);
-  };
+  async function togglePermissao(userId: string, mod: ModuloKey, tipo: "ver" | "editar", valor: boolean) {
+    const key = tipo === "ver" ? mod : `${mod}_editar`;
+    const u = usuarios.find(x => x.id === userId);
+    if (!u) return;
+    const novas = { ...u.permissoes, [key]: valor };
+    setUsuarios(prev => prev.map(x => x.id === userId ? { ...x, permissoes: novas } : x));
+    await supabase.from("profiles").update({ permissoes: novas }).eq("id", userId);
+  }
 
-  const submitNew = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const nome = form.nome.trim();
-    const email = form.email.trim().toLowerCase();
-    if (!nome || !email) return setFormError("Preencha nome e e-mail.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setFormError("E-mail inválido.");
-    if (users.some(u => u.email.toLowerCase() === email)) return setFormError("Já existe um usuário com esse e-mail.");
-    if (form.senha.length < 8) return setFormError("A senha deve ter ao menos 8 caracteres.");
-    if (form.senha !== form.confirmar) return setFormError("As senhas não coincidem.");
+  async function togglePainel(userId: string, painel: PainelKey, valor: boolean) {
+    const u = usuarios.find(x => x.id === userId);
+    if (!u) return;
+    const novos = { ...u.paineis, [painel]: valor };
+    setUsuarios(prev => prev.map(x => x.id === userId ? { ...x, paineis: novos } : x));
+    await supabase.from("profiles").update({ paineis: novos }).eq("id", userId);
+  }
 
-    setSubmitting(true);
-    setFormError(null);
-    try {
-      // 1) Cria a conta no Supabase Auth (via cliente secundário para
-      //    não substituir a sessão do admin logado).
-      const { data: signUpData, error: signUpError } = await signupClient.auth.signUp({
-        email,
-        password: form.senha,
-      });
-      if (signUpError) {
-        const msg = signUpError.message.toLowerCase();
-        if (msg.includes("registered") || msg.includes("exists") || msg.includes("duplicate")) {
-          return setFormError("Já existe um usuário com esse e-mail.");
-        }
-        return setFormError(`Erro ao criar conta: ${signUpError.message}`);
-      }
-      const newUserId = signUpData.user?.id;
-      if (!newUserId) {
-        return setFormError("Conta criada, mas o Supabase não retornou o ID. Verifique se a confirmação de e-mail está desativada nas configurações de Auth.");
-      }
+  async function resetarPermissoes(userId: string) {
+    const u = usuarios.find(x => x.id === userId);
+    if (!u) return;
+    const novas = permissoesDoPerfil(u.perfil);
+    setUsuarios(prev => prev.map(x => x.id === userId ? { ...x, permissoes: novas } : x));
+    await supabase.from("profiles").update({ permissoes: novas }).eq("id", userId);
+    toast.success("Permissões resetadas para o padrão do perfil.");
+  }
 
-      // 2) Insere o perfil com os dados do formulário e as permissões padrão do perfil.
-      const permissoesPadrao = {
-        modulos: defaultModulosDoPerfil(form.perfil),
-        paineis: defaultPaineisDoPerfil(form.perfil),
-      };
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: newUserId,
-        nome,
-        email,
-        perfil: form.perfil,
-        status: form.status,
-        permissoes: permissoesPadrao,
-      } as any);
-      if (profileError) {
-        return setFormError(`Conta criada no Auth, mas falhou ao gravar o perfil: ${profileError.message}`);
-      }
+  function temPermissao(u: Usuario, mod: ModuloKey, tipo: "ver" | "editar") {
+    const key = tipo === "ver" ? mod : `${mod}_editar`;
+    if (u.permissoes[key] !== undefined) return !!u.permissoes[key];
+    const padrao = permissoesDoPerfil(u.perfil);
+    return !!padrao[mod];
+  }
 
-      // 3) Atualiza a lista imediatamente.
-      setUsers(prev => [...prev, { id: newUserId, nome, email, perfil: form.perfil, status: form.status }]
-        .sort((a, b) => a.nome.localeCompare(b.nome)));
-      setCreatedInfo({ email, senha: form.senha });
-      setOpen(false);
-    } catch (err: any) {
-      setFormError(err?.message ?? "Erro inesperado ao criar usuário.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  function temPainel(u: Usuario, painel: PainelKey) {
+    if (u.paineis[painel] !== undefined) return !!u.paineis[painel];
+    const mod = PAINEIS.find(p => p.key === painel)?.modulo;
+    return mod ? temPermissao(u, mod, "ver") : false;
+  }
 
-
-
-  const confirmDelete = () => {
-    if (!toDelete) return;
-    const id = toDelete.id;
-    setUsers(prev => prev.filter(u => u.id !== id));
-    accessActions.removeUser(id);
-    setToDelete(null);
-  };
-
-  const openEdit = (u: Usuario) => {
-    setEditForm({ nome: u.nome, email: u.email, perfil: u.perfil, status: u.status });
-    setEditError(null);
-    setEditing(u);
-  };
-
-  const submitEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editing) return;
-    const nome = editForm.nome.trim();
-    const email = editForm.email.trim().toLowerCase();
-    if (!nome || !email) return setEditError("Preencha nome e e-mail.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setEditError("E-mail inválido.");
-    if (users.some(u => u.id !== editing.id && u.email.toLowerCase() === email)) {
-      return setEditError("Já existe outro usuário com esse e-mail.");
-    }
-    const perfilMudou = editing.perfil !== editForm.perfil;
-    setUsers(prev => prev.map(u => u.id === editing.id ? { ...u, nome, email, perfil: editForm.perfil, status: editForm.status } : u));
-    if (perfilMudou) {
-      accessActions.resetToPerfil(editing.id);
-    }
-    setEditing(null);
-  };
-
-  const openPwd = (u: Usuario) => {
-    setPwdForm({ senha: "", confirmar: "" });
-    setPwdError(null);
-    setShowPwdEdit(false);
-    setPwdUser(u);
-  };
-
-  const gerarSenhaEdit = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-    let s = "";
-    const arr = new Uint32Array(12);
-    crypto.getRandomValues(arr);
-    for (const n of arr) s += chars[n % chars.length];
-    setPwdForm({ senha: s, confirmar: s });
-    setShowPwdEdit(true);
-  };
-
-  const submitPwd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pwdUser) return;
-    if (pwdForm.senha.length < 8) return setPwdError("A senha deve ter ao menos 8 caracteres.");
-    if (pwdForm.senha !== pwdForm.confirmar) return setPwdError("As senhas não coincidem.");
-    // NOTA: quando o Supabase for conectado, esta ação deve chamar a Auth Admin API
-    // (auth.admin.updateUserById) via edge function protegida por role de administrador.
-    // No modo local em memória, apenas exibimos a nova credencial para repasse manual.
-    setPwdResetInfo({ email: pwdUser.email, senha: pwdForm.senha });
-    setPwdUser(null);
-  };
+  async function excluirUsuario(id: string) {
+    setUsuarios(prev => prev.filter(x => x.id !== id));
+    await supabase.from("profiles").delete().eq("id", id);
+    toast.success("Usuário removido.");
+    setExcluirId(null);
+  }
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-bold text-[#213368]">Usuários</h3>
-            <p className="text-xs text-muted-foreground">Gerencie contas e perfis de acesso.</p>
-          </div>
-          <Button onClick={openNew} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-            <Plus className="mr-1 h-4 w-4" /> Novo usuário
-          </Button>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-extrabold text-[#213368]">Administração</h2>
+          <p className="text-xs text-muted-foreground">Gerencie contas e perfis de acesso.</p>
         </div>
-        <div className="mt-5 overflow-x-auto">
+        <Button onClick={() => setNovoOpen(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+          <Plus className="mr-1 h-4 w-4" /> Novo usuário
+        </Button>
+      </div>
+
+      {/* Tabela de usuários */}
+      <Card className="p-6">
+        <h3 className="mb-4 text-lg font-bold text-[#213368]">Usuários</h3>
+        <p className="mb-4 text-xs text-muted-foreground">Gerencie contas e perfis de acesso.</p>
+        {loading ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">Carregando...</div>
+        ) : (
           <Table>
-            <TableHeader><TableRow>
-              <TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead><TableHead className="w-36 text-right">Ações</TableHead>
-            </TableRow></TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Perfil</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
-              {users.map(u => (
+              {usuarios.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário cadastrado.</TableCell></TableRow>
+              ) : usuarios.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-semibold">{u.nome}</TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.perfil}</TableCell>
-                  <TableCell><StatusBadge status={u.status} /></TableCell>
+                  <TableCell><Badge variant="outline">{u.perfil}</Badge></TableCell>
+                  <TableCell>
+                    <Badge className={u.status === "ativo" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>
+                      {u.status === "ativo" ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openEdit(u)}
-                        aria-label={`Editar ${u.nome}`}
-                        className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openPwd(u)}
-                        aria-label={`Trocar senha de ${u.nome}`}
-                        className="text-[#F37032] hover:bg-[#F37032]/10 hover:text-[#F37032]"
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setToDelete(u)}
-                        aria-label={`Excluir ${u.nome}`}
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => setEditOpen(u)}><Pencil className="h-4 w-4 text-[#213368]" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => setExcluirId(u.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
-              {loadingUsers && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Carregando usuários...
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loadingUsers && loadError && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-red-700">
-                    Erro ao carregar usuários: {loadError}
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loadingUsers && !loadError && users.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                    Nenhum usuário cadastrado.
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
-        </div>
+        )}
       </Card>
 
+      {/* Matriz de permissões */}
       <Card className="p-6">
-        <h3 className="text-lg font-bold text-[#213368]">Acesso às abas do sistema</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Controle, por usuário, o que ele pode ver e editar em cada módulo. Alterações valem imediatamente.
-        </p>
-        <div className="mt-5 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead rowSpan={2} className="align-bottom">Usuário</TableHead>
-                {MODULO_KEYS.map(m => <TableHead key={m} colSpan={2} className="text-center">{MODULO_LABEL[m]}</TableHead>)}
-                <TableHead rowSpan={2} className="w-24 text-right align-bottom">Padrão</TableHead>
-              </TableRow>
-              <TableRow>
-                {MODULO_KEYS.map(m => (
-                  <Fragment key={m}>
-                    <TableHead className="text-center text-xs">Ver</TableHead>
-                    <TableHead className="text-center text-xs">Editar</TableHead>
-                  </Fragment>
+        <h3 className="mb-1 text-lg font-bold text-[#213368]">Acesso às abas do sistema</h3>
+        <p className="mb-4 text-xs text-muted-foreground">Controle, por usuário, o que ele pode ver e editar em cada módulo. Alterações valem imediatamente.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4 text-left font-semibold text-[#213368]">Usuário</th>
+                {MODULOS.map(m => (
+                  <th key={m.key} colSpan={2} className="px-2 py-2 text-center font-semibold text-[#213368]">{m.label}</th>
                 ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map(u => (
-                <UserAccessRow key={u.id} user={u} />
+                <th className="px-2 py-2 text-center font-semibold text-[#213368]">Padrão</th>
+              </tr>
+              <tr className="border-b text-xs text-muted-foreground">
+                <th />
+                {MODULOS.map(m => (
+                  <>
+                    <th key={`${m.key}-ver`} className="px-2 py-1 text-center">Ver</th>
+                    <th key={`${m.key}-editar`} className="px-2 py-1 text-center">Editar</th>
+                  </>
+                ))}
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {usuarios.map(u => (
+                <tr key={u.id} className="border-b hover:bg-muted/30">
+                  <td className="py-2 pr-4">
+                    <div className="font-semibold">{u.nome}</div>
+                    <div className="text-xs text-[#F37032]">{u.perfil}</div>
+                  </td>
+                  {MODULOS.map(m => (
+                    <>
+                      <td key={`${u.id}-${m.key}-ver`} className="px-2 py-2 text-center">
+                        <input type="checkbox" checked={temPermissao(u, m.key, "ver")}
+                          onChange={e => togglePermissao(u.id, m.key, "ver", e.target.checked)}
+                          className="h-4 w-4 accent-[#213368]" />
+                      </td>
+                      <td key={`${u.id}-${m.key}-editar`} className="px-2 py-2 text-center">
+                        <input type="checkbox" checked={temPermissao(u, m.key, "editar")}
+                          onChange={e => togglePermissao(u.id, m.key, "editar", e.target.checked)}
+                          disabled={!temPermissao(u, m.key, "ver")}
+                          className="h-4 w-4 accent-[#213368] disabled:opacity-30" />
+                      </td>
+                    </>
+                  ))}
+                  <td className="px-2 py-2 text-center">
+                    <Button size="icon" variant="ghost" onClick={() => resetarPermissoes(u.id)} title="Resetar para padrão do perfil">
+                      <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </Card>
 
+      {/* Gráficos do painel */}
       <Card className="p-6">
-        <h3 className="text-lg font-bold text-[#213368]">Gráficos do painel inicial</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Escolha quais blocos aparecem em <code>/app</code> para cada usuário. Blocos ficam desabilitados quando o módulo correspondente está bloqueado acima.
-        </p>
-        <div className="mt-5 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Usuário</TableHead>
-                {PAINEL_KEYS.map(p => <TableHead key={p} className="text-center">{PAINEL_LABEL[p]}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map(u => (
-                <UserPainelRow key={u.id} user={u} />
+        <h3 className="mb-1 text-lg font-bold text-[#213368]">Gráficos do painel inicial</h3>
+        <p className="mb-4 text-xs text-muted-foreground">Escolha quais blocos aparecem em /app para cada usuário. Blocos ficam desabilitados quando o módulo correspondente está bloqueado acima.</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="py-2 pr-4 text-left font-semibold text-[#213368]">Usuário</th>
+                {PAINEIS.map(p => <th key={p.key} className="px-4 py-2 text-center font-semibold text-[#213368]">{p.label}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {usuarios.map(u => (
+                <tr key={u.id} className="border-b hover:bg-muted/30">
+                  <td className="py-2 pr-4">
+                    <div className="font-semibold">{u.nome}</div>
+                    <div className="text-xs text-[#F37032]">{u.perfil}</div>
+                  </td>
+                  {PAINEIS.map(p => {
+                    const bloqueado = !temPermissao(u, p.modulo, "ver");
+                    return (
+                      <td key={p.key} className="px-4 py-2 text-center">
+                        {bloqueado ? (
+                          <span className="text-xs text-muted-foreground">bloqueado</span>
+                        ) : (
+                          <input type="checkbox" checked={temPainel(u, p.key)}
+                            onChange={e => togglePainel(u.id, p.key, e.target.checked)}
+                            className="h-4 w-4 accent-[#213368]" />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       </Card>
 
-      {/* Dialog: editar usuário */}
-      <Dialog open={!!editing} onOpenChange={o => !o && setEditing(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar usuário</DialogTitle>
-            <DialogDescription>Altere os dados do funcionário. A senha não é modificada aqui.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={submitEdit} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-nome">Nome completo</Label>
-              <Input id="edit-nome" value={editForm.nome} onChange={e => setEditForm(f => ({ ...f, nome: e.target.value }))} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-email">E-mail</Label>
-              <Input id="edit-email" type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Perfil</Label>
-                <Select value={editForm.perfil} onValueChange={v => setEditForm(f => ({ ...f, perfil: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {perfis.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Status</Label>
-                <Select value={editForm.status} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Ativo">Ativo</SelectItem>
-                    <SelectItem value="Inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {editError && (
-              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{editError}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Alterar o perfil redefine as permissões deste usuário para o padrão do novo perfil.
-            </p>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar alterações</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Modal novo usuário */}
+      <NovoUsuarioModal open={novoOpen} onClose={() => setNovoOpen(false)} onCriado={fetchUsuarios} />
 
-      {/* Dialog: novo usuário */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo usuário</DialogTitle>
-            <DialogDescription>Cadastre manualmente um funcionário no portal.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={submitNew} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="nome">Nome completo</Label>
-              <Input id="nome" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex.: Ana Ribeiro" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="ana.ribeiro@grupogrd.com.br" />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Perfil</Label>
-                <Select value={form.perfil} onValueChange={v => setForm(f => ({ ...f, perfil: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {perfis.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Ativo">Ativo</SelectItem>
-                    <SelectItem value="Inativo">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="senha">Senha</Label>
-                  <button type="button" onClick={() => setShowPwd(v => !v)} className="text-xs font-medium text-[#213368] hover:text-[#F37032]">
-                    {showPwd ? "Ocultar" : "Mostrar"}
-                  </button>
-                </div>
-                <Input
-                  id="senha"
-                  type={showPwd ? "text" : "password"}
-                  value={form.senha}
-                  onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
-                  placeholder="Mínimo 8 caracteres"
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="confirmar">Confirmar senha</Label>
-                <Input
-                  id="confirmar"
-                  type={showPwd ? "text" : "password"}
-                  value={form.confirmar}
-                  onChange={e => setForm(f => ({ ...f, confirmar: e.target.value }))}
-                  placeholder="Repita a senha"
-                  autoComplete="new-password"
-                />
-              </div>
-            </div>
-            <button type="button" onClick={gerarSenha} className="justify-self-start text-xs font-semibold text-[#213368] hover:text-[#F37032]">
-              Gerar senha automática
-            </button>
-            {formError && (
-              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{formError}</p>
-            )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={submitting} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {submitting ? "Criando..." : "Cadastrar"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Modal editar */}
+      {editOpen && (
+        <EditarUsuarioModal usuario={editOpen} onClose={() => setEditOpen(null)} onSalvo={fetchUsuarios} />
+      )}
 
-      {/* Dialog: credenciais criadas */}
-      <Dialog open={!!createdInfo} onOpenChange={o => !o && setCreatedInfo(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Usuário criado</DialogTitle>
-            <DialogDescription>Anote e envie as credenciais ao funcionário — a senha não poderá ser recuperada depois.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2 rounded-lg border border-dashed border-[#213368]/25 bg-[#213368]/5 p-4 font-mono text-sm text-[#213368]">
-            <div>Usuário: <code className="rounded bg-white px-1.5 py-0.5">{createdInfo?.email}</code></div>
-            <div>Senha: <code className="rounded bg-white px-1.5 py-0.5">{createdInfo?.senha}</code></div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigator.clipboard?.writeText(`Usuário: ${createdInfo?.email}\nSenha: ${createdInfo?.senha}`)}
-            >
-              Copiar
-            </Button>
-            <Button type="button" className="bg-[#F37032] text-white hover:bg-[#ff8850]" onClick={() => setCreatedInfo(null)}>
-              Concluir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-
-      {/* Dialog: trocar senha */}
-      <Dialog open={!!pwdUser} onOpenChange={o => !o && setPwdUser(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Trocar senha</DialogTitle>
-            <DialogDescription>
-              Defina uma nova senha para <strong>{pwdUser?.nome}</strong> ({pwdUser?.email}).
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={submitPwd} className="grid gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="pwd-nova">Nova senha</Label>
-                  <button type="button" onClick={() => setShowPwdEdit(v => !v)} className="text-xs font-medium text-[#213368] hover:text-[#F37032]">
-                    {showPwdEdit ? "Ocultar" : "Mostrar"}
-                  </button>
-                </div>
-                <Input
-                  id="pwd-nova"
-                  type={showPwdEdit ? "text" : "password"}
-                  value={pwdForm.senha}
-                  onChange={e => setPwdForm(f => ({ ...f, senha: e.target.value }))}
-                  placeholder="Mínimo 8 caracteres"
-                  autoComplete="new-password"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pwd-conf">Confirmar</Label>
-                <Input
-                  id="pwd-conf"
-                  type={showPwdEdit ? "text" : "password"}
-                  value={pwdForm.confirmar}
-                  onChange={e => setPwdForm(f => ({ ...f, confirmar: e.target.value }))}
-                  placeholder="Repita a nova senha"
-                  autoComplete="new-password"
-                />
-              </div>
-            </div>
-            <button type="button" onClick={gerarSenhaEdit} className="justify-self-start text-xs font-semibold text-[#213368] hover:text-[#F37032]">
-              Gerar senha automática
-            </button>
-            {pwdError && (
-              <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{pwdError}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              A senha antiga deixa de funcionar imediatamente. Anote e envie a nova ao usuário.
-            </p>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setPwdUser(null)}>Cancelar</Button>
-              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar nova senha</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: senha redefinida */}
-      <Dialog open={!!pwdResetInfo} onOpenChange={o => !o && setPwdResetInfo(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Senha redefinida</DialogTitle>
-            <DialogDescription>Envie as novas credenciais ao funcionário — a senha não poderá ser recuperada depois.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2 rounded-lg border border-dashed border-[#213368]/25 bg-[#213368]/5 p-4 font-mono text-sm text-[#213368]">
-            <div>Usuário: <code className="rounded bg-white px-1.5 py-0.5">{pwdResetInfo?.email}</code></div>
-            <div>Nova senha: <code className="rounded bg-white px-1.5 py-0.5">{pwdResetInfo?.senha}</code></div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigator.clipboard?.writeText(`Usuário: ${pwdResetInfo?.email}\nSenha: ${pwdResetInfo?.senha}`)}
-            >
-              Copiar
-            </Button>
-            <Button type="button" className="bg-[#F37032] text-white hover:bg-[#ff8850]" onClick={() => setPwdResetInfo(null)}>
-              Concluir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Alert: confirmação de exclusão */}
-      <AlertDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}>
+      {/* Confirmar exclusão */}
+      <AlertDialog open={!!excluirId} onOpenChange={o => !o && setExcluirId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação removerá <strong>{toDelete?.nome}</strong> ({toDelete?.email}) da lista e das permissões. Não é possível desfazer.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação remove o perfil do usuário. O acesso dele será revogado imediatamente.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => excluirId && excluirUsuario(excluirId)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -630,75 +315,124 @@ function Admin() {
   );
 }
 
-function UserAccessRow({ user }: { user: Usuario }) {
-  const acc = useUserAccess(user.id, user.perfil);
+// ------------------------------------------------------------
+// Modal novo usuário
+// ------------------------------------------------------------
+function NovoUsuarioModal({ open, onClose, onCriado }: { open: boolean; onClose: () => void; onCriado: () => void }) {
+  const [form, setForm] = useState({ nome: "", email: "", perfil: "Colaborador", status: "ativo", senha: "", confirmar: "" });
+  const [erro, setErro] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErro("");
+    if (!form.nome.trim() || !form.email.trim() || !form.senha) { setErro("Preencha todos os campos obrigatórios."); return; }
+    if (form.senha !== form.confirmar) { setErro("As senhas não coincidem."); return; }
+    if (form.senha.length < 6) { setErro("A senha deve ter pelo menos 6 caracteres."); return; }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({ email: form.email.trim(), password: form.senha });
+      if (error) { setErro(error.message); setLoading(false); return; }
+      const uid = data.user?.id;
+      if (uid) {
+        const permissoes = permissoesDoPerfil(form.perfil);
+        const { error: pe } = await supabase.from("profiles").upsert({
+          id: uid, nome: form.nome.trim(), email: form.email.trim(),
+          perfil: form.perfil, status: form.status, permissoes, paineis: {},
+        });
+        if (pe) { setErro("Conta criada no Auth, mas falhou ao gravar o perfil: " + pe.message); setLoading(false); return; }
+      }
+      toast.success("Usuário cadastrado com sucesso!");
+      onCriado();
+      onClose();
+    } catch (err: any) {
+      setErro(err.message ?? "Erro inesperado.");
+    }
+    setLoading(false);
+  }
+
   return (
-    <TableRow>
-      <TableCell className="font-semibold">
-        {user.nome}
-        <div className="text-xs font-normal text-muted-foreground">{user.perfil}</div>
-      </TableCell>
-      {MODULO_KEYS.map(m => {
-        const cell = acc.modulos[m];
-        const isAdminMod = m === "admin";
-        const disabled = isAdminMod && user.perfil !== "Administrador";
-        return (
-          <Fragment key={m}>
-            <TableCell className="text-center">
-              <Checkbox
-                checked={cell?.ver}
-                disabled={disabled}
-                onCheckedChange={v => accessActions.setModulo(user.id, user.perfil, m as ModuloKey, { ver: !!v })}
-              />
-            </TableCell>
-            <TableCell className="text-center">
-              <Checkbox
-                checked={cell?.editar}
-                disabled={disabled || !cell?.ver}
-                onCheckedChange={v => accessActions.setModulo(user.id, user.perfil, m as ModuloKey, { editar: !!v })}
-              />
-            </TableCell>
-          </Fragment>
-        );
-      })}
-      <TableCell className="text-right">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => accessActions.resetToPerfil(user.id)}
-          aria-label={`Restaurar padrão de ${user.nome}`}
-          className="text-[#213368] hover:bg-[#213368]/10 hover:text-[#213368]"
-          title="Restaurar padrão do perfil"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-      </TableCell>
-    </TableRow>
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Novo usuário</DialogTitle></DialogHeader>
+        <form className="grid gap-4" onSubmit={submit}>
+          <div className="grid gap-2"><label className="text-sm font-medium">Nome completo</label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Nome do colaborador" /></div>
+          <div className="grid gap-2"><label className="text-sm font-medium">E-mail</label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@grupogrdbrasil.com.br" /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Perfil</label>
+              <Select value={form.perfil} onValueChange={v => setForm({ ...form, perfil: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PERFIS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="ativo">Ativo</SelectItem><SelectItem value="inativo">Inativo</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-2"><label className="text-sm font-medium">Senha</label><Input type="password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="Mínimo 6 caracteres" /></div>
+          <div className="grid gap-2"><label className="text-sm font-medium">Confirmar senha</label><Input type="password" value={form.confirmar} onChange={e => setForm({ ...form, confirmar: e.target.value })} /></div>
+          {erro && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading} className="bg-[#F37032] text-white hover:bg-[#ff8850]">{loading ? "Cadastrando..." : "Cadastrar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function UserPainelRow({ user }: { user: Usuario }) {
-  const acc = useUserAccess(user.id, user.perfil);
+// ------------------------------------------------------------
+// Modal editar usuário
+// ------------------------------------------------------------
+function EditarUsuarioModal({ usuario, onClose, onSalvo }: { usuario: Usuario; onClose: () => void; onSalvo: () => void }) {
+  const [form, setForm] = useState({ nome: usuario.nome, perfil: usuario.perfil, status: usuario.status });
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    const permissoes = permissoesDoPerfil(form.perfil);
+    await supabase.from("profiles").update({ nome: form.nome, perfil: form.perfil, status: form.status, permissoes }).eq("id", usuario.id);
+    toast.success("Usuário atualizado.");
+    onSalvo();
+    onClose();
+    setLoading(false);
+  }
+
   return (
-    <TableRow>
-      <TableCell className="font-semibold">
-        {user.nome}
-        <div className="text-xs font-normal text-muted-foreground">{user.perfil}</div>
-      </TableCell>
-      {PAINEL_KEYS.map(p => {
-        const modOk = acc.modulos[PAINEL_MODULO[p]]?.ver ?? false;
-        const val = acc.paineis[p] ?? false;
-        return (
-          <TableCell key={p} className="text-center">
-            <Checkbox
-              checked={modOk && val}
-              disabled={!modOk}
-              onCheckedChange={v => accessActions.setPainel(user.id, p as PainelKey, !!v)}
-            />
-            {!modOk && <div className="mt-1 text-[10px] text-muted-foreground">bloqueado</div>}
-          </TableCell>
-        );
-      })}
-    </TableRow>
+    <Dialog open onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Editar usuário</DialogTitle></DialogHeader>
+        <form className="grid gap-4" onSubmit={submit}>
+          <div className="grid gap-2"><label className="text-sm font-medium">Nome completo</label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Perfil</label>
+              <Select value={form.perfil} onValueChange={v => setForm({ ...form, perfil: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PERFIS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="ativo">Ativo</SelectItem><SelectItem value="inativo">Inativo</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={loading} className="bg-[#F37032] text-white hover:bg-[#ff8850]">{loading ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
