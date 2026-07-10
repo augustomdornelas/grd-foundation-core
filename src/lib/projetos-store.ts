@@ -1,111 +1,212 @@
 // ============================================================
-// Store de Medições Comerciais — integração real com Supabase
-// Sincroniza com orcamentos-store (previsão de entrada)
+// Store de Projetos — integração real com Supabase
 // ============================================================
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type MedicaoStatus = "Lançada" | "Em aprovação" | "Recebida";
+export type ProjetoStatus = "Planejamento" | "Em andamento" | "Paralisado" | "Concluído";
 
-export type MedicaoComercial = {
+export type Projeto = {
   id: string;
-  orcamentoId: string;
-  numero: string;
-  data: string;
+  nome: string;
+  cliente: string;
+  local: string;
   descricao: string;
-  valor: number;
-  percentualFisico: number;
-  dataRecebimento: string;
-  status: MedicaoStatus;
-  observacoes: string;
+  responsavel: string;
+  dataInicio: string;
+  prazo: string;
+  status: ProjetoStatus;
+  progresso: number;
+  orcado: number;
 };
 
-const SSR: MedicaoComercial[] = [];
-let state: MedicaoComercial[] = SSR;
+export type Custo = {
+  id: string;
+  projetoId: string;
+  data: string;
+  descricao: string;
+  categoria: "Insumo" | "Serviço" | "Locação" | "Mão de obra" | "Outro";
+  valor: number;
+};
+
+export type NotaFiscal = {
+  id: string;
+  projetoId: string;
+  numero: string;
+  fornecedor: string;
+  descricao: string;
+  data: string;
+  valor: number;
+  status: "Pendente" | "Pago" | "Cancelado";
+};
+
+export type Medicao = {
+  id: string;
+  projetoId: string;
+  numero: number;
+  periodo: string;
+  data: string;
+  pct: number;
+  valor: number;
+  status: "Aprovada" | "Em análise" | "Enviada";
+};
+
+type State = {
+  projetos: Projeto[];
+  custos: Custo[];
+  notas: NotaFiscal[];
+  medicoes: Medicao[];
+};
+
+const SSR: State = { projetos: [], custos: [], notas: [], medicoes: [] };
+let state: State = SSR;
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach(l => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 
 async function fetchAll() {
-  const { data } = await supabase
-    .from("medicoes")
-    .select("*")
-    .order("data", { ascending: false });
-  state = (data ?? []).map((r: any) => ({
-    id: r.id,
-    orcamentoId: r.orcamento_id ?? "",
-    numero: r.numero ?? "",
-    data: r.data ?? "",
-    descricao: r.descricao ?? "",
-    valor: r.valor ?? 0,
-    percentualFisico: r.percentual_fisico ?? 0,
-    dataRecebimento: r.data_recebimento ?? "",
-    status: r.status ?? "Lançada",
-    observacoes: r.observacoes ?? "",
-  }));
+  const [p, c, n, m] = await Promise.all([
+    supabase.from("projetos").select("*").order("created_at", { ascending: false }),
+    supabase.from("custos").select("*").order("data", { ascending: false }),
+    supabase.from("notas_fiscais").select("*").order("data", { ascending: false }),
+    supabase.from("medicoes").select("*").order("data", { ascending: false }),
+  ]);
+  state = {
+    projetos: (p.data ?? []).map((r: any) => ({
+      id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
+      local: r.local ?? "", descricao: r.descricao ?? "",
+      responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
+      prazo: r.prazo ?? "", status: r.status ?? "Planejamento",
+      progresso: r.progresso ?? 0, orcado: r.orcado ?? 0,
+    })),
+    custos: (c.data ?? []).map((r: any) => ({
+      id: r.id, projetoId: r.projeto_id ?? "", data: r.data ?? "",
+      descricao: r.descricao ?? "", categoria: r.categoria ?? "Outro",
+      valor: r.valor ?? 0,
+    })),
+    notas: (n.data ?? []).map((r: any) => ({
+      id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? "",
+      fornecedor: r.fornecedor ?? "", descricao: r.descricao ?? "",
+      data: r.data ?? "", valor: r.valor ?? 0, status: r.status ?? "Pendente",
+    })),
+    medicoes: (m.data ?? []).map((r: any) => ({
+      id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? 0,
+      periodo: r.periodo ?? "", data: r.data ?? "",
+      pct: r.pct ?? 0, valor: r.valor ?? 0, status: r.status ?? "Em análise",
+    })),
+  };
   emit();
 }
 
 if (typeof window !== "undefined") void fetchAll();
 
-export function useMedicoesComercial(): MedicaoComercial[] {
-  return useSyncExternalStore(subscribe, () => state, () => SSR);
+export function useProjetosStore<T>(selector: (s: State) => T): T {
+  return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
 }
 
-export function useMedicoesPorOrcamento(orcamentoId: string): MedicaoComercial[] {
-  return useSyncExternalStore(
-    subscribe,
-    () => state.filter(m => m.orcamentoId === orcamentoId),
-    () => [],
-  );
+function uid(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
 }
 
-function uid() {
-  return `MED-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
-}
-
-export function proximoNumeroMedicao(orcamentoId: string): string {
-  const existing = state.filter(m => m.orcamentoId === orcamentoId);
-  return `MED-${String(existing.length + 1).padStart(3, "0")}`;
-}
-
-export const medicoesComercialActions = {
-  async criar(input: Omit<MedicaoComercial, "id">) {
-    const id = uid();
-    const nova = { ...input, id };
-    state = [nova, ...state];
+export const projetosActions = {
+  criarProjeto(input: Omit<Projeto, "id"> & { id?: string }) {
+    const id = input.id || uid("P");
+    state = { ...state, projetos: [...state.projetos, { ...input, id }] };
     emit();
-    await supabase.from("medicoes").insert({
-      id,
-      orcamento_id: input.orcamentoId,
-      numero: input.numero,
-      data: input.data,
-      descricao: input.descricao,
-      valor: input.valor,
-      percentual_fisico: input.percentualFisico,
-      data_recebimento: input.dataRecebimento,
-      status: input.status,
-      observacoes: input.observacoes,
+    void supabase.from("projetos").insert({
+      id, nome: input.nome, cliente: input.cliente, local: input.local,
+      descricao: input.descricao, responsavel: input.responsavel,
+      data_inicio: input.dataInicio, prazo: input.prazo,
+      status: input.status, progresso: input.progresso, orcado: input.orcado,
     });
     return id;
   },
-  async atualizar(id: string, patch: Partial<MedicaoComercial>) {
-    state = state.map(m => m.id === id ? { ...m, ...patch } : m);
+  atualizarProjeto(id: string, patch: Partial<Projeto>) {
+    state = { ...state, projetos: state.projetos.map(p => p.id === id ? { ...p, ...patch } : p) };
     emit();
     const row: Record<string, unknown> = {};
-    if (patch.numero !== undefined) row.numero = patch.numero;
-    if (patch.data !== undefined) row.data = patch.data;
+    if (patch.nome !== undefined) row.nome = patch.nome;
+    if (patch.cliente !== undefined) row.cliente = patch.cliente;
+    if (patch.local !== undefined) row.local = patch.local;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
-    if (patch.valor !== undefined) row.valor = patch.valor;
-    if (patch.percentualFisico !== undefined) row.percentual_fisico = patch.percentualFisico;
-    if (patch.dataRecebimento !== undefined) row.data_recebimento = patch.dataRecebimento;
+    if (patch.responsavel !== undefined) row.responsavel = patch.responsavel;
+    if (patch.dataInicio !== undefined) row.data_inicio = patch.dataInicio;
+    if (patch.prazo !== undefined) row.prazo = patch.prazo;
     if (patch.status !== undefined) row.status = patch.status;
-    if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
-    await supabase.from("medicoes").update(row).eq("id", id);
+    if (patch.progresso !== undefined) row.progresso = patch.progresso;
+    if (patch.orcado !== undefined) row.orcado = patch.orcado;
+    void supabase.from("projetos").update(row).eq("id", id);
   },
-  async excluir(id: string) {
-    state = state.filter(m => m.id !== id);
+  excluirProjeto(id: string) {
+    state = {
+      projetos: state.projetos.filter(p => p.id !== id),
+      custos: state.custos.filter(c => c.projetoId !== id),
+      notas: state.notas.filter(n => n.projetoId !== id),
+      medicoes: state.medicoes.filter(m => m.projetoId !== id),
+    };
     emit();
-    await supabase.from("medicoes").delete().eq("id", id);
+    void supabase.from("projetos").delete().eq("id", id);
+  },
+  adicionarCusto(c: Omit<Custo, "id">) {
+    const id = uid("C");
+    state = { ...state, custos: [...state.custos, { ...c, id }] };
+    emit();
+    void supabase.from("custos").insert({
+      id, projeto_id: c.projetoId, data: c.data,
+      descricao: c.descricao, categoria: c.categoria, valor: c.valor,
+    });
+  },
+  excluirCusto(id: string) {
+    state = { ...state, custos: state.custos.filter(c => c.id !== id) };
+    emit();
+    void supabase.from("custos").delete().eq("id", id);
+  },
+  adicionarNota(n: Omit<NotaFiscal, "id">) {
+    const id = uid("N");
+    state = { ...state, notas: [...state.notas, { ...n, id }] };
+    emit();
+    void supabase.from("notas_fiscais").insert({
+      id, projeto_id: n.projetoId, numero: n.numero, fornecedor: n.fornecedor,
+      descricao: n.descricao, data: n.data, valor: n.valor, status: n.status,
+    });
+  },
+  excluirNota(id: string) {
+    state = { ...state, notas: state.notas.filter(n => n.id !== id) };
+    emit();
+    void supabase.from("notas_fiscais").delete().eq("id", id);
+  },
+  adicionarMedicao(m: Omit<Medicao, "id">) {
+    const id = uid("M");
+    const nova = { ...m, id };
+    state = { ...state, medicoes: [...state.medicoes, nova] };
+    const proj = state.projetos.find(p => p.id === m.projetoId);
+    if (proj && m.pct > proj.progresso) {
+      state = { ...state, projetos: state.projetos.map(p => p.id === m.projetoId ? { ...p, progresso: m.pct } : p) };
+      void supabase.from("projetos").update({ progresso: m.pct }).eq("id", m.projetoId);
+    }
+    emit();
+    void supabase.from("medicoes").insert({
+      id, projeto_id: m.projetoId, numero: m.numero, periodo: m.periodo,
+      data: m.data, pct: m.pct, valor: m.valor, status: m.status,
+    });
+  },
+  excluirMedicao(id: string) {
+    state = { ...state, medicoes: state.medicoes.filter(m => m.id !== id) };
+    emit();
+    void supabase.from("medicoes").delete().eq("id", id);
   },
 };
+
+export function resumoProjeto(id: string, s: State) {
+  const custos = s.custos.filter(c => c.projetoId === id);
+  const notas = s.notas.filter(n => n.projetoId === id);
+  const medicoes = s.medicoes.filter(m => m.projetoId === id);
+  const gastoCustos = custos.reduce((a, c) => a + c.valor, 0);
+  const gastoNotas = notas.reduce((a, n) => a + n.valor, 0);
+  const gasto = gastoCustos + gastoNotas;
+  const medido = medicoes.reduce((a, m) => a + m.valor, 0);
+  const proj = s.projetos.find(p => p.id === id);
+  const orcado = proj?.orcado ?? 0;
+  const financeiro = orcado > 0 ? Math.min(100, Math.round((gasto / orcado) * 100)) : 0;
+  return { custos, notas, medicoes, gasto, medido, orcado, financeiro, saldo: orcado - gasto };
+}
