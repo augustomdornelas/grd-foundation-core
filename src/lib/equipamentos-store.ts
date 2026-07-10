@@ -137,7 +137,7 @@ export const equipActions = {
       unidade_periodo: input.unidade, status: input.status,
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
-    });
+    }.then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   atualizarEquipamento(id: string, patch: Partial<Equipamento>) {
@@ -155,7 +155,7 @@ export const equipActions = {
     if (patch.localBase !== undefined) row.local_base = patch.localBase;
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
-    void supabase.from("equipamentos").update(row).eq("id", id);
+    void supabase.from("equipamentos").update(row).eq("id", id.then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirEquipamento(id: string) {
     state = {
@@ -164,7 +164,7 @@ export const equipActions = {
       manutencoes: state.manutencoes.filter(m => m.equipamentoId !== id),
     };
     emit();
-    void supabase.from("equipamentos").delete().eq("id", id);
+    void supabase.from("equipamentos").delete().eq("id", id.then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">) {
     const id = uid("EM");
@@ -187,10 +187,10 @@ export const equipActions = {
       data_devolucao_prevista: input.dataDevolucaoPrevista,
       custo_periodo: input.custoPeriodo, unidade: input.unidade,
       observacoes: input.observacoes ?? null, custo_total: custoTotal, ativo: true,
-    });
+    }.then(({ error }) => toastErr("Erro ao salvar no banco", error));
     void supabase.from("equipamentos").update({
       status: "Emprestado", local_atual: input.destino, responsavel_atual: input.responsavel,
-    }).eq("id", input.equipamentoId);
+    }).eq("id", input.equipamentoId.then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   registrarDevolucao(emprestimoId: string, dataReal: string) {
@@ -212,11 +212,11 @@ export const equipActions = {
     emit();
     void supabase.from("emprestimos").update({
       data_devolucao_real: dataReal, custo_total: custoFinal, ativo: false,
-    }).eq("id", emprestimoId);
+    }).eq("id", emprestimoId.then(({ error }) => toastErr("Erro ao salvar no banco", error));
     const equip = state.equipamentos.find(e => e.id === emp.equipamentoId);
     void supabase.from("equipamentos").update({
       status: "Disponível", local_atual: equip?.localBase ?? "", responsavel_atual: null,
-    }).eq("id", emp.equipamentoId);
+    }).eq("id", emp.equipamentoId.then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   registrarManutencao(input: Omit<Manutencao, "id">) {
     const id = uid("MAN");
@@ -231,8 +231,8 @@ export const equipActions = {
     void supabase.from("manutencoes").insert({
       id, equipamento_id: input.equipamentoId, data: input.data,
       descricao: input.descricao, custo: input.custo, aberta: true,
-    });
-    void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId);
+    }.then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId.then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   fecharManutencao(id: string, dataFim: string) {
     const man = state.manutencoes.find(m => m.id === id);
@@ -245,7 +245,7 @@ export const equipActions = {
       ),
     };
     emit();
-    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false }).eq("id", id);
-    void supabase.from("equipamentos").update({ status: "Disponível" }).eq("id", man.equipamentoId);
+    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false }).eq("id", id.then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("equipamentos").update({ status: "Disponível" }).eq("id", man.equipamentoId.then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
 };
