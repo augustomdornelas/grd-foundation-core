@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  PieChart, Pie, Cell, BarChart, LineChart,
+  PieChart, Pie, Cell, LineChart,
 } from "recharts";
 import {
   useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, ESTAGIO_LIST, RESPONSAVEIS,
@@ -41,6 +41,56 @@ const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","
 function brl(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
+
+// "1.500,50" | "1500.50" | "1500,50" | "1500" -> 1500.5
+function parseValorBR(s: string): number {
+  if (!s) return 0;
+  const t = String(s).trim().replace(/\s|R\$/g, "");
+  // se tem vírgula, assume BR: pontos = milhar, vírgula = decimal
+  const norm = t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t;
+  const n = Number(norm);
+  return isNaN(n) ? 0 : n;
+}
+
+// ISO "2025-01-31" <-> BR "31/01/2025"
+function isoToBR(iso: string): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+function brToISO(br: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(br.trim());
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+function maskBRDate(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`;
+  return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`;
+}
+
+function DateBRInput({ value, onChange, ...rest }: {
+  value: string; onChange: (iso: string) => void;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const [text, setText] = useState(isoToBR(value));
+  // sincroniza quando value externo muda
+  useMemo(() => { setText(isoToBR(value)); }, [value]);
+  return (
+    <Input
+      {...rest}
+      inputMode="numeric"
+      placeholder="dd/mm/aaaa"
+      value={text}
+      onChange={(e) => {
+        const masked = maskBRDate(e.target.value);
+        setText(masked);
+        const iso = brToISO(masked);
+        if (iso || masked === "") onChange(iso);
+      }}
+    />
+  );
+}
+
 
 function Comercial() {
   const orcamentos = useOrcamentos(s => s);
@@ -275,41 +325,6 @@ function Comercial() {
         </Card>
       </div>
 
-      {/* Gráficos linha 2 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Por área de atuação</div>
-          <div className="mt-4 h-72">
-            {metricas.porTipo.some(t => t.valor > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metricas.porTipo} layout="vertical" margin={{ left: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis type="number" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-                  <YAxis type="category" dataKey="tipo" stroke="#6E7280" fontSize={11} width={140} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="valor" fill="#213368" radius={[0,6,6,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Por responsável</div>
-          <div className="mt-4 h-72">
-            {metricas.porResp.some(r => r.valor > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metricas.porResp}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="responsavel" stroke="#6E7280" fontSize={12} />
-                  <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="valor" name="Valor" fill="#F37032" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-      </div>
 
       {/* Gráficos linha 3 */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -514,7 +529,8 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.cliente.trim() || !form.obra.trim() || !form.valor || Number(form.valor) <= 0) {
+    const valorNum = parseValorBR(form.valor);
+    if (!form.cliente.trim() || !form.obra.trim() || valorNum <= 0) {
       setErro("Cliente, obra e valor são obrigatórios.");
       return;
     }
@@ -525,7 +541,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       tipo: form.tipo as TipoServico,
       obra: form.obra.trim(),
       descricao: form.descricao.trim(),
-      valor: Number(form.valor),
+      valor: valorNum,
       responsavel: form.responsavel.trim(),
       data: form.data,
       validade: form.validade,
@@ -534,6 +550,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
     };
+
     if (editing && orcamento) {
       orcamentosActions.atualizar(orcamento.id, payload);
       toast.success("Orçamento atualizado.");
@@ -550,7 +567,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
         <DialogHeader><DialogTitle>{editing ? "Editar orçamento" : "Novo orçamento"}</DialogTitle></DialogHeader>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
           <Campo label="Nº do orçamento"><Input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} /></Campo>
-          <Campo label="Data de emissão"><Input type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })} /></Campo>
+          <Campo label="Data de emissão"><DateBRInput value={form.data} onChange={iso => setForm({ ...form, data: iso })} /></Campo>
           <Campo label="Cliente *"><Input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} placeholder="Nome do cliente" /></Campo>
           <Campo label="Técnico responsável"><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="Nome do técnico responsável" /></Campo>
           <Campo label="Tipo de serviço">
@@ -561,7 +578,9 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
           </Campo>
           <Campo label="Obra *" className="md:col-span-2"><Input value={form.obra} onChange={e => setForm({ ...form, obra: e.target.value })} placeholder="Descrição da obra" /></Campo>
           <Campo label="Descrição" className="md:col-span-2"><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></Campo>
-          <Campo label="Valor estimado (R$) *"><Input type="number" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></Campo>
+          <Campo label="Valor estimado (R$) *"><Input inputMode="decimal" placeholder="1.500,50" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></Campo>
+
+
           <Campo label="Status">
             <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -600,7 +619,7 @@ function defaults(o?: Orcamento) {
     tipo: (o?.tipo ?? "") as string,
     obra: o?.obra ?? "",
     descricao: o?.descricao ?? "",
-    valor: o?.valor ? String(o.valor) : "",
+    valor: o?.valor ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
