@@ -130,7 +130,7 @@ export const medicoesActions = {
       data_recebimento: input.previsaoRecebimento ?? "",
       status: input.status,
       observacoes: input.observacoes,
-    }.then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   atualizar(id: string, patch: Partial<Medicao>) {
@@ -146,11 +146,11 @@ export const medicoesActions = {
     if (patch.dataRecebimento !== undefined) row.data_recebimento = patch.dataRecebimento;
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
-    void supabase.from("medicoes").update(row).eq("id", id.then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("medicoes").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluir(id: string) {
     state = state.filter(m => m.id !== id);
     emit();
-    void supabase.from("medicoes").delete().eq("id", id.then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("medicoes").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
 };
