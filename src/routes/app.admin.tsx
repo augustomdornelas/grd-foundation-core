@@ -491,7 +491,10 @@ function Admin() {
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Cadastrar</Button>
+              <Button type="submit" disabled={submitting} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? "Criando..." : "Cadastrar"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
