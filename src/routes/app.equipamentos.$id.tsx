@@ -63,7 +63,7 @@ function EquipDetalhe() {
   const salvarManutencao = () => {
     if (!mnDesc.trim()) return toast.error("Descreva a manutenção");
     equipActions.registrarManutencao({
-      equipamentoId: eq.id, data: mnData, descricao: mnDesc, custo: Number(mnCusto) || 0,
+      equipamentoId: eq.id, data: mnData, descricao: mnDesc, custo: Number(mnCusto) || 0, aberta: true,
     });
     toast.success("Manutenção registrada — equipamento marcado como Manutenção");
     setOpenMn(false); setMnDesc(""); setMnCusto("");
@@ -71,7 +71,7 @@ function EquipDetalhe() {
 
   const encerrarManut = (mnId: string) => {
     const hoje = new Date().toISOString().slice(0, 10);
-    equipActions.encerrarManutencao(mnId, hoje);
+    equipActions.fecharManutencao(mnId, hoje);
     toast.success("Manutenção encerrada");
   };
 
