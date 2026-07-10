@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2, Pencil, KeyRound, RotateCcw } from "lucide-react";
-import { usuarios as seedUsuarios } from "@/lib/mock-data";
+import { Plus, Trash2, Pencil, KeyRound, RotateCcw, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -22,19 +23,31 @@ import {
 import {
   accessActions, useUserAccess, MODULO_KEYS, MODULO_LABEL,
   PAINEL_KEYS, PAINEL_LABEL, PAINEL_MODULO,
+  defaultModulosDoPerfil, defaultPaineisDoPerfil,
 } from "@/lib/access-store";
 import type { ModuloKey } from "@/lib/current-user";
 import type { PainelKey } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-type Usuario = { id: number; nome: string; email: string; perfil: string; status: string };
+type Usuario = { id: string; nome: string; email: string; perfil: string; status: string };
 
 const perfis = ["Administrador", "Comercial", "Projetos", "Almoxarifado"] as const;
 
+// Cliente secundário só para criar contas: NÃO persiste sessão, então o
+// signUp do novo usuário não substitui a sessão do admin que está logado.
+const signupClient = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  { auth: { persistSession: false, autoRefreshToken: false, storageKey: "sb-signup-only" } },
+);
+
 function Admin() {
-  const [users, setUsers] = useState<Usuario[]>(seedUsuarios);
+  const [users, setUsers] = useState<Usuario[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
   const [editing, setEditing] = useState<Usuario | null>(null);
   const [editForm, setEditForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
@@ -48,6 +61,33 @@ function Admin() {
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [showPwdEdit, setShowPwdEdit] = useState(false);
   const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingUsers(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome, email, perfil, status")
+        .order("nome", { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        setLoadError(error.message);
+        setUsers([]);
+      } else {
+        setLoadError(null);
+        setUsers((data ?? []).map((r: any) => ({
+          id: String(r.id),
+          nome: r.nome ?? "",
+          email: r.email ?? "",
+          perfil: r.perfil ?? "Colaborador",
+          status: r.status ?? "Ativo",
+        })));
+      }
+      setLoadingUsers(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const openNew = () => {
     setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
