@@ -2,7 +2,12 @@
 // Store de Projetos — integração real com Supabase
 // ============================================================
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+function toastErr(msg: string, err: { message?: string } | null | undefined) {
+  if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
+}
 
 export type ProjetoStatus = "Planejamento" | "Em andamento" | "Paralisado" | "Concluído";
 
@@ -71,6 +76,10 @@ async function fetchAll() {
     supabase.from("notas_fiscais").select("*").order("data", { ascending: false }),
     supabase.from("medicoes").select("*").order("data", { ascending: false }),
   ]);
+  toastErr("Falha ao carregar projetos", p.error);
+  toastErr("Falha ao carregar custos", c.error);
+  toastErr("Falha ao carregar notas fiscais", n.error);
+  toastErr("Falha ao carregar medições", m.error);
   state = {
     projetos: (p.data ?? []).map((r: any) => ({
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
@@ -118,7 +127,7 @@ export const projetosActions = {
       descricao: input.descricao, responsavel: input.responsavel,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
-    });
+    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   atualizarProjeto(id: string, patch: Partial<Projeto>) {
@@ -135,7 +144,7 @@ export const projetosActions = {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.progresso !== undefined) row.progresso = patch.progresso;
     if (patch.orcado !== undefined) row.orcado = patch.orcado;
-    void supabase.from("projetos").update(row).eq("id", id);
+    void supabase.from("projetos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirProjeto(id: string) {
     state = {
@@ -145,7 +154,7 @@ export const projetosActions = {
       medicoes: state.medicoes.filter(m => m.projetoId !== id),
     };
     emit();
-    void supabase.from("projetos").delete().eq("id", id);
+    void supabase.from("projetos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   adicionarCusto(c: Omit<Custo, "id">) {
     const id = uid("C");
@@ -154,12 +163,12 @@ export const projetosActions = {
     void supabase.from("custos").insert({
       id, projeto_id: c.projetoId, data: c.data,
       descricao: c.descricao, categoria: c.categoria, valor: c.valor,
-    });
+    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirCusto(id: string) {
     state = { ...state, custos: state.custos.filter(c => c.id !== id) };
     emit();
-    void supabase.from("custos").delete().eq("id", id);
+    void supabase.from("custos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   adicionarNota(n: Omit<NotaFiscal, "id">) {
     const id = uid("N");
@@ -168,12 +177,12 @@ export const projetosActions = {
     void supabase.from("notas_fiscais").insert({
       id, projeto_id: n.projetoId, numero: n.numero, fornecedor: n.fornecedor,
       descricao: n.descricao, data: n.data, valor: n.valor, status: n.status,
-    });
+    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirNota(id: string) {
     state = { ...state, notas: state.notas.filter(n => n.id !== id) };
     emit();
-    void supabase.from("notas_fiscais").delete().eq("id", id);
+    void supabase.from("notas_fiscais").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   adicionarMedicao(m: Omit<Medicao, "id">) {
     const id = uid("M");
@@ -182,18 +191,18 @@ export const projetosActions = {
     const proj = state.projetos.find(p => p.id === m.projetoId);
     if (proj && m.pct > proj.progresso) {
       state = { ...state, projetos: state.projetos.map(p => p.id === m.projetoId ? { ...p, progresso: m.pct } : p) };
-      void supabase.from("projetos").update({ progresso: m.pct }).eq("id", m.projetoId);
+      void supabase.from("projetos").update({ progresso: m.pct }).eq("id", m.projetoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     }
     emit();
     void supabase.from("medicoes").insert({
       id, projeto_id: m.projetoId, numero: m.numero, periodo: m.periodo,
       data: m.data, pct: m.pct, valor: m.valor, status: m.status,
-    });
+    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirMedicao(id: string) {
     state = { ...state, medicoes: state.medicoes.filter(m => m.id !== id) };
     emit();
-    void supabase.from("medicoes").delete().eq("id", id);
+    void supabase.from("medicoes").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
 };
 

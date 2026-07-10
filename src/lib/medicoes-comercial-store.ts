@@ -2,8 +2,13 @@
 // Store de Medições Comerciais — integração real com Supabase
 // ============================================================
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Orcamento } from "@/lib/orcamentos-store";
+
+function toastErr(msg: string, err: { message?: string } | null | undefined) {
+  if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
+}
 
 export type MedStatus = "Lançada" | "Em aprovação" | "Recebida" | "Prevista";
 
@@ -125,7 +130,7 @@ export const medicoesActions = {
       data_recebimento: input.previsaoRecebimento ?? "",
       status: input.status,
       observacoes: input.observacoes,
-    });
+    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   atualizar(id: string, patch: Partial<Medicao>) {
@@ -141,11 +146,11 @@ export const medicoesActions = {
     if (patch.dataRecebimento !== undefined) row.data_recebimento = patch.dataRecebimento;
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
-    void supabase.from("medicoes").update(row).eq("id", id);
+    void supabase.from("medicoes").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluir(id: string) {
     state = state.filter(m => m.id !== id);
     emit();
-    void supabase.from("medicoes").delete().eq("id", id);
+    void supabase.from("medicoes").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
 };
