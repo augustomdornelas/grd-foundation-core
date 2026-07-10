@@ -5,7 +5,12 @@
 // `orcamentos` do Supabase (protegida por Row Level Security).
 // ============================================================
 import { useMemo, useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+function toastErr(msg: string, err: { message?: string } | null | undefined) {
+  if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
+}
 
 export type OrcStatus =
     | "Aprovado"
