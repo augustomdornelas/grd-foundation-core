@@ -577,7 +577,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
           <Campo label="Obra *" className="md:col-span-2"><Input value={form.obra} onChange={e => setForm({ ...form, obra: e.target.value })} placeholder="Descrição da obra" /></Campo>
           <Campo label="Descrição" className="md:col-span-2"><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></Campo>
           <Campo label="Valor estimado (R$) *"><Input inputMode="decimal" placeholder="1.500,50" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></Campo>
-          <Campo label="Validade"><DateBRInput value={form.validade} onChange={iso => setForm({ ...form, validade: iso })} /></Campo>
+
 
           <Campo label="Status">
             <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
