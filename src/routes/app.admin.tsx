@@ -106,7 +106,7 @@ function Admin() {
     setShowPwd(true);
   };
 
-  const submitNew = (e: React.FormEvent) => {
+  const submitNew = async (e: React.FormEvent) => {
     e.preventDefault();
     const nome = form.nome.trim();
     const email = form.email.trim().toLowerCase();
@@ -115,13 +115,57 @@ function Admin() {
     if (users.some(u => u.email.toLowerCase() === email)) return setFormError("Já existe um usuário com esse e-mail.");
     if (form.senha.length < 8) return setFormError("A senha deve ter ao menos 8 caracteres.");
     if (form.senha !== form.confirmar) return setFormError("As senhas não coincidem.");
-    const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
-    const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
-    setUsers(prev => [...prev, novo]);
-    accessActions.resetToPerfil(id);
-    setCreatedInfo({ email, senha: form.senha });
-    setOpen(false);
+
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      // 1) Cria a conta no Supabase Auth (via cliente secundário para
+      //    não substituir a sessão do admin logado).
+      const { data: signUpData, error: signUpError } = await signupClient.auth.signUp({
+        email,
+        password: form.senha,
+      });
+      if (signUpError) {
+        const msg = signUpError.message.toLowerCase();
+        if (msg.includes("registered") || msg.includes("exists") || msg.includes("duplicate")) {
+          return setFormError("Já existe um usuário com esse e-mail.");
+        }
+        return setFormError(`Erro ao criar conta: ${signUpError.message}`);
+      }
+      const newUserId = signUpData.user?.id;
+      if (!newUserId) {
+        return setFormError("Conta criada, mas o Supabase não retornou o ID. Verifique se a confirmação de e-mail está desativada nas configurações de Auth.");
+      }
+
+      // 2) Insere o perfil com os dados do formulário e as permissões padrão do perfil.
+      const permissoesPadrao = {
+        modulos: defaultModulosDoPerfil(form.perfil),
+        paineis: defaultPaineisDoPerfil(form.perfil),
+      };
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: newUserId,
+        nome,
+        email,
+        perfil: form.perfil,
+        status: form.status,
+        permissoes: permissoesPadrao,
+      } as any);
+      if (profileError) {
+        return setFormError(`Conta criada no Auth, mas falhou ao gravar o perfil: ${profileError.message}`);
+      }
+
+      // 3) Atualiza a lista imediatamente.
+      setUsers(prev => [...prev, { id: newUserId, nome, email, perfil: form.perfil, status: form.status }]
+        .sort((a, b) => a.nome.localeCompare(b.nome)));
+      setCreatedInfo({ email, senha: form.senha });
+      setOpen(false);
+    } catch (err: any) {
+      setFormError(err?.message ?? "Erro inesperado ao criar usuário.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
 
   const confirmDelete = () => {
