@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { Plus, Trash2, Pencil, KeyRound, RotateCcw } from "lucide-react";
-import { usuarios as seedUsuarios } from "@/lib/mock-data";
+import { Plus, Trash2, Pencil, KeyRound, RotateCcw, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -22,19 +23,31 @@ import {
 import {
   accessActions, useUserAccess, MODULO_KEYS, MODULO_LABEL,
   PAINEL_KEYS, PAINEL_LABEL, PAINEL_MODULO,
+  defaultModulosDoPerfil, defaultPaineisDoPerfil,
 } from "@/lib/access-store";
 import type { ModuloKey } from "@/lib/current-user";
 import type { PainelKey } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-type Usuario = { id: number; nome: string; email: string; perfil: string; status: string };
+type Usuario = { id: string; nome: string; email: string; perfil: string; status: string };
 
 const perfis = ["Administrador", "Comercial", "Projetos", "Almoxarifado"] as const;
 
+// Cliente secundário só para criar contas: NÃO persiste sessão, então o
+// signUp do novo usuário não substitui a sessão do admin que está logado.
+const signupClient = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  { auth: { persistSession: false, autoRefreshToken: false, storageKey: "sb-signup-only" } },
+);
+
 function Admin() {
-  const [users, setUsers] = useState<Usuario[]>(seedUsuarios);
+  const [users, setUsers] = useState<Usuario[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [toDelete, setToDelete] = useState<Usuario | null>(null);
   const [editing, setEditing] = useState<Usuario | null>(null);
   const [editForm, setEditForm] = useState({ nome: "", email: "", perfil: "Comercial", status: "Ativo" });
@@ -48,6 +61,33 @@ function Admin() {
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [showPwdEdit, setShowPwdEdit] = useState(false);
   const [pwdResetInfo, setPwdResetInfo] = useState<{ email: string; senha: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingUsers(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, nome, email, perfil, status")
+        .order("nome", { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        setLoadError(error.message);
+        setUsers([]);
+      } else {
+        setLoadError(null);
+        setUsers((data ?? []).map((r: any) => ({
+          id: String(r.id),
+          nome: r.nome ?? "",
+          email: r.email ?? "",
+          perfil: r.perfil ?? "Colaborador",
+          status: r.status ?? "Ativo",
+        })));
+      }
+      setLoadingUsers(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const openNew = () => {
     setForm({ nome: "", email: "", perfil: "Comercial", status: "Ativo", senha: "", confirmar: "" });
@@ -66,7 +106,7 @@ function Admin() {
     setShowPwd(true);
   };
 
-  const submitNew = (e: React.FormEvent) => {
+  const submitNew = async (e: React.FormEvent) => {
     e.preventDefault();
     const nome = form.nome.trim();
     const email = form.email.trim().toLowerCase();
@@ -75,13 +115,57 @@ function Admin() {
     if (users.some(u => u.email.toLowerCase() === email)) return setFormError("Já existe um usuário com esse e-mail.");
     if (form.senha.length < 8) return setFormError("A senha deve ter ao menos 8 caracteres.");
     if (form.senha !== form.confirmar) return setFormError("As senhas não coincidem.");
-    const id = users.reduce((max, u) => Math.max(max, u.id), 0) + 1;
-    const novo: Usuario = { id, nome, email, perfil: form.perfil, status: form.status };
-    setUsers(prev => [...prev, novo]);
-    accessActions.resetToPerfil(id);
-    setCreatedInfo({ email, senha: form.senha });
-    setOpen(false);
+
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      // 1) Cria a conta no Supabase Auth (via cliente secundário para
+      //    não substituir a sessão do admin logado).
+      const { data: signUpData, error: signUpError } = await signupClient.auth.signUp({
+        email,
+        password: form.senha,
+      });
+      if (signUpError) {
+        const msg = signUpError.message.toLowerCase();
+        if (msg.includes("registered") || msg.includes("exists") || msg.includes("duplicate")) {
+          return setFormError("Já existe um usuário com esse e-mail.");
+        }
+        return setFormError(`Erro ao criar conta: ${signUpError.message}`);
+      }
+      const newUserId = signUpData.user?.id;
+      if (!newUserId) {
+        return setFormError("Conta criada, mas o Supabase não retornou o ID. Verifique se a confirmação de e-mail está desativada nas configurações de Auth.");
+      }
+
+      // 2) Insere o perfil com os dados do formulário e as permissões padrão do perfil.
+      const permissoesPadrao = {
+        modulos: defaultModulosDoPerfil(form.perfil),
+        paineis: defaultPaineisDoPerfil(form.perfil),
+      };
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: newUserId,
+        nome,
+        email,
+        perfil: form.perfil,
+        status: form.status,
+        permissoes: permissoesPadrao,
+      } as any);
+      if (profileError) {
+        return setFormError(`Conta criada no Auth, mas falhou ao gravar o perfil: ${profileError.message}`);
+      }
+
+      // 3) Atualiza a lista imediatamente.
+      setUsers(prev => [...prev, { id: newUserId, nome, email, perfil: form.perfil, status: form.status }]
+        .sort((a, b) => a.nome.localeCompare(b.nome)));
+      setCreatedInfo({ email, senha: form.senha });
+      setOpen(false);
+    } catch (err: any) {
+      setFormError(err?.message ?? "Erro inesperado ao criar usuário.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
 
 
   const confirmDelete = () => {
@@ -203,7 +287,21 @@ function Admin() {
                   </TableCell>
                 </TableRow>
               ))}
-              {users.length === 0 && (
+              {loadingUsers && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Carregando usuários...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loadingUsers && loadError && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-red-700">
+                    Erro ao carregar usuários: {loadError}
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loadingUsers && !loadError && users.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                     Nenhum usuário cadastrado.
@@ -393,7 +491,10 @@ function Admin() {
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit" className="bg-[#F37032] text-white hover:bg-[#ff8850]">Cadastrar</Button>
+              <Button type="submit" disabled={submitting} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? "Criando..." : "Cadastrar"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
