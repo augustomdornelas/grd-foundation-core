@@ -2,7 +2,12 @@
 // Store de Projetos — integração real com Supabase
 // ============================================================
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+function toastErr(msg: string, err: { message?: string } | null | undefined) {
+  if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
+}
 
 export type ProjetoStatus = "Planejamento" | "Em andamento" | "Paralisado" | "Concluído";
 

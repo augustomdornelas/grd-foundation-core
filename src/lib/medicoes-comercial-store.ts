@@ -2,8 +2,13 @@
 // Store de Medições Comerciais — integração real com Supabase
 // ============================================================
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Orcamento } from "@/lib/orcamentos-store";
+
+function toastErr(msg: string, err: { message?: string } | null | undefined) {
+  if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
+}
 
 export type MedStatus = "Lançada" | "Em aprovação" | "Recebida" | "Prevista";
 
