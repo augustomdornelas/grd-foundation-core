@@ -76,6 +76,10 @@ async function fetchAll() {
     supabase.from("notas_fiscais").select("*").order("data", { ascending: false }),
     supabase.from("medicoes").select("*").order("data", { ascending: false }),
   ]);
+  toastErr("Falha ao carregar projetos", p.error);
+  toastErr("Falha ao carregar custos", c.error);
+  toastErr("Falha ao carregar notas fiscais", n.error);
+  toastErr("Falha ao carregar medições", m.error);
   state = {
     projetos: (p.data ?? []).map((r: any) => ({
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
