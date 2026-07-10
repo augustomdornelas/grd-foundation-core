@@ -565,7 +565,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
         <DialogHeader><DialogTitle>{editing ? "Editar orçamento" : "Novo orçamento"}</DialogTitle></DialogHeader>
         <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
           <Campo label="Nº do orçamento"><Input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} /></Campo>
-          <Campo label="Data de emissão"><Input type="date" value={form.data} onChange={e => setForm({ ...form, data: e.target.value })} /></Campo>
+          <Campo label="Data de emissão"><DateBRInput value={form.data} onChange={iso => setForm({ ...form, data: iso })} /></Campo>
           <Campo label="Cliente *"><Input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} placeholder="Nome do cliente" /></Campo>
           <Campo label="Técnico responsável"><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="Nome do técnico responsável" /></Campo>
           <Campo label="Tipo de serviço">
