@@ -42,6 +42,56 @@ function brl(n: number) {
   return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
 
+// "1.500,50" | "1500.50" | "1500,50" | "1500" -> 1500.5
+function parseValorBR(s: string): number {
+  if (!s) return 0;
+  const t = String(s).trim().replace(/\s|R\$/g, "");
+  // se tem vírgula, assume BR: pontos = milhar, vírgula = decimal
+  const norm = t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t;
+  const n = Number(norm);
+  return isNaN(n) ? 0 : n;
+}
+
+// ISO "2025-01-31" <-> BR "31/01/2025"
+function isoToBR(iso: string): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+function brToISO(br: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(br.trim());
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+function maskBRDate(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`;
+  return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`;
+}
+
+function DateBRInput({ value, onChange, ...rest }: {
+  value: string; onChange: (iso: string) => void;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const [text, setText] = useState(isoToBR(value));
+  // sincroniza quando value externo muda
+  useMemo(() => { setText(isoToBR(value)); }, [value]);
+  return (
+    <Input
+      {...rest}
+      inputMode="numeric"
+      placeholder="dd/mm/aaaa"
+      value={text}
+      onChange={(e) => {
+        const masked = maskBRDate(e.target.value);
+        setText(masked);
+        const iso = brToISO(masked);
+        if (iso || masked === "") onChange(iso);
+      }}
+    />
+  );
+}
+
+
 function Comercial() {
   const orcamentos = useOrcamentos(s => s);
 
