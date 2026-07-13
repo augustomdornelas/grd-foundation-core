@@ -796,15 +796,26 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
   const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
   const [status, setStatus] = useState<EquipStatus>(eq?.status ?? "Disponível");
   const [localBase, setLocalBase] = useState(eq?.localBase ?? "");
+  const [fotoUrl, setFotoUrl] = useState(eq?.fotoUrl ?? "");
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   if (!eq) return null;
+
+  const onSelecionarFoto = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Foto deve ter até 5MB");
+    setUploadingFoto(true);
+    const url = await equipActions.uploadFoto(equipamentoId, file);
+    if (url) { setFotoUrl(url); toast.success("Foto atualizada"); }
+    setUploadingFoto(false);
+  };
 
   const salvar = () => {
     if (!nome.trim() || !codigo.trim()) return toast.error("Preencha nome e código");
     equipActions.atualizarEquipamento(equipamentoId, {
       nome, codigo, categoria, descricao,
       valor: Number(valor) || 0, custoPeriodo: Number(custoPeriodo) || 0,
-      unidade, status, localBase,
+      unidade, status, localBase, fotoUrl: fotoUrl || undefined,
     });
     toast.success("Equipamento atualizado");
     onOpenChange(false);
