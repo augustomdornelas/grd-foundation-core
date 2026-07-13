@@ -228,18 +228,82 @@ function Comercial() {
   }
 
   function exportCSV() {
-    const header = ["Nº","Cliente","Técnico Responsável","Tipo","Obra","Valor","Responsável Comercial","Data","Status","Estágio","Probabilidade"];
-    const linhas = filtered.map(o => [
-      o.numero, o.cliente, o.cnpj, o.tipo, o.obra, o.valor, o.responsavel, o.data, o.status, o.estagio, `${o.probabilidade}%`,
+    const header = ["Nº", "Cliente", "Obra", "Valor (R$)", "Data", "Status", "Estágio", "Responsável Comercial", "Técnico Responsável", "Probabilidade"];
+    const fmtData = (iso: string) => {
+      if (!iso) return "";
+      const [y, m, d] = iso.slice(0, 10).split("-");
+      return d && m && y ? `${d}/${m}/${y}` : iso;
+    };
+    const dataRows = filtered.map(o => [
+      o.numero,
+      o.cliente,
+      o.obra,
+      Number(o.valor || 0),
+      fmtData(o.data),
+      o.status,
+      o.estagio,
+      o.responsavel,
+      o.cnpj,
+      (o.probabilidade || 0) / 100,
     ]);
-    const csv = [header, ...linhas].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `orcamentos-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    toast.success("CSV exportado.");
+    const totalValor = filtered.reduce((s, o) => s + (o.valor || 0), 0);
+    const qtd = filtered.length;
+    const ticket = qtd > 0 ? totalValor / qtd : 0;
+    const totalsRow = ["TOTAIS", `${qtd} orçamentos`, "", Number(totalValor.toFixed(2)), "", "", "", "", `Ticket médio: ${Number(ticket.toFixed(2))}`, ""];
+
+    const aoa: (string | number)[][] = [header, ...dataRows, [], totalsRow];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Column widths (auto-fit based on content)
+    const colWidths = header.map((h, i) => {
+      let max = String(h).length;
+      for (const row of aoa) {
+        const v = row[i];
+        if (v == null) continue;
+        const len = String(v).length;
+        if (len > max) max = len;
+      }
+      return { wch: Math.min(Math.max(max + 2, 10), 50) };
+    });
+    ws["!cols"] = colWidths;
+
+    // Formatting: header, alternating rows, currency and percentage
+    const range = XLSX.utils.decode_range(ws["!ref"]!);
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C });
+        const cell = ws[addr];
+        if (!cell) continue;
+        cell.s = cell.s || {};
+        if (R === 0) {
+          cell.s = {
+            fill: { patternType: "solid", fgColor: { rgb: "213368" } },
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            alignment: { horizontal: "center", vertical: "center" },
+          };
+        } else if (R === range.e.r) {
+          cell.s = {
+            fill: { patternType: "solid", fgColor: { rgb: "E5E7EB" } },
+            font: { bold: true, color: { rgb: "213368" } },
+          };
+          if (C === 3 && typeof cell.v === "number") cell.z = "#,##0.00";
+        } else if (R > 0 && R < range.e.r - 1) {
+          if (R % 2 === 0) {
+            cell.s = { fill: { patternType: "solid", fgColor: { rgb: "F4F4F4" } } };
+          }
+          if (C === 3 && typeof cell.v === "number") cell.z = "#,##0.00";
+          if (C === 9 && typeof cell.v === "number") cell.z = "0%";
+        }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orçamentos GRD");
+    const hoje = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `orcamentos-GRD-${hoje}.xlsx`);
+    toast.success("Excel exportado.");
   }
+
 
   return (
     <div className="space-y-6">
