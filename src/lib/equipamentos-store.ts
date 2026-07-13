@@ -25,6 +25,7 @@ export type Equipamento = {
   localBase: string;
   localAtual: string;
   responsavelAtual?: string;
+  fotoUrl?: string;
 };
 
 export type Emprestimo = {
