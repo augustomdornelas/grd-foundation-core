@@ -14,7 +14,175 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      emprestimos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          custo_periodo: number
+          custo_total: number
+          data_devolucao_prevista: string
+          data_devolucao_real: string | null
+          data_inicio: string
+          destino: string
+          equipamento_id: string
+          id: string
+          observacoes: string | null
+          responsavel: string
+          unidade: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          custo_periodo?: number
+          custo_total?: number
+          data_devolucao_prevista: string
+          data_devolucao_real?: string | null
+          data_inicio: string
+          destino?: string
+          equipamento_id: string
+          id: string
+          observacoes?: string | null
+          responsavel?: string
+          unidade?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          custo_periodo?: number
+          custo_total?: number
+          data_devolucao_prevista?: string
+          data_devolucao_real?: string | null
+          data_inicio?: string
+          destino?: string
+          equipamento_id?: string
+          id?: string
+          observacoes?: string | null
+          responsavel?: string
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipamentos: {
+        Row: {
+          categoria: string
+          codigo: string
+          created_at: string
+          custo_periodo: number
+          descricao: string
+          id: string
+          local_atual: string
+          local_base: string
+          nome: string
+          responsavel_atual: string | null
+          status: string
+          unidade_periodo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string
+          codigo: string
+          created_at?: string
+          custo_periodo?: number
+          descricao?: string
+          id: string
+          local_atual?: string
+          local_base?: string
+          nome: string
+          responsavel_atual?: string | null
+          status?: string
+          unidade_periodo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string
+          codigo?: string
+          created_at?: string
+          custo_periodo?: number
+          descricao?: string
+          id?: string
+          local_atual?: string
+          local_base?: string
+          nome?: string
+          responsavel_atual?: string | null
+          status?: string
+          unidade_periodo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      manutencoes: {
+        Row: {
+          aberta: boolean
+          created_at: string
+          custo: number
+          custo_mao_obra: number
+          custo_pecas: number
+          data: string
+          data_fim: string | null
+          data_fim_prevista: string | null
+          descricao: string
+          equipamento_id: string
+          id: string
+          observacoes: string | null
+          oficina: string
+          status: string
+          tipo: string
+        }
+        Insert: {
+          aberta?: boolean
+          created_at?: string
+          custo?: number
+          custo_mao_obra?: number
+          custo_pecas?: number
+          data: string
+          data_fim?: string | null
+          data_fim_prevista?: string | null
+          descricao?: string
+          equipamento_id: string
+          id: string
+          observacoes?: string | null
+          oficina?: string
+          status?: string
+          tipo?: string
+        }
+        Update: {
+          aberta?: boolean
+          created_at?: string
+          custo?: number
+          custo_mao_obra?: number
+          custo_pecas?: number
+          data?: string
+          data_fim?: string | null
+          data_fim_prevista?: string | null
+          descricao?: string
+          equipamento_id?: string
+          id?: string
+          observacoes?: string | null
+          oficina?: string
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manutencoes_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
