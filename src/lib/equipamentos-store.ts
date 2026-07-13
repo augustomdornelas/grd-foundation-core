@@ -281,36 +281,42 @@ export const equipActions = {
       ativo: true,
     };
 
-    const insertResult = await supabase
-      .from("emprestimos")
-      .insert(emprestimoPayload as any)
-      .select("*")
-      .single();
-    console.log("Supabase emprestimos insert retorno:", insertResult);
-    if (insertResult.error) {
-      toast.error(`Erro ao registrar empréstimo: ${insertResult.error.message}`);
-      return null;
-    }
+    try {
+      const insertResult = await supabase
+        .from("emprestimos")
+        .insert(emprestimoPayload as any)
+        .select("*")
+        .single();
+      console.log("Supabase emprestimos insert retorno:", insertResult);
+      if (insertResult.error) {
+        toast.error(`Erro ao registrar empréstimo: ${insertResult.error.message}`);
+        return null;
+      }
 
-    const updateEquipResult = await supabase
-      .from("equipamentos")
-      .update({
-        status: "Emprestado",
-        local_atual: input.destino,
-        responsavel_atual: input.responsavel,
-      } as any)
-      .eq("id", input.equipamentoId)
-      .select("*")
-      .single();
-    console.log("Supabase equipamentos update empréstimo retorno:", updateEquipResult);
-    if (updateEquipResult.error) {
-      toast.error(`Empréstimo salvo, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+      const updateEquipResult = await supabase
+        .from("equipamentos")
+        .update({
+          status: "Emprestado",
+          local_atual: input.destino,
+          responsavel_atual: input.responsavel,
+        } as any)
+        .eq("id", input.equipamentoId)
+        .select("*")
+        .single();
+      console.log("Supabase equipamentos update empréstimo retorno:", updateEquipResult);
+      if (updateEquipResult.error) {
+        toast.error(`Empréstimo salvo, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+        await fetchAll();
+        return null;
+      }
+
       await fetchAll();
+      return id;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "erro desconhecido";
+      toast.error(`Erro ao registrar empréstimo: ${message}`);
       return null;
     }
-
-    await fetchAll();
-    return id;
   },
   async registrarDevolucao(emprestimoId: string, dataReal: string, extra?: {
     respRetiradaNome?: string;
@@ -346,37 +352,43 @@ export const equipActions = {
     }
     const equip = state.equipamentos.find(e => e.id === emp.equipamentoId);
 
-    const updateEmprestimoResult = await supabase
-      .from("emprestimos")
-      .update(updatePayload as any)
-      .eq("id", emprestimoId)
-      .select("*")
-      .single();
-    console.log("Supabase emprestimos devolução update retorno:", updateEmprestimoResult);
-    if (updateEmprestimoResult.error) {
-      toast.error(`Erro ao registrar devolução: ${updateEmprestimoResult.error.message}`);
-      return false;
-    }
+    try {
+      const updateEmprestimoResult = await supabase
+        .from("emprestimos")
+        .update(updatePayload as any)
+        .eq("id", emprestimoId)
+        .select("*")
+        .single();
+      console.log("Supabase emprestimos devolução update retorno:", updateEmprestimoResult);
+      if (updateEmprestimoResult.error) {
+        toast.error(`Erro ao registrar devolução: ${updateEmprestimoResult.error.message}`);
+        return false;
+      }
 
-    const updateEquipResult = await supabase
-      .from("equipamentos")
-      .update({
-        status: "Disponível",
-        local_atual: equip?.localBase ?? "",
-        responsavel_atual: null,
-      } as any)
-      .eq("id", emp.equipamentoId)
-      .select("*")
-      .single();
-    console.log("Supabase equipamentos update devolução retorno:", updateEquipResult);
-    if (updateEquipResult.error) {
-      toast.error(`Devolução salva, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+      const updateEquipResult = await supabase
+        .from("equipamentos")
+        .update({
+          status: "Disponível",
+          local_atual: equip?.localBase ?? "",
+          responsavel_atual: null,
+        } as any)
+        .eq("id", emp.equipamentoId)
+        .select("*")
+        .single();
+      console.log("Supabase equipamentos update devolução retorno:", updateEquipResult);
+      if (updateEquipResult.error) {
+        toast.error(`Devolução salva, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+        await fetchAll();
+        return false;
+      }
+
       await fetchAll();
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "erro desconhecido";
+      toast.error(`Erro ao registrar devolução: ${message}`);
       return false;
     }
-
-    await fetchAll();
-    return true;
   },
   registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
     const id = uid("MAN");
