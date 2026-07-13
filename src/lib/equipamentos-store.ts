@@ -42,14 +42,24 @@ export type Emprestimo = {
   ativo: boolean;
 };
 
+export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
+export type ManutencaoStatus = "Aberta" | "Em andamento" | "Concluída";
+
 export type Manutencao = {
   id: string;
   equipamentoId: string;
+  tipo: ManutencaoTipo;
   data: string;
+  dataFimPrevista?: string;
   dataFim?: string;
   descricao: string;
-  custo: number;
-  aberta: boolean;
+  oficina: string;
+  custoPecas: number;
+  custoMaoObra: number;
+  custo: number; // total = peças + mão de obra
+  statusManut: ManutencaoStatus;
+  observacoes?: string;
+  aberta: boolean; // derivado: status !== "Concluída"
 };
 
 type State = {
