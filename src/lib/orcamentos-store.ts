@@ -88,7 +88,6 @@ export const ESTAGIO_LIST: EstagioFunil[] = [
     "Proposta enviada",
     "Em negocia\u00e7\u00e3o",
     "Aprovado",
-    "Contrato assinado",
   ];
 
 export const RESPONSAVEIS = [
