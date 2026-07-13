@@ -50,7 +50,7 @@ export type Manutencao = {
   equipamentoId: string;
   tipo: ManutencaoTipo;
   data: string;
-  dataFimPrevista?: string;
+  
   dataFim?: string;
   descricao: string;
   oficina: string;
