@@ -27,7 +27,7 @@ export type TipoServico =
   | "Frezamento";
 
 export type EstagioFunil =
-    | "Prospectado"
+    | "Levantamento"
   | "Proposta enviada"
   | "Em negocia\u00e7\u00e3o"
   | "Aprovado"
@@ -85,7 +85,7 @@ export const STATUS_LIST: OrcStatus[] = [
   ];
 
 export const ESTAGIO_LIST: EstagioFunil[] = [
-    "Prospectado",
+    "Levantamento",
     "Proposta enviada",
     "Em negocia\u00e7\u00e3o",
     "Aprovado",
@@ -145,7 +145,7 @@ function fromRow(r: OrcamentoRow): Orcamento {
           data: r.data_emissao ?? "",
           validade: r.prazo_validade ?? "",
           status: (r.status as OrcStatus) ?? "Em an\u00e1lise",
-          estagio: (r.estagio as EstagioFunil) ?? "Prospectado",
+          estagio: (r.estagio as EstagioFunil) ?? "Levantamento",
           probabilidade: r.probabilidade ?? 0,
           observacoes: r.observacoes ?? "",
           anexo: r.anexo ?? undefined,
