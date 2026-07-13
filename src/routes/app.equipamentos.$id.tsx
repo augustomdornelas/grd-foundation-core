@@ -26,6 +26,8 @@ import {
   type EquipStatus, type UnidadePeriodo, type ManutencaoTipo, type ManutencaoStatus,
 } from "@/lib/equipamentos-store";
 import { iconeCategoria } from "./app.equipamentos.index";
+import { gerarTermoPDF, type TermoData } from "@/lib/termo-pdf";
+import { FileText } from "lucide-react";
 
 export const Route = createFileRoute("/app/equipamentos/$id")({
   component: EquipDetalhe,
@@ -65,6 +67,9 @@ function EquipDetalhe() {
 
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
+  const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
+  const [obsDev, setObsDev] = useState("");
+  const [previewDev, setPreviewDev] = useState(false);
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -128,10 +133,36 @@ function EquipDetalhe() {
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
 
-  const devolver = (empId: string) => {
-    equipActions.registrarDevolucao(empId, dataReal);
+  const empDev = emprestimos.find(e => e.id === openDev) || null;
+  const numeroDoc = (prefix: string) => `${prefix}-${eq.codigo}-${Date.now().toString().slice(-6)}`;
+
+  const salvarDevolucao = (comPdf: boolean) => {
+    if (!empDev) return;
+    equipActions.registrarDevolucao(empDev.id, dataReal);
+    if (comPdf) {
+      const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
+      const custoFinal = periodoEfetivo * empDev.custoPeriodo;
+      const termo: TermoData = {
+        tipo: "devolucao",
+        numero: numeroDoc("DEV"),
+        emissao: new Date().toISOString().slice(0, 10),
+        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+        destino: empDev.destino,
+        responsavel: empDev.responsavel,
+        dataInicio: empDev.dataInicio,
+        dataDevolucaoReal: dataReal,
+        periodoEfetivo,
+        custoTotalFinal: custoFinal,
+        unidade: empDev.unidade,
+        condicao: condicaoDev,
+        observacoes: obsDev,
+      };
+      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+    }
     toast.success("Devolução registrada");
+    setPreviewDev(false);
     setOpenDev(null);
+    setObsDev("");
   };
 
   const encerrarManut = (mnId: string) => {
@@ -463,8 +494,8 @@ function EquipDetalhe() {
         </TabsContent>
       </Tabs>
 
-      {/* Devolução */}
-      <Dialog open={!!openDev} onOpenChange={(v) => { if (!v) setOpenDev(null); }}>
+      {/* Devolução — passo 1: data */}
+      <Dialog open={!!openDev && !previewDev} onOpenChange={(v) => { if (!v) setOpenDev(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Registrar devolução</DialogTitle></DialogHeader>
           <div className="grid gap-3">
@@ -476,10 +507,47 @@ function EquipDetalhe() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenDev(null)}>Cancelar</Button>
-            <Button onClick={() => openDev && devolver(openDev)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Confirmar</Button>
+            <Button onClick={() => setPreviewDev(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Continuar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Devolução — passo 2: preview do termo */}
+      <Dialog open={previewDev} onOpenChange={(v) => { if (!v) { setPreviewDev(false); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle className="text-[#213368]">Prévia — Termo de Devolução</DialogTitle></DialogHeader>
+          {empDev && (
+            <div className="grid gap-3">
+              <div className="grid gap-2 rounded-lg bg-[#F4F4F4] p-4 text-sm md:grid-cols-2">
+                <div><b className="text-[#213368]">Equipamento:</b> {eq.nome} ({eq.codigo})</div>
+                <div><b className="text-[#213368]">Categoria:</b> {eq.categoria}</div>
+                <div><b className="text-[#213368]">Destino:</b> {empDev.destino}</div>
+                <div><b className="text-[#213368]">Responsável:</b> {empDev.responsavel}</div>
+                <div><b className="text-[#213368]">Saída:</b> {fmtDate(empDev.dataInicio)}</div>
+                <div><b className="text-[#213368]">Devolução real:</b> {fmtDate(dataReal)}</div>
+                <div><b className="text-[#213368]">Período efetivo:</b> {periodos(empDev.dataInicio, dataReal, empDev.unidade)} {empDev.unidade}(s)</div>
+                <div><b className="text-[#213368]">Custo final:</b> <span className="text-[#F37032] font-semibold">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</span></div>
+              </div>
+              <div>
+                <Label>Condição do equipamento na devolução</Label>
+                <Textarea rows={3} value={condicaoDev} onChange={e => setCondicaoDev(e.target.value)} />
+              </div>
+              <div>
+                <Label>Observações</Label>
+                <Textarea rows={3} value={obsDev} onChange={e => setObsDev(e.target.value)} placeholder="Ex.: acessórios devolvidos, pendências, etc." />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreviewDev(false)}>Voltar</Button>
+            <Button variant="outline" onClick={() => salvarDevolucao(false)}>Salvar sem PDF</Button>
+            <Button onClick={() => salvarDevolucao(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+              <FileText className="mr-1 h-4 w-4" /> Gerar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Manutenção */}
       <ManutencaoDialog open={openMn} onOpenChange={setOpenMn} equipamentoId={eq.id} />
@@ -579,53 +647,109 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
   const [custo, setCusto] = useState<string>(eq ? String(eq.custoPeriodo) : "");
   const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
   const [obs, setObs] = useState("");
+  const [preview, setPreview] = useState(false);
 
   if (!eq) return null;
   const custoNum = Number(custo) || 0;
   const p = periodos(inicio, fim, unidade);
   const total = p * custoNum;
 
-  const salvar = () => {
+  const reset = () => {
+    setDestino(""); setResponsavel(""); setFim(""); setObs(""); setPreview(false);
+  };
+
+  const irParaPreview = () => {
     if (!destino.trim() || !responsavel.trim()) return toast.error("Informe destino e responsável");
     if (!inicio || !fim) return toast.error("Informe as datas");
+    setPreview(true);
+  };
+
+  const salvar = (comPdf: boolean) => {
     equipActions.registrarEmprestimo({
       equipamentoId, destino, responsavel, dataInicio: inicio, dataDevolucaoPrevista: fim,
       custoPeriodo: custoNum, unidade, observacoes: obs,
     });
+    if (comPdf) {
+      const termo: TermoData = {
+        tipo: "emprestimo",
+        numero: `EMP-${eq.codigo}-${Date.now().toString().slice(-6)}`,
+        emissao: new Date().toISOString().slice(0, 10),
+        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+        destino, responsavel,
+        dataInicio: inicio,
+        dataDevolucaoPrevista: fim,
+        custoPeriodo: custoNum,
+        unidade,
+        custoTotalPrevisto: total,
+        observacoes: obs,
+      };
+      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+    }
     toast.success("Empréstimo registrado");
     onOpenChange(false);
-    setDestino(""); setResponsavel(""); setFim(""); setObs("");
+    reset();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>Registrar empréstimo — {eq.nome}</DialogTitle></DialogHeader>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div><Label>Destino *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
-          <div><Label>Responsável *</Label><Input value={responsavel} onChange={e => setResponsavel(e.target.value)} /></div>
-          <div><Label>Data de início *</Label><Input type="date" value={inicio} onChange={e => setInicio(e.target.value)} /></div>
-          <div><Label>Devolução prevista *</Label><Input type="date" value={fim} onChange={e => setFim(e.target.value)} /></div>
-          <div><Label>Custo por período (R$)</Label><Input inputMode="numeric" value={custo} onChange={e => setCusto(e.target.value)} /></div>
-          <div>
-            <Label>Unidade</Label>
-            <Select value={unidade} onValueChange={v => setUnidade(v as UnidadePeriodo)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{UNIDADES.map(u => <SelectItem key={u} value={u}>por {u}</SelectItem>)}</SelectContent>
-            </Select>
+    <>
+      <Dialog open={open && !preview} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Registrar empréstimo — {eq.nome}</DialogTitle></DialogHeader>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div><Label>Destino *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
+            <div><Label>Responsável *</Label><Input value={responsavel} onChange={e => setResponsavel(e.target.value)} /></div>
+            <div><Label>Data de início *</Label><Input type="date" value={inicio} onChange={e => setInicio(e.target.value)} /></div>
+            <div><Label>Devolução prevista *</Label><Input type="date" value={fim} onChange={e => setFim(e.target.value)} /></div>
+            <div><Label>Custo por período (R$)</Label><Input inputMode="numeric" value={custo} onChange={e => setCusto(e.target.value)} /></div>
+            <div>
+              <Label>Unidade</Label>
+              <Select value={unidade} onValueChange={v => setUnidade(v as UnidadePeriodo)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{UNIDADES.map(u => <SelectItem key={u} value={u}>por {u}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2"><Label>Observações</Label><Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} /></div>
+            <div className="md:col-span-2 rounded-lg bg-[#F4F4F4] p-4 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Períodos ({unidade})</span><b>{p}</b></div>
+              <div className="mt-1 flex justify-between"><span className="text-muted-foreground">Custo total previsto</span><b className="text-[#213368]">{brl(total)}</b></div>
+            </div>
           </div>
-          <div className="md:col-span-2"><Label>Observações</Label><Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} /></div>
-          <div className="md:col-span-2 rounded-lg bg-[#F4F4F4] p-4 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Períodos ({unidade})</span><b>{p}</b></div>
-            <div className="mt-1 flex justify-between"><span className="text-muted-foreground">Custo total previsto</span><b className="text-[#213368]">{brl(total)}</b></div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={irParaPreview} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={preview} onOpenChange={(v) => { if (!v) setPreview(false); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle className="text-[#213368]">Prévia — Termo de Empréstimo</DialogTitle></DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-2 rounded-lg bg-[#F4F4F4] p-4 text-sm md:grid-cols-2">
+              <div><b className="text-[#213368]">Equipamento:</b> {eq.nome} ({eq.codigo})</div>
+              <div><b className="text-[#213368]">Categoria:</b> {eq.categoria}</div>
+              <div><b className="text-[#213368]">Destino/Obra:</b> {destino}</div>
+              <div><b className="text-[#213368]">Responsável:</b> {responsavel}</div>
+              <div><b className="text-[#213368]">Saída:</b> {inicio.split("-").reverse().join("/")}</div>
+              <div><b className="text-[#213368]">Devolução prev.:</b> {fim.split("-").reverse().join("/")}</div>
+              <div><b className="text-[#213368]">Custo/{unidade}:</b> {brl(custoNum)}</div>
+              <div><b className="text-[#213368]">Total previsto:</b> <span className="text-[#F37032] font-semibold">{brl(total)}</span></div>
+            </div>
+            <div>
+              <Label>Observações (aparecem no termo)</Label>
+              <Textarea rows={4} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ex.: acessórios inclusos, condições de uso, etc." />
+            </div>
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={salvar} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Registrar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreview(false)}>Voltar</Button>
+            <Button variant="outline" onClick={() => salvar(false)}>Salvar sem PDF</Button>
+            <Button onClick={() => salvar(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+              <FileText className="mr-1 h-4 w-4" /> Gerar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
