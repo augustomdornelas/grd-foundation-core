@@ -287,7 +287,6 @@ export const equipActions = {
     const row: Record<string, unknown> = {};
     if (patch.tipo !== undefined) row.tipo = patch.tipo;
     if (patch.data !== undefined) row.data = patch.data;
-    if (patch.data !== undefined) row.data = patch.data;
     if (patch.dataFim !== undefined) row.data_fim = patch.dataFim;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.oficina !== undefined) row.oficina = patch.oficina;
