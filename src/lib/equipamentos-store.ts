@@ -149,9 +149,17 @@ async function fetchAll() {
 
 if (typeof window !== "undefined") void fetchAll();
 
-export function useEquipStore<T>(selector: (s: State) => T): T {
-  return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
+// Retorna o snapshot inteiro (referência estável até um emit()).
+// Componentes derivam com useMemo — evita loops causados por selectors
+// que retornam novo array a cada render (find/filter).
+export function useEquipStore(): State {
+  return useSyncExternalStore(subscribe, () => state, () => SSR);
 }
+
+export async function refetchEquipamentos() {
+  await fetchAll();
+}
+
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
