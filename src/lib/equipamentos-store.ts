@@ -41,6 +41,15 @@ export type Emprestimo = {
   observacoes?: string;
   custoTotal: number;
   ativo: boolean;
+  // Devolução
+  respRetiradaNome?: string;
+  respRetiradaCpf?: string;
+  respRetiradaCargo?: string;
+  respEntregaNome?: string;
+  respEntregaCargo?: string;
+  condicaoDevolucao?: string;
+  observacoesDevolucao?: string;
+  numeroTermoDevolucao?: string;
 };
 
 export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
@@ -121,6 +130,14 @@ async function fetchAll() {
       unidade: (r.unidade ?? "dia") as UnidadePeriodo,
       observacoes: r.observacoes ?? undefined,
       custoTotal: r.custo_total ?? 0, ativo: r.ativo ?? true,
+      respRetiradaNome: r.resp_retirada_nome ?? undefined,
+      respRetiradaCpf: r.resp_retirada_cpf ?? undefined,
+      respRetiradaCargo: r.resp_retirada_cargo ?? undefined,
+      respEntregaNome: r.resp_entrega_nome ?? undefined,
+      respEntregaCargo: r.resp_entrega_cargo ?? undefined,
+      condicaoDevolucao: r.condicao_devolucao ?? undefined,
+      observacoesDevolucao: r.observacoes_devolucao ?? undefined,
+      numeroTermoDevolucao: r.numero_termo_devolucao ?? undefined,
     })),
     manutencoes: (man.data ?? []).map((r: any) => {
       const pecas = Number(r.custo_pecas ?? 0);
@@ -273,7 +290,16 @@ export const equipActions = {
     }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
-  registrarDevolucao(emprestimoId: string, dataReal: string) {
+  registrarDevolucao(emprestimoId: string, dataReal: string, extra?: {
+    respRetiradaNome?: string;
+    respRetiradaCpf?: string;
+    respRetiradaCargo?: string;
+    respEntregaNome?: string;
+    respEntregaCargo?: string;
+    condicaoDevolucao?: string;
+    observacoesDevolucao?: string;
+    numeroTermoDevolucao?: string;
+  }) {
     const emp = state.emprestimos.find(e => e.id === emprestimoId);
     if (!emp) return;
     const qtd = periodos(emp.dataInicio, dataReal, emp.unidade);
@@ -281,7 +307,9 @@ export const equipActions = {
     state = {
       ...state,
       emprestimos: state.emprestimos.map(e =>
-        e.id === emprestimoId ? { ...e, dataDevolucaoReal: dataReal, custoTotal: custoFinal, ativo: false } : e
+        e.id === emprestimoId
+          ? { ...e, dataDevolucaoReal: dataReal, custoTotal: custoFinal, ativo: false, ...(extra ?? {}) }
+          : e
       ),
       equipamentos: state.equipamentos.map(e =>
         e.id === emp.equipamentoId
@@ -290,9 +318,21 @@ export const equipActions = {
       ),
     };
     emit();
-    void supabase.from("emprestimos").update({
+    const updatePayload: Record<string, unknown> = {
       data_devolucao_real: dataReal, custo_total: custoFinal, ativo: false,
-    }).eq("id", emprestimoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    };
+    if (extra) {
+      if (extra.respRetiradaNome !== undefined) updatePayload.resp_retirada_nome = extra.respRetiradaNome;
+      if (extra.respRetiradaCpf !== undefined) updatePayload.resp_retirada_cpf = extra.respRetiradaCpf;
+      if (extra.respRetiradaCargo !== undefined) updatePayload.resp_retirada_cargo = extra.respRetiradaCargo;
+      if (extra.respEntregaNome !== undefined) updatePayload.resp_entrega_nome = extra.respEntregaNome;
+      if (extra.respEntregaCargo !== undefined) updatePayload.resp_entrega_cargo = extra.respEntregaCargo;
+      if (extra.condicaoDevolucao !== undefined) updatePayload.condicao_devolucao = extra.condicaoDevolucao;
+      if (extra.observacoesDevolucao !== undefined) updatePayload.observacoes_devolucao = extra.observacoesDevolucao;
+      if (extra.numeroTermoDevolucao !== undefined) updatePayload.numero_termo_devolucao = extra.numeroTermoDevolucao;
+    }
+    void supabase.from("emprestimos").update(updatePayload as any).eq("id", emprestimoId)
+      .then(({ error }) => toastErr("Erro ao salvar no banco", error));
     const equip = state.equipamentos.find(e => e.id === emp.equipamentoId);
     void supabase.from("equipamentos").update({
       status: "Disponível", local_atual: equip?.localBase ?? "", responsavel_atual: null,

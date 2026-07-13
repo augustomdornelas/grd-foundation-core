@@ -17,6 +17,7 @@ export type Database = {
       emprestimos: {
         Row: {
           ativo: boolean
+          condicao_devolucao: string | null
           created_at: string
           custo_periodo: number
           custo_total: number
@@ -26,12 +27,20 @@ export type Database = {
           destino: string
           equipamento_id: string
           id: string
+          numero_termo_devolucao: string | null
           observacoes: string | null
+          observacoes_devolucao: string | null
+          resp_entrega_cargo: string | null
+          resp_entrega_nome: string | null
+          resp_retirada_cargo: string | null
+          resp_retirada_cpf: string | null
+          resp_retirada_nome: string | null
           responsavel: string
           unidade: string
         }
         Insert: {
           ativo?: boolean
+          condicao_devolucao?: string | null
           created_at?: string
           custo_periodo?: number
           custo_total?: number
@@ -41,12 +50,20 @@ export type Database = {
           destino?: string
           equipamento_id: string
           id: string
+          numero_termo_devolucao?: string | null
           observacoes?: string | null
+          observacoes_devolucao?: string | null
+          resp_entrega_cargo?: string | null
+          resp_entrega_nome?: string | null
+          resp_retirada_cargo?: string | null
+          resp_retirada_cpf?: string | null
+          resp_retirada_nome?: string | null
           responsavel?: string
           unidade?: string
         }
         Update: {
           ativo?: boolean
+          condicao_devolucao?: string | null
           created_at?: string
           custo_periodo?: number
           custo_total?: number
@@ -56,7 +73,14 @@ export type Database = {
           destino?: string
           equipamento_id?: string
           id?: string
+          numero_termo_devolucao?: string | null
           observacoes?: string | null
+          observacoes_devolucao?: string | null
+          resp_entrega_cargo?: string | null
+          resp_entrega_nome?: string | null
+          resp_retirada_cargo?: string | null
+          resp_retirada_cpf?: string | null
+          resp_retirada_nome?: string | null
           responsavel?: string
           unidade?: string
         }

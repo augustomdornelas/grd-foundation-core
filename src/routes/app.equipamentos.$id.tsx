@@ -56,6 +56,13 @@ function diffDias(a: string, b: string) {
   const ms = new Date(b).getTime() - new Date(a).getTime();
   return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
 }
+function mascaraCpf(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  return d
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
 
 function EquipDetalhe() {
   const { id } = Route.useParams();
@@ -69,9 +76,22 @@ function EquipDetalhe() {
 
   // 2) Hooks de estado — TODOS antes de qualquer return condicional
   const [openDev, setOpenDev] = useState<string | null>(null);
+  const [openView, setOpenView] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
-  const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
+  const CONDICOES = [
+    "Devolvido em bom estado, sem avarias aparentes",
+    "Devolvido com avarias leves",
+    "Devolvido com avarias graves",
+    "Outro (especificar)",
+  ];
+  const [condicaoOpt, setCondicaoOpt] = useState<string>(CONDICOES[0]);
+  const [condicaoDev, setCondicaoDev] = useState(CONDICOES[0]);
   const [obsDev, setObsDev] = useState("");
+  const [respRetNome, setRespRetNome] = useState("");
+  const [respRetCpf, setRespRetCpf] = useState("");
+  const [respRetCargo, setRespRetCargo] = useState("");
+  const [respEntNome, setRespEntNome] = useState("");
+  const [respEntCargo, setRespEntCargo] = useState("");
   const [previewDev, setPreviewDev] = useState(false);
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
@@ -161,18 +181,53 @@ function EquipDetalhe() {
 
   const Ico = iconeCategoria(eq.categoria);
   const empDev = emprestimos.find(e => e.id === openDev) || null;
-  const numeroDoc = (prefix: string) => `${prefix}-${eq.codigo}-${Date.now().toString().slice(-6)}`;
+  const empView = emprestimos.find(e => e.id === openView) || null;
+  const numeroDoc = (prefix: string) => `${prefix}-GRD-${eq.codigo}-${Date.now().toString().slice(-6)}`;
 
+  const abrirDevolucao = (empId: string) => {
+    const emp = emprestimos.find(e => e.id === empId);
+    setOpenDev(empId);
+    setDataReal(new Date().toISOString().slice(0, 10));
+    setCondicaoOpt(CONDICOES[0]);
+    setCondicaoDev(CONDICOES[0]);
+    setObsDev("");
+    setRespRetNome(emp?.responsavel ?? "");
+    setRespRetCpf("");
+    setRespRetCargo("");
+    setRespEntNome("");
+    setRespEntCargo("");
+  };
+
+  const condicaoFinal = () => (condicaoOpt === "Outro (especificar)" ? condicaoDev : condicaoOpt);
 
   const salvarDevolucao = (comPdf: boolean) => {
     if (!empDev) return;
-    equipActions.registrarDevolucao(empDev.id, dataReal);
+    if (!respRetNome.trim() || !respRetCpf.trim()) {
+      toast.error("Informe nome e CPF do responsável pela retirada");
+      return;
+    }
+    if (!respEntNome.trim() || !respEntCargo.trim()) {
+      toast.error("Informe nome e cargo do responsável GRD");
+      return;
+    }
+    const numeroTermo = numeroDoc("DEV");
+    const condicao = condicaoFinal();
+    equipActions.registrarDevolucao(empDev.id, dataReal, {
+      respRetiradaNome: respRetNome,
+      respRetiradaCpf: respRetCpf,
+      respRetiradaCargo: respRetCargo || undefined,
+      respEntregaNome: respEntNome,
+      respEntregaCargo: respEntCargo,
+      condicaoDevolucao: condicao,
+      observacoesDevolucao: obsDev || undefined,
+      numeroTermoDevolucao: numeroTermo,
+    });
     if (comPdf) {
       const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
       const custoFinal = periodoEfetivo * empDev.custoPeriodo;
       const termo: TermoData = {
         tipo: "devolucao",
-        numero: numeroDoc("DEV"),
+        numero: numeroTermo,
         emissao: new Date().toISOString().slice(0, 10),
         equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
         destino: empDev.destino,
@@ -182,8 +237,13 @@ function EquipDetalhe() {
         periodoEfetivo,
         custoTotalFinal: custoFinal,
         unidade: empDev.unidade,
-        condicao: condicaoDev,
+        condicao,
         observacoes: obsDev,
+        respRetiradaNome: respRetNome,
+        respRetiradaCpf: respRetCpf,
+        respRetiradaCargo: respRetCargo || undefined,
+        respEntregaNome: respEntNome,
+        respEntregaCargo: respEntCargo,
       };
       gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
     }
@@ -191,6 +251,33 @@ function EquipDetalhe() {
     setPreviewDev(false);
     setOpenDev(null);
     setObsDev("");
+  };
+
+  const gerarTermoDevolvido = (empId: string) => {
+    const emp = emprestimos.find(e => e.id === empId);
+    if (!emp || !emp.dataDevolucaoReal) return;
+    const periodoEfetivo = periodos(emp.dataInicio, emp.dataDevolucaoReal, emp.unidade);
+    const termo: TermoData = {
+      tipo: "devolucao",
+      numero: emp.numeroTermoDevolucao || numeroDoc("DEV"),
+      emissao: emp.dataDevolucaoReal,
+      equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+      destino: emp.destino,
+      responsavel: emp.responsavel,
+      dataInicio: emp.dataInicio,
+      dataDevolucaoReal: emp.dataDevolucaoReal,
+      periodoEfetivo,
+      custoTotalFinal: emp.custoTotal,
+      unidade: emp.unidade,
+      condicao: emp.condicaoDevolucao || "—",
+      observacoes: emp.observacoesDevolucao || emp.observacoes || "",
+      respRetiradaNome: emp.respRetiradaNome,
+      respRetiradaCpf: emp.respRetiradaCpf,
+      respRetiradaCargo: emp.respRetiradaCargo,
+      respEntregaNome: emp.respEntregaNome,
+      respEntregaCargo: emp.respEntregaCargo,
+    };
+    gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
   };
 
   const encerrarManut = (mnId: string) => {
@@ -399,8 +486,12 @@ function EquipDetalhe() {
                   {emprestimos.slice().reverse().map(e => {
                     const fim = e.dataDevolucaoReal || e.dataDevolucaoPrevista;
                     const p = periodos(e.dataInicio, fim, e.unidade);
+                    const hojeIso = new Date().toISOString().slice(0, 10);
+                    const statusEmp = !e.ativo
+                      ? "Devolvido"
+                      : (e.dataDevolucaoPrevista && e.dataDevolucaoPrevista < hojeIso ? "Atrasado" : "Em uso");
                     return (
-                      <TableRow key={e.id}>
+                      <TableRow key={e.id} className="cursor-pointer hover:bg-[#F4F4F4]/60" onClick={() => setOpenView(e.id)}>
                         <TableCell>{e.destino}</TableCell>
                         <TableCell>{e.responsavel}</TableCell>
                         <TableCell>{fmtDate(e.dataInicio)}</TableCell>
@@ -409,13 +500,20 @@ function EquipDetalhe() {
                         <TableCell>{p} {e.unidade}(s)</TableCell>
                         <TableCell>{brl(e.custoPeriodo)}</TableCell>
                         <TableCell className="font-semibold text-[#F37032]">{brl(e.custoTotal)}</TableCell>
-                        <TableCell><StatusBadge status={e.ativo ? "Em uso" : "Concluído"} /></TableCell>
-                        <TableCell>
-                          {e.ativo && (
-                            <Button size="sm" variant="ghost" title="Registrar devolução" onClick={() => setOpenDev(e.id)}>
-                              <PackageCheck className="h-4 w-4 text-green-600" />
-                            </Button>
-                          )}
+                        <TableCell><StatusBadge status={statusEmp} /></TableCell>
+                        <TableCell onClick={ev => ev.stopPropagation()}>
+                          <div className="flex gap-1">
+                            {e.ativo && (
+                              <Button size="sm" variant="ghost" title="Registrar devolução" onClick={() => abrirDevolucao(e.id)}>
+                                <PackageCheck className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
+                            {!e.ativo && (
+                              <Button size="sm" variant="ghost" title="Gerar termo de devolução" onClick={() => gerarTermoDevolvido(e.id)}>
+                                <FileText className="h-4 w-4 text-[#213368]" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -526,27 +624,79 @@ function EquipDetalhe() {
         </TabsContent>
       </Tabs>
 
-      {/* Devolução — passo 1: data */}
+      {/* Devolução — passo 1: dados completos */}
       <Dialog open={!!openDev && !previewDev} onOpenChange={(v) => { if (!v) setOpenDev(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Registrar devolução</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <Label>Data real da devolução</Label>
-            <Input type="date" value={dataReal} onChange={e => setDataReal(e.target.value)} />
-            <div className="rounded-lg bg-[#F4F4F4] p-3 text-xs text-muted-foreground">
-              O custo final será recalculado com base no período efetivo.
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-[#213368]">Registrar devolução</DialogTitle></DialogHeader>
+          {empDev && (
+            <div className="grid gap-4">
+              <div className="rounded-lg bg-[#F4F4F4] p-3 text-xs text-muted-foreground">
+                Equipamento: <b className="text-foreground">{eq.nome}</b> · {eq.codigo} · Saída {fmtDate(empDev.dataInicio)} · Obra {empDev.destino}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <Label>Data real da devolução *</Label>
+                  <Input type="date" value={dataReal} onChange={e => setDataReal(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Condição do equipamento *</Label>
+                  <Select value={condicaoOpt} onValueChange={v => { setCondicaoOpt(v); if (v !== "Outro (especificar)") setCondicaoDev(v); else setCondicaoDev(""); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CONDICOES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {condicaoOpt === "Outro (especificar)" && (
+                  <div className="md:col-span-2">
+                    <Label>Especifique a condição *</Label>
+                    <Textarea rows={2} value={condicaoDev} onChange={e => setCondicaoDev(e.target.value)} />
+                  </div>
+                )}
+                <div className="md:col-span-2">
+                  <Label>Observações</Label>
+                  <Textarea rows={2} value={obsDev} onChange={e => setObsDev(e.target.value)} placeholder="Ex.: acessórios devolvidos, pendências, etc." />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#F37032]">Responsável pela retirada (quem devolveu)</div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2"><Label>Nome completo *</Label><Input value={respRetNome} onChange={e => setRespRetNome(e.target.value)} /></div>
+                  <div><Label>CPF *</Label><Input placeholder="000.000.000-00" value={respRetCpf} onChange={e => setRespRetCpf(mascaraCpf(e.target.value))} maxLength={14} /></div>
+                  <div><Label>Cargo / Função</Label><Input value={respRetCargo} onChange={e => setRespRetCargo(e.target.value)} /></div>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#213368]">Responsável GRD (quem recebeu)</div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div><Label>Nome *</Label><Input value={respEntNome} onChange={e => setRespEntNome(e.target.value)} /></div>
+                  <div><Label>Cargo *</Label><Input value={respEntCargo} onChange={e => setRespEntCargo(e.target.value)} /></div>
+                </div>
+              </div>
+
+              <div className="flex justify-between rounded-lg bg-[#F4F4F4] p-3 text-sm">
+                <span className="text-muted-foreground">Período efetivo</span>
+                <b>{periodos(empDev.dataInicio, dataReal, empDev.unidade)} {empDev.unidade}(s)</b>
+              </div>
+              <div className="flex justify-between rounded-lg bg-[#F4F4F4] p-3 text-sm">
+                <span className="text-muted-foreground">Custo total final</span>
+                <b className="text-[#F37032]">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</b>
+              </div>
             </div>
-          </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenDev(null)}>Cancelar</Button>
-            <Button onClick={() => setPreviewDev(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Continuar</Button>
+            <Button onClick={() => setPreviewDev(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Revisar termo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Devolução — passo 2: preview do termo */}
       <Dialog open={previewDev} onOpenChange={(v) => { if (!v) { setPreviewDev(false); } }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader><DialogTitle className="text-[#213368]">Prévia — Termo de Devolução</DialogTitle></DialogHeader>
           {empDev && (
             <div className="grid gap-3">
@@ -554,19 +704,30 @@ function EquipDetalhe() {
                 <div><b className="text-[#213368]">Equipamento:</b> {eq.nome} ({eq.codigo})</div>
                 <div><b className="text-[#213368]">Categoria:</b> {eq.categoria}</div>
                 <div><b className="text-[#213368]">Destino:</b> {empDev.destino}</div>
-                <div><b className="text-[#213368]">Responsável:</b> {empDev.responsavel}</div>
                 <div><b className="text-[#213368]">Saída:</b> {fmtDate(empDev.dataInicio)}</div>
                 <div><b className="text-[#213368]">Devolução real:</b> {fmtDate(dataReal)}</div>
                 <div><b className="text-[#213368]">Período efetivo:</b> {periodos(empDev.dataInicio, dataReal, empDev.unidade)} {empDev.unidade}(s)</div>
-                <div><b className="text-[#213368]">Custo final:</b> <span className="text-[#F37032] font-semibold">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</span></div>
+                <div className="md:col-span-2"><b className="text-[#213368]">Custo final:</b> <span className="font-semibold text-[#F37032]">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</span></div>
               </div>
-              <div>
-                <Label>Condição do equipamento na devolução</Label>
-                <Textarea rows={3} value={condicaoDev} onChange={e => setCondicaoDev(e.target.value)} />
+              <div className="rounded-lg border p-3 text-sm">
+                <div className="text-xs font-bold uppercase text-muted-foreground">Condição</div>
+                <div>{condicaoFinal()}</div>
               </div>
-              <div>
-                <Label>Observações</Label>
-                <Textarea rows={3} value={obsDev} onChange={e => setObsDev(e.target.value)} placeholder="Ex.: acessórios devolvidos, pendências, etc." />
+              <div className="rounded-lg border p-3 text-sm">
+                <div className="text-xs font-bold uppercase text-muted-foreground">Observações</div>
+                <div>{obsDev || "—"}</div>
+              </div>
+              <div className="grid gap-3 text-sm md:grid-cols-2">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs font-bold uppercase text-[#F37032]">Retirada</div>
+                  <div>{respRetNome || "—"}</div>
+                  <div className="text-xs text-muted-foreground">CPF: {respRetCpf || "—"}{respRetCargo ? ` · ${respRetCargo}` : ""}</div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs font-bold uppercase text-[#213368]">Entrega (GRD)</div>
+                  <div>{respEntNome || "—"}</div>
+                  <div className="text-xs text-muted-foreground">{respEntCargo || "—"}</div>
+                </div>
               </div>
             </div>
           )}
@@ -579,6 +740,89 @@ function EquipDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Detalhes do empréstimo */}
+      <Dialog open={!!openView} onOpenChange={(v) => { if (!v) setOpenView(null); }}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-[#213368]">Detalhes do empréstimo</DialogTitle></DialogHeader>
+          {empView && (() => {
+            const hojeIso = new Date().toISOString().slice(0, 10);
+            const statusEmp = !empView.ativo
+              ? "Devolvido"
+              : (empView.dataDevolucaoPrevista && empView.dataDevolucaoPrevista < hojeIso ? "Atrasado" : "Em uso");
+            const periodoEfetivo = empView.dataDevolucaoReal
+              ? periodos(empView.dataInicio, empView.dataDevolucaoReal, empView.unidade)
+              : null;
+            return (
+              <div className="grid gap-4 text-sm">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#F37032]">Equipamento</div>
+                  <div className="grid gap-1 rounded-lg bg-[#F4F4F4] p-3">
+                    <div><b>Nome:</b> {eq.nome}</div>
+                    <div><b>Código:</b> {eq.codigo}</div>
+                    <div><b>Categoria:</b> {eq.categoria}</div>
+                    {eq.descricao && <div><b>Descrição:</b> {eq.descricao}</div>}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#213368]">Empréstimo</div>
+                    <StatusBadge status={statusEmp} />
+                  </div>
+                  <div className="grid gap-1 rounded-lg border p-3 md:grid-cols-2">
+                    <div><b>Obra / Destino:</b> {empView.destino}</div>
+                    <div><b>Responsável:</b> {empView.responsavel}</div>
+                    <div><b>Data de saída:</b> {fmtDate(empView.dataInicio)}</div>
+                    <div><b>Previsão de devolução:</b> {fmtDate(empView.dataDevolucaoPrevista)}</div>
+                    <div><b>Custo por período:</b> {brl(empView.custoPeriodo)} / {empView.unidade}</div>
+                    <div><b>Observações:</b> {empView.observacoes || "—"}</div>
+                  </div>
+                </div>
+                {!empView.ativo && (
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-wider text-green-700">Devolução</div>
+                    <div className="grid gap-1 rounded-lg border border-green-200 bg-green-50/50 p-3 md:grid-cols-2">
+                      <div><b>Data real:</b> {fmtDate(empView.dataDevolucaoReal)}</div>
+                      <div><b>Período efetivo:</b> {periodoEfetivo ?? 0} {empView.unidade}(s)</div>
+                      <div className="md:col-span-2"><b>Custo total final:</b> <span className="font-semibold text-[#F37032]">{brl(empView.custoTotal)}</span></div>
+                      <div className="md:col-span-2"><b>Condição:</b> {empView.condicaoDevolucao || "—"}</div>
+                      <div className="md:col-span-2"><b>Observações:</b> {empView.observacoesDevolucao || "—"}</div>
+                      {(empView.respRetiradaNome || empView.respRetiradaCpf) && (
+                        <div className="md:col-span-2">
+                          <b>Retirado por:</b> {empView.respRetiradaNome || "—"} · CPF {empView.respRetiradaCpf || "—"}
+                          {empView.respRetiradaCargo ? ` · ${empView.respRetiradaCargo}` : ""}
+                        </div>
+                      )}
+                      {(empView.respEntregaNome || empView.respEntregaCargo) && (
+                        <div className="md:col-span-2">
+                          <b>Recebido por (GRD):</b> {empView.respEntregaNome || "—"}{empView.respEntregaCargo ? ` · ${empView.respEntregaCargo}` : ""}
+                        </div>
+                      )}
+                      {empView.numeroTermoDevolucao && (
+                        <div className="md:col-span-2 text-xs text-muted-foreground">Nº termo: {empView.numeroTermoDevolucao}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2">
+            {empView && !empView.ativo && (
+              <Button onClick={() => { gerarTermoDevolvido(empView.id); }} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+                <FileText className="mr-1 h-4 w-4" /> Gerar termo
+              </Button>
+            )}
+            {empView && empView.ativo && (
+              <Button onClick={() => { setOpenView(null); abrirDevolucao(empView.id); }} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+                <PackageCheck className="mr-1 h-4 w-4" /> Registrar devolução
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setOpenView(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
 
       {/* Manutenção */}

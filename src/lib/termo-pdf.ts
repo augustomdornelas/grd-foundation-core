@@ -7,12 +7,16 @@ const GREY_BG: [number, number, number] = [244, 244, 244];
 const GREY_LINE: [number, number, number] = [210, 210, 215];
 const TEXT_DARK: [number, number, number] = [40, 40, 45];
 const TEXT_MUTED: [number, number, number] = [110, 110, 120];
+const WHITE: [number, number, number] = [255, 255, 255];
 
 let logoDataUrl: string | null = null;
-async function getLogoDataUrl(): Promise<string | null> {
-  if (logoDataUrl) return logoDataUrl;
+let logoDims: { w: number; h: number } | null = null;
+
+async function getLogoDataUrl(): Promise<{ url: string; w: number; h: number } | null> {
+  if (logoDataUrl && logoDims) return { url: logoDataUrl, ...logoDims };
   try {
-    const res = await fetch(logoAsset.url);
+    const res = await fetch(logoAsset.url, { cache: "force-cache" });
+    if (!res.ok) throw new Error("bad status");
     const blob = await res.blob();
     const url = await new Promise<string>((resolve, reject) => {
       const r = new FileReader();
@@ -20,8 +24,15 @@ async function getLogoDataUrl(): Promise<string | null> {
       r.onerror = reject;
       r.readAsDataURL(blob);
     });
+    const dims = await new Promise<{ w: number; h: number }>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ w: 1, h: 1 });
+      img.src = url;
+    });
     logoDataUrl = url;
-    return url;
+    logoDims = dims;
+    return { url, ...dims };
   } catch {
     return null;
   }
@@ -41,14 +52,13 @@ export type TermoTipo = "emprestimo" | "devolucao";
 export interface TermoData {
   tipo: TermoTipo;
   numero: string;
-  emissao: string; // iso
+  emissao: string;
   equipamento: {
     nome: string;
     codigo: string;
     categoria: string;
     descricao?: string;
   };
-  // Empréstimo
   destino?: string;
   responsavel?: string;
   dataInicio?: string;
@@ -56,125 +66,161 @@ export interface TermoData {
   custoPeriodo?: number;
   unidade?: string;
   custoTotalPrevisto?: number;
-  // Devolução
   dataDevolucaoReal?: string;
   periodoEfetivo?: number;
   custoTotalFinal?: number;
   condicao?: string;
-  // Comum
   observacoes?: string;
+  // Assinaturas
+  respRetiradaNome?: string;
+  respRetiradaCpf?: string;
+  respRetiradaCargo?: string;
+  respEntregaNome?: string;
+  respEntregaCargo?: string;
 }
 
 export async function gerarTermoPDF(t: TermoData) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const M = 18;
+  const M = 15;
   let y = M;
 
-  // Header — logo
+  // ============ Cabeçalho ============
   const logo = await getLogoDataUrl();
+  const logoH = 20;
   if (logo) {
-    try { doc.addImage(logo, "JPEG", M, y, 26, 26); } catch { /* ignore */ }
+    const ratio = logo.w / logo.h;
+    const logoW = Math.min(50, logoH * ratio);
+    try {
+      doc.addImage(logo.url, "JPEG", M, y, logoW, logoH);
+    } catch {
+      /* ignore */
+    }
   }
 
-  // Header — texto direita
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.setTextColor(...NAVY);
-  doc.text("GRUPO GRD", W - M, y + 6, { align: "right" });
+  doc.text("GRUPO GRD", W - M, y + 5, { align: "right" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text("Projetos e Construções", W - M, y + 11, { align: "right" });
-  doc.text("Av. José Antunes de Oliveira, 307 · Agudos-SP", W - M, y + 16, { align: "right" });
-  doc.text("(14) 3261-4194 · grupogrdbrasil.com.br", W - M, y + 21, { align: "right" });
+  doc.text("Projetos e Construções", W - M, y + 10, { align: "right" });
+  doc.text("Av. José Antunes de Oliveira, 307 · Agudos-SP", W - M, y + 14.5, { align: "right" });
+  doc.text("(14) 3261-4194 · grupogrdbrasil.com.br", W - M, y + 19, { align: "right" });
 
-  y += 28;
+  y += logoH + 4;
 
   // Linha divisória laranja
   doc.setDrawColor(...ORANGE);
-  doc.setLineWidth(1.2);
+  doc.setLineWidth(1);
   doc.line(M, y, W - M, y);
   doc.setLineWidth(0.2);
-  y += 8;
+  y += 5;
 
-  // Título
+  // ============ Faixa de título ============
   const titulo = t.tipo === "emprestimo"
     ? "TERMO DE EMPRÉSTIMO DE EQUIPAMENTO"
     : "TERMO DE DEVOLUÇÃO DE EQUIPAMENTO";
+  const bandH = 11;
+  const leftW = (W - 2 * M) * 0.66;
+  const rightW = (W - 2 * M) - leftW;
+
+  doc.setFillColor(...NAVY);
+  doc.rect(M, y, leftW, bandH, "F");
+  doc.setFillColor(...GREY_BG);
+  doc.rect(M + leftW, y, rightW, bandH, "F");
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.setTextColor(...NAVY);
-  doc.text(titulo, W / 2, y, { align: "center" });
+  doc.setFontSize(11);
+  doc.setTextColor(...WHITE);
+  doc.text(titulo, M + leftW / 2, y + 7.2, { align: "center" });
 
-  // Nº e data à direita
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
+  doc.setTextColor(...NAVY);
+  doc.text(`Nº ${t.numero}`, M + leftW + rightW / 2, y + 4.8, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text(`Nº ${t.numero}`, W - M, y - 3, { align: "right" });
-  doc.text(`Emissão: ${fmtDate(t.emissao)}`, W - M, y + 2, { align: "right" });
+  doc.text(`Emissão: ${fmtDate(t.emissao)}`, M + leftW + rightW / 2, y + 9, { align: "center" });
 
-  y += 10;
+  y += bandH + 6;
 
-  // helpers
+  // ============ helpers ============
   const drawSectionTitle = (title: string) => {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(...NAVY);
-    doc.text(title, M, y);
-    y += 2;
+    doc.text(title.toUpperCase(), M, y);
+    y += 1.5;
     doc.setDrawColor(...ORANGE);
     doc.setLineWidth(0.6);
-    doc.line(M, y, M + 40, y);
+    doc.line(M, y, M + 45, y);
     doc.setLineWidth(0.2);
-    y += 5;
+    y += 4;
   };
 
-  const drawBox = (rows: [string, string][], opts?: { bg?: boolean }) => {
+  const drawGrid = (rows: [string, string][]) => {
     const cols = 2;
     const rowsPerCol = Math.ceil(rows.length / cols);
-    const rowH = 7;
-    const boxH = rowsPerCol * rowH + 6;
-    if (opts?.bg) {
-      doc.setFillColor(...GREY_BG);
-      doc.roundedRect(M, y, W - 2 * M, boxH, 1.5, 1.5, "F");
-    } else {
-      doc.setDrawColor(...GREY_LINE);
-      doc.roundedRect(M, y, W - 2 * M, boxH, 1.5, 1.5, "S");
-    }
+    const rowH = 10;
+    const boxH = rowsPerCol * rowH + 3;
     const colW = (W - 2 * M) / cols;
+
+    doc.setFillColor(...GREY_BG);
+    doc.roundedRect(M, y, W - 2 * M, boxH, 1.5, 1.5, "F");
+    doc.setDrawColor(...GREY_LINE);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(M, y, W - 2 * M, boxH, 1.5, 1.5, "S");
+
     rows.forEach((r, i) => {
       const col = Math.floor(i / rowsPerCol);
       const row = i % rowsPerCol;
       const x = M + col * colW + 4;
-      const yy = y + 6 + row * rowH;
+      const yy = y + 4 + row * rowH;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setTextColor(...TEXT_MUTED);
       doc.text(r[0].toUpperCase(), x, yy);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
+      doc.setFontSize(9.5);
       doc.setTextColor(...TEXT_DARK);
       const value = r[1] || "—";
-      doc.text(doc.splitTextToSize(value, colW - 8), x, yy + 4);
+      const lines = doc.splitTextToSize(value, colW - 8);
+      doc.text(lines.slice(0, 1), x, yy + 4.5);
     });
-    y += boxH + 6;
+    y += boxH + 5;
   };
 
-  // Seção 1 — Equipamento
+  const drawTextBox = (text: string, minH = 16) => {
+    const inner = W - 2 * M - 6;
+    const lines = doc.splitTextToSize(text || "—", inner);
+    const h = Math.max(minH, lines.length * 4.5 + 5);
+    doc.setDrawColor(...GREY_LINE);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(M, y, W - 2 * M, h, 1.5, 1.5, "S");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(lines, M + 3, y + 5);
+    y += h + 5;
+  };
+
+  // ============ Seção 1 — Equipamento ============
   drawSectionTitle("1. Dados do equipamento");
-  drawBox([
+  drawGrid([
     ["Nome", t.equipamento.nome],
     ["Código / Patrimônio", t.equipamento.codigo],
     ["Categoria", t.equipamento.categoria],
     ["Descrição", t.equipamento.descricao || "—"],
-  ], { bg: true });
+  ]);
 
-  // Seção 2 — Empréstimo / Devolução
+  // ============ Seção 2 — Empréstimo / Devolução ============
   if (t.tipo === "emprestimo") {
     drawSectionTitle("2. Dados do empréstimo");
-    drawBox([
+    drawGrid([
       ["Destino / Obra", t.destino || "—"],
       ["Responsável pela retirada", t.responsavel || "—"],
       ["Data de saída", fmtDate(t.dataInicio)],
@@ -184,80 +230,71 @@ export async function gerarTermoPDF(t: TermoData) {
     ]);
   } else {
     drawSectionTitle("2. Dados da devolução");
-    drawBox([
+    drawGrid([
       ["Destino / Obra de origem", t.destino || "—"],
-      ["Responsável", t.responsavel || "—"],
-      ["Data de saída", fmtDate(t.dataInicio)],
       ["Data real da devolução", fmtDate(t.dataDevolucaoReal)],
+      ["Responsável", t.responsavel || "—"],
       ["Período efetivo", `${t.periodoEfetivo ?? 0} ${t.unidade || "dia"}(s)`],
+      ["Data de saída", fmtDate(t.dataInicio)],
       ["Custo total final", brl(t.custoTotalFinal || 0)],
     ]);
+
     drawSectionTitle("3. Condição do equipamento na devolução");
-    const cond = t.condicao || "—";
-    doc.setDrawColor(...GREY_LINE);
-    const linesC = doc.splitTextToSize(cond, W - 2 * M - 8);
-    const hC = Math.max(14, linesC.length * 5 + 6);
-    doc.roundedRect(M, y, W - 2 * M, hC, 1.5, 1.5, "S");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(...TEXT_DARK);
-    doc.text(linesC, M + 4, y + 6);
-    y += hC + 6;
+    drawTextBox(t.condicao || "—", 14);
   }
 
-  // Seção Observações
+  // ============ Observações ============
   drawSectionTitle(t.tipo === "emprestimo" ? "3. Observações" : "4. Observações");
-  const obs = t.observacoes?.trim() || "—";
-  const linesO = doc.splitTextToSize(obs, W - 2 * M - 8);
-  const hO = Math.max(20, linesO.length * 5 + 6);
-  doc.setDrawColor(...GREY_LINE);
-  doc.roundedRect(M, y, W - 2 * M, hO, 1.5, 1.5, "S");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...TEXT_DARK);
-  doc.text(linesO, M + 4, y + 6);
-  y += hO + 14;
+  drawTextBox(t.observacoes?.trim() || "—", 18);
 
-  // Assinaturas — se não couber, avança pro fim da página
-  const assinaturasH = 40;
-  if (y + assinaturasH + 20 > H - M) {
-    y = H - M - assinaturasH - 20;
+  // ============ Assinaturas ============
+  const assinaturasH = 34;
+  // Se não couber, empurra pra base
+  if (y + assinaturasH + 12 > H - M) {
+    y = H - M - assinaturasH - 12;
   }
 
-  const colW = (W - 2 * M - 10) / 2;
-  const cols = [M, M + colW + 10];
-  cols.forEach((cx, i) => {
+  const gap = 8;
+  const colW2 = (W - 2 * M - gap) / 2;
+  const cols = [
+    { x: M, label: "Responsável pela retirada", nome: t.respRetiradaNome, doc1: "CPF", doc1Val: t.respRetiradaCpf, extra: t.respRetiradaCargo ? `Cargo: ${t.respRetiradaCargo}` : "" },
+    { x: M + colW2 + gap, label: "Responsável pela entrega (GRD)", nome: t.respEntregaNome, doc1: "Cargo", doc1Val: t.respEntregaCargo, extra: "" },
+  ];
+
+  cols.forEach((c) => {
+    // Linha de assinatura
     doc.setDrawColor(...TEXT_DARK);
     doc.setLineWidth(0.3);
-    doc.line(cx, y + 14, cx + colW, y + 14);
+    doc.line(c.x, y + 14, c.x + colW2, y + 14);
+
+    // Título
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(...NAVY);
-    doc.text(i === 0 ? "Responsável pela retirada" : "Responsável pela entrega (GRD)", cx + colW / 2, y + 20, { align: "center" });
+    doc.text(c.label, c.x + colW2 / 2, y + 19, { align: "center" });
+
+    // Dados pré-preenchidos
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(...TEXT_MUTED);
-    doc.text(i === 0 ? "Nome: ________________________________" : "Nome: ________________________________", cx, y + 27);
-    doc.text(i === 0 ? "CPF: __________________________________" : "Cargo: ________________________________", cx, y + 33);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(`Nome: ${c.nome || "____________________________________"}`, c.x, y + 24.5);
+    doc.text(`${c.doc1}: ${c.doc1Val || "____________________________________"}`, c.x, y + 29);
+    if (c.extra) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text(c.extra, c.x, y + 33);
+    }
   });
   y += assinaturasH;
 
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(9);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text("Li e concordo com os termos deste documento.", W / 2, y, { align: "center" });
-
-  // Rodapé final
-  doc.setDrawColor(...ORANGE);
-  doc.setLineWidth(0.4);
-  doc.line(M, H - M - 8, W - M, H - M - 8);
-  if (logo) {
-    try { doc.addImage(logo, "JPEG", M, H - M - 7, 6, 6); } catch { /* ignore */ }
-  }
+  // ============ Rodapé ============
+  doc.setDrawColor(...NAVY);
+  doc.setLineWidth(0.5);
+  doc.line(M, H - M - 6, W - M, H - M - 6);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text("© 2026 Grupo GRD · grupogrdbrasil.com.br", W - M, H - M - 3, { align: "right" });
+  doc.text("© 2026 Grupo GRD · grupogrdbrasil.com.br", W / 2, H - M - 2, { align: "center" });
 
   const nomeArq = `${t.tipo === "emprestimo" ? "termo-emprestimo" : "termo-devolucao"}-${t.equipamento.codigo}-${t.emissao.slice(0, 10)}.pdf`;
   doc.save(nomeArq);
