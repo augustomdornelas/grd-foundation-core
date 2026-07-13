@@ -178,8 +178,8 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
     const total = noPer.reduce((a, o) => a + o.valor, 0);
     const qtd = noPer.length;
     const ticket = qtd ? total / qtd : 0;
-    const aprovados = noPer.filter(o => o.status === "Aprovado").length;
-    const conv = qtd ? (aprovados / qtd) * 100 : 0;
+    const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
+    const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
 
     // Série mensal (últimos 6 meses)
     const hoje = new Date();
