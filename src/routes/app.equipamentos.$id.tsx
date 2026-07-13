@@ -26,6 +26,8 @@ import {
   type EquipStatus, type UnidadePeriodo, type ManutencaoTipo, type ManutencaoStatus,
 } from "@/lib/equipamentos-store";
 import { iconeCategoria } from "./app.equipamentos.index";
+import { gerarTermoPDF, type TermoData } from "@/lib/termo-pdf";
+import { FileText } from "lucide-react";
 
 export const Route = createFileRoute("/app/equipamentos/$id")({
   component: EquipDetalhe,
