@@ -130,7 +130,6 @@ async function fetchAll() {
         equipamentoId: r.equipamento_id ?? "",
         tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
         data: r.data ?? "",
-        dataFimPrevista: r.data_fim_prevista ?? undefined,
         dataFim: r.data_fim ?? undefined,
         descricao: r.descricao ?? "",
         oficina: r.oficina ?? "",
@@ -139,7 +138,7 @@ async function fetchAll() {
         custo: total,
         statusManut: status,
         observacoes: r.observacoes ?? undefined,
-        aberta: status !== "Concluída",
+        aberta: r.aberta ?? (status !== "Concluída"),
       };
     }),
   };
