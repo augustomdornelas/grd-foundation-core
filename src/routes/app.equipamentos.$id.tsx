@@ -93,6 +93,7 @@ function EquipDetalhe() {
   const [respEntNome, setRespEntNome] = useState("");
   const [respEntCargo, setRespEntCargo] = useState("");
   const [previewDev, setPreviewDev] = useState(false);
+  const [savingDev, setSavingDev] = useState(false);
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -200,8 +201,8 @@ function EquipDetalhe() {
 
   const condicaoFinal = () => (condicaoOpt === "Outro (especificar)" ? condicaoDev : condicaoOpt);
 
-  const salvarDevolucao = (comPdf: boolean) => {
-    if (!empDev) return;
+  const salvarDevolucao = async (comPdf: boolean) => {
+    if (!empDev || savingDev) return;
     if (!respRetNome.trim() || !respRetCpf.trim()) {
       toast.error("Informe nome e CPF do responsável pela retirada");
       return;
@@ -212,40 +213,47 @@ function EquipDetalhe() {
     }
     const numeroTermo = numeroDoc("DEV");
     const condicao = condicaoFinal();
-    equipActions.registrarDevolucao(empDev.id, dataReal, {
-      respRetiradaNome: respRetNome,
-      respRetiradaCpf: respRetCpf,
-      respRetiradaCargo: respRetCargo || undefined,
-      respEntregaNome: respEntNome,
-      respEntregaCargo: respEntCargo,
+    setSavingDev(true);
+    const ok = await equipActions.registrarDevolucao(empDev.id, dataReal, {
+      respRetiradaNome: respRetNome.trim(),
+      respRetiradaCpf: respRetCpf.trim(),
+      respRetiradaCargo: respRetCargo.trim() || undefined,
+      respEntregaNome: respEntNome.trim(),
+      respEntregaCargo: respEntCargo.trim(),
       condicaoDevolucao: condicao,
-      observacoesDevolucao: obsDev || undefined,
+      observacoesDevolucao: obsDev.trim() || undefined,
       numeroTermoDevolucao: numeroTermo,
     });
+    setSavingDev(false);
+    if (!ok) return;
     if (comPdf) {
-      const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
-      const custoFinal = periodoEfetivo * empDev.custoPeriodo;
-      const termo: TermoData = {
-        tipo: "devolucao",
-        numero: numeroTermo,
-        emissao: new Date().toISOString().slice(0, 10),
-        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
-        destino: empDev.destino,
-        responsavel: empDev.responsavel,
-        dataInicio: empDev.dataInicio,
-        dataDevolucaoReal: dataReal,
-        periodoEfetivo,
-        custoTotalFinal: custoFinal,
-        unidade: empDev.unidade,
-        condicao,
-        observacoes: obsDev,
-        respRetiradaNome: respRetNome,
-        respRetiradaCpf: respRetCpf,
-        respRetiradaCargo: respRetCargo || undefined,
-        respEntregaNome: respEntNome,
-        respEntregaCargo: respEntCargo,
-      };
-      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+      try {
+        const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
+        const custoFinal = periodoEfetivo * empDev.custoPeriodo;
+        const termo: TermoData = {
+          tipo: "devolucao",
+          numero: numeroTermo,
+          emissao: new Date().toISOString().slice(0, 10),
+          equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+          destino: empDev.destino,
+          responsavel: empDev.responsavel,
+          dataInicio: empDev.dataInicio,
+          dataDevolucaoReal: dataReal,
+          periodoEfetivo,
+          custoTotalFinal: custoFinal,
+          unidade: empDev.unidade,
+          condicao,
+          observacoes: obsDev,
+          respRetiradaNome: respRetNome,
+          respRetiradaCpf: respRetCpf,
+          respRetiradaCargo: respRetCargo || undefined,
+          respEntregaNome: respEntNome,
+          respEntregaCargo: respEntCargo,
+        };
+        await gerarTermoPDF(termo);
+      } catch {
+        toast.error("Devolução salva, mas falhou ao gerar PDF");
+      }
     }
     toast.success("Devolução registrada");
     setPreviewDev(false);
