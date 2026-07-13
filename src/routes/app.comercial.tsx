@@ -177,7 +177,7 @@ function Comercial() {
     }));
 
     const clientesMap = new Map<string, number>();
-    for (const o of noPer) {
+    for (const o of noPer.filter(o => o.status === "Aprovado")) {
       const nome = (o.cliente || "").trim() || "—";
       clientesMap.set(nome, (clientesMap.get(nome) ?? 0) + o.valor);
     }
@@ -356,7 +356,7 @@ function Comercial() {
           </div>
         </Card>
         <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Top 5 clientes por valor</div>
+          <div className="text-sm font-semibold text-[#213368]">Top 5 clientes — orçamentos aprovados</div>
           <div className="mt-4 h-72">
             {metricas.topClientes.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
