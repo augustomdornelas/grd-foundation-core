@@ -494,8 +494,8 @@ function EquipDetalhe() {
         </TabsContent>
       </Tabs>
 
-      {/* Devolução */}
-      <Dialog open={!!openDev} onOpenChange={(v) => { if (!v) setOpenDev(null); }}>
+      {/* Devolução — passo 1: data */}
+      <Dialog open={!!openDev && !previewDev} onOpenChange={(v) => { if (!v) setOpenDev(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Registrar devolução</DialogTitle></DialogHeader>
           <div className="grid gap-3">
@@ -507,10 +507,47 @@ function EquipDetalhe() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenDev(null)}>Cancelar</Button>
-            <Button onClick={() => openDev && devolver(openDev)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Confirmar</Button>
+            <Button onClick={() => setPreviewDev(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Continuar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Devolução — passo 2: preview do termo */}
+      <Dialog open={previewDev} onOpenChange={(v) => { if (!v) { setPreviewDev(false); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle className="text-[#213368]">Prévia — Termo de Devolução</DialogTitle></DialogHeader>
+          {empDev && (
+            <div className="grid gap-3">
+              <div className="grid gap-2 rounded-lg bg-[#F4F4F4] p-4 text-sm md:grid-cols-2">
+                <div><b className="text-[#213368]">Equipamento:</b> {eq.nome} ({eq.codigo})</div>
+                <div><b className="text-[#213368]">Categoria:</b> {eq.categoria}</div>
+                <div><b className="text-[#213368]">Destino:</b> {empDev.destino}</div>
+                <div><b className="text-[#213368]">Responsável:</b> {empDev.responsavel}</div>
+                <div><b className="text-[#213368]">Saída:</b> {fmtDate(empDev.dataInicio)}</div>
+                <div><b className="text-[#213368]">Devolução real:</b> {fmtDate(dataReal)}</div>
+                <div><b className="text-[#213368]">Período efetivo:</b> {periodos(empDev.dataInicio, dataReal, empDev.unidade)} {empDev.unidade}(s)</div>
+                <div><b className="text-[#213368]">Custo final:</b> <span className="text-[#F37032] font-semibold">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</span></div>
+              </div>
+              <div>
+                <Label>Condição do equipamento na devolução</Label>
+                <Textarea rows={3} value={condicaoDev} onChange={e => setCondicaoDev(e.target.value)} />
+              </div>
+              <div>
+                <Label>Observações</Label>
+                <Textarea rows={3} value={obsDev} onChange={e => setObsDev(e.target.value)} placeholder="Ex.: acessórios devolvidos, pendências, etc." />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPreviewDev(false)}>Voltar</Button>
+            <Button variant="outline" onClick={() => salvarDevolucao(false)}>Salvar sem PDF</Button>
+            <Button onClick={() => salvarDevolucao(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+              <FileText className="mr-1 h-4 w-4" /> Gerar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Manutenção */}
       <ManutencaoDialog open={openMn} onOpenChange={setOpenMn} equipamentoId={eq.id} />
