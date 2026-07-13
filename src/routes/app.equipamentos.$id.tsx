@@ -228,8 +228,12 @@ function EquipDetalhe() {
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4 lg:col-span-1">
           <Card className="overflow-hidden">
-            <div className="flex h-44 items-center justify-center bg-gradient-to-br from-[#213368] to-[#2a4185]">
-              <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
+            <div className="relative flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+              {eq.fotoUrl ? (
+                <img src={eq.fotoUrl} alt={eq.nome} className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
+              )}
             </div>
             <div className="space-y-3 p-5">
               <div>
