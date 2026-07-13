@@ -67,6 +67,9 @@ function EquipDetalhe() {
 
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
+  const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
+  const [obsDev, setObsDev] = useState("");
+  const [previewDev, setPreviewDev] = useState(false);
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
