@@ -11,17 +11,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/portal/StatusBadge";
-import { ChevronLeft, Pencil, PackageOpen, Wrench, PackageCheck } from "lucide-react";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  ChevronLeft, Pencil, PackageOpen, Wrench, PackageCheck, MapPin, User,
+  ArrowUpRight, ArrowDownRight, Activity, Package, RotateCcw,
+} from "lucide-react";
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   BarChart, Bar, PieChart, Pie, Cell, ReferenceLine,
 } from "recharts";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import {
   useEquipStore, equipActions, periodos,
-  type EquipStatus, type UnidadePeriodo,
+  type EquipStatus, type UnidadePeriodo, type ManutencaoTipo, type ManutencaoStatus,
 } from "@/lib/equipamentos-store";
+import { iconeCategoria } from "./app.equipamentos.index";
 
 export const Route = createFileRoute("/app/equipamentos/$id")({
   component: EquipDetalhe,
@@ -36,6 +40,8 @@ export const Route = createFileRoute("/app/equipamentos/$id")({
 
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
 const STATUS: EquipStatus[] = ["Disponível", "Emprestado", "Manutenção"];
+const TIPOS_MN: ManutencaoTipo[] = ["Preventiva", "Corretiva", "Emergencial"];
+const STATUS_MN: ManutencaoStatus[] = ["Aberta", "Em andamento", "Concluída"];
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 function fmtDate(iso?: string) {
@@ -59,72 +65,67 @@ function EquipDetalhe() {
 
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
-
   const [openMn, setOpenMn] = useState(false);
-  const [mnData, setMnData] = useState(new Date().toISOString().slice(0, 10));
-  const [mnDesc, setMnDesc] = useState("");
-  const [mnCusto, setMnCusto] = useState("");
-
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
+
+  const Ico = iconeCategoria(eq.categoria);
 
   const totalFaturado = emprestimos.reduce((a, e) => a + e.custoTotal, 0);
   const custoManut = manutencoes.reduce((a, m) => a + m.custo, 0);
   const liquido = totalFaturado - custoManut;
-  const paybackPeriodos = eq.custoPeriodo > 0 ? Math.ceil(eq.valor / eq.custoPeriodo) : 0;
+  const roi = eq.valor > 0 ? (liquido / eq.valor) * 100 : 0;
   const pctRecup = eq.valor > 0 ? Math.min(100, (totalFaturado / eq.valor) * 100) : 0;
 
-  // Receita acumulada vs valor (por mês, últimos 12 meses)
-  const receitaAcumulada = useMemo(() => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const diasUso = emprestimos.reduce((a, e) => a + diffDias(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista), 0);
+  const diasManut = manutencoes.reduce((a, m) => a + diffDias(m.data, m.dataFim || hoje), 0);
+  const datasBase = [...emprestimos.map(e => e.dataInicio), ...manutencoes.map(m => m.data)].filter(Boolean).sort();
+  const totalDias = Math.max(1, diffDias(datasBase[0] || hoje, hoje));
+  const diasDisp = Math.max(0, totalDias - diasUso - diasManut);
+
+  // Séries mensais últimos 12
+  const series = useMemo(() => {
     const now = new Date();
-    const bucket: { mes: string; date: Date; receita: number }[] = [];
+    const meses: { mes: string; date: Date; receita: number; custo: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      bucket.push({ mes: chaveMes(d), date: d, receita: 0 });
+      meses.push({ mes: chaveMes(d), date: d, receita: 0, custo: 0 });
     }
     emprestimos.forEach(e => {
       const d = new Date(e.dataInicio);
-      const idx = bucket.findIndex(b => b.date.getFullYear() === d.getFullYear() && b.date.getMonth() === d.getMonth());
-      if (idx >= 0) bucket[idx].receita += e.custoTotal;
+      const idx = meses.findIndex(b => b.date.getFullYear() === d.getFullYear() && b.date.getMonth() === d.getMonth());
+      if (idx >= 0) meses[idx].receita += e.custoTotal;
     });
-    let acc = 0;
-    return bucket.map(b => { acc += b.receita; return { mes: b.mes, acumulado: acc, valor: eq.valor }; });
-  }, [emprestimos, eq.valor]);
-
-  // Custo manutenção por mês (últimos 12)
-  const custoManutMes = useMemo(() => {
-    const now = new Date();
-    const bucket: { mes: string; date: Date; custo: number }[] = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      bucket.push({ mes: chaveMes(d), date: d, custo: 0 });
-    }
     manutencoes.forEach(m => {
       const d = new Date(m.data);
-      const idx = bucket.findIndex(b => b.date.getFullYear() === d.getFullYear() && b.date.getMonth() === d.getMonth());
-      if (idx >= 0) bucket[idx].custo += m.custo;
+      const idx = meses.findIndex(b => b.date.getFullYear() === d.getFullYear() && b.date.getMonth() === d.getMonth());
+      if (idx >= 0) meses[idx].custo += m.custo;
     });
-    return bucket.map(({ mes, custo }) => ({ mes, custo }));
-  }, [manutencoes]);
+    let acc = 0;
+    return meses.map(b => { acc += b.receita; return { mes: b.mes, receita: b.receita, custo: b.custo, acumulado: acc }; });
+  }, [emprestimos, manutencoes]);
 
-  // Donut: dias em uso vs manutenção vs disponível
   const statusDist = useMemo(() => {
-    const hoje = new Date().toISOString().slice(0, 10);
-    const diasUso = emprestimos.reduce((a, e) => a + diffDias(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista), 0);
-    const diasManut = manutencoes.reduce((a, m) => a + diffDias(m.data, m.dataFim || hoje), 0);
-    const datas = [
-      ...emprestimos.map(e => e.dataInicio),
-      ...manutencoes.map(m => m.data),
-    ].filter(Boolean).sort();
-    const inicio = datas[0] || hoje;
-    const totalDias = Math.max(1, diffDias(inicio, hoje));
-    const diasDisp = Math.max(0, totalDias - diasUso - diasManut);
     const total = diasUso + diasManut + diasDisp || 1;
     return [
       { name: "Em uso", value: diasUso, pct: (diasUso / total) * 100, color: "#213368" },
-      { name: "Manutenção", value: diasManut, pct: (diasManut / total) * 100, color: "#f59e0b" },
+      { name: "Manutenção", value: diasManut, pct: (diasManut / total) * 100, color: "#F37032" },
       { name: "Disponível", value: diasDisp, pct: (diasDisp / total) * 100, color: "#22c55e" },
     ].filter(d => d.value > 0);
+  }, [diasUso, diasManut, diasDisp]);
+
+  const timeline = useMemo(() => {
+    const items: { tipo: "emp" | "dev" | "manut" | "manut-fim"; data: string; titulo: string; sub: string; cor: string; icone: any }[] = [];
+    emprestimos.forEach(e => {
+      items.push({ tipo: "emp", data: e.dataInicio, titulo: `Empréstimo → ${e.destino}`, sub: `Responsável: ${e.responsavel} · ${brl(e.custoTotal)}`, cor: "#213368", icone: PackageOpen });
+      if (e.dataDevolucaoReal) items.push({ tipo: "dev", data: e.dataDevolucaoReal, titulo: `Devolução`, sub: `De ${e.destino}`, cor: "#16a34a", icone: PackageCheck });
+    });
+    manutencoes.forEach(m => {
+      items.push({ tipo: "manut", data: m.data, titulo: `Manutenção ${m.tipo}`, sub: `${m.oficina || "—"} · ${brl(m.custo)}`, cor: "#F37032", icone: Wrench });
+      if (m.dataFim) items.push({ tipo: "manut-fim", data: m.dataFim, titulo: `Manutenção concluída`, sub: m.descricao, cor: "#22c55e", icone: RotateCcw });
+    });
+    return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
 
   const devolver = (empId: string) => {
@@ -133,131 +134,143 @@ function EquipDetalhe() {
     setOpenDev(null);
   };
 
-  const salvarManutencao = () => {
-    if (!mnDesc.trim()) return toast.error("Descreva a manutenção");
-    equipActions.registrarManutencao({
-      equipamentoId: eq.id, data: mnData, descricao: mnDesc, custo: Number(mnCusto) || 0, aberta: true,
-    });
-    toast.success("Manutenção registrada");
-    setOpenMn(false); setMnDesc(""); setMnCusto("");
-  };
-
   const encerrarManut = (mnId: string) => {
     equipActions.fecharManutencao(mnId, new Date().toISOString().slice(0, 10));
     toast.success("Manutenção encerrada");
   };
 
-  const totalPeriodosEmp = emprestimos.reduce((a, e) => {
-    const fim = e.dataDevolucaoReal || e.dataDevolucaoPrevista;
-    return a + periodos(e.dataInicio, fim, e.unidade);
-  }, 0);
+  const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista, e.unidade), 0);
 
   return (
-    <div className="space-y-6 font-[Montserrat]">
+    <div className="space-y-6 font-[Montserrat] animate-fade-in">
       {/* Header */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/equipamentos" })}>
-              <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
-            </Button>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">{eq.codigo}</div>
-              <h2 className="text-2xl font-extrabold text-[#213368]">{eq.nome}</h2>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{eq.categoria}</span>
-                <span>·</span>
-                <span>📍 {eq.localAtual || "—"}</span>
-                {eq.responsavelAtual && (<><span>·</span><span>👤 {eq.responsavelAtual}</span></>)}
-              </div>
-              <div className="mt-2"><StatusBadge status={eq.status} /></div>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setOpenEdit(true)}>
-              <Pencil className="mr-1 h-4 w-4" /> Editar
-            </Button>
-            <Button
-              onClick={() => setOpenEmp(true)}
-              disabled={eq.status !== "Disponível"}
-              className="bg-[#213368] text-white hover:bg-[#2a4185]"
-            >
-              <PackageOpen className="mr-1 h-4 w-4" /> Registrar empréstimo
-            </Button>
-            <Button onClick={() => setOpenMn(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-              <Wrench className="mr-1 h-4 w-4" /> Registrar manutenção
-            </Button>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/equipamentos" })}>
+          <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setOpenEdit(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Editar
+          </Button>
+          <Button
+            onClick={() => setOpenEmp(true)}
+            disabled={eq.status !== "Disponível"}
+            className="bg-[#213368] text-white hover:bg-[#2a4185]"
+          >
+            <PackageOpen className="mr-1 h-4 w-4" /> Registrar empréstimo
+          </Button>
+          <Button onClick={() => setOpenMn(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Wrench className="mr-1 h-4 w-4" /> Registrar manutenção
+          </Button>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Valor do equipamento</div>
-          <div className="mt-1 text-xl font-extrabold text-[#213368]">{brl(eq.valor)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Total faturado</div>
-          <div className="mt-1 text-xl font-extrabold text-[#F37032]">{brl(totalFaturado)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Custo manutenções</div>
-          <div className="mt-1 text-xl font-extrabold text-amber-600">{brl(custoManut)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Payback</div>
-          <div className="mt-1 text-xl font-extrabold text-[#213368]">{paybackPeriodos} {eq.unidade}(s)</div>
-          <div className="text-[10px] text-muted-foreground">{brl(eq.custoPeriodo)}/{eq.unidade}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">% payback recuperado</div>
-          <div className="mt-1 text-xl font-extrabold text-[#213368]">{pctRecup.toFixed(1)}%</div>
-          <Progress value={pctRecup} className="mt-2 h-2" />
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Resultado líquido</div>
-          <div className={`mt-1 text-xl font-extrabold ${liquido >= 0 ? "text-green-600" : "text-red-600"}`}>{brl(liquido)}</div>
-        </Card>
-      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* COLUNA ESQUERDA */}
+        <div className="space-y-4 lg:col-span-1">
+          <Card className="overflow-hidden">
+            <div className="flex h-44 items-center justify-center bg-gradient-to-br from-[#213368] to-[#2a4185]">
+              <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
+            </div>
+            <div className="space-y-3 p-5">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">{eq.codigo} · {eq.categoria}</div>
+                <h1 className="text-xl font-extrabold text-[#213368]">{eq.nome}</h1>
+              </div>
+              {eq.descricao && <p className="text-sm text-muted-foreground">{eq.descricao}</p>}
+              <div className="space-y-1.5 border-t pt-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" /> Local base: <span className="text-foreground">{eq.localBase || "—"}</span></div>
+                <div className="flex items-center gap-2 text-muted-foreground"><Activity className="h-4 w-4" /> Local atual: <span className="text-foreground">{eq.localAtual || "—"}</span></div>
+                {eq.responsavelAtual && <div className="flex items-center gap-2 text-muted-foreground"><User className="h-4 w-4" /> Resp.: <span className="text-foreground">{eq.responsavelAtual}</span></div>}
+              </div>
+              <div><StatusBadge status={eq.status} /></div>
+            </div>
+          </Card>
 
-      <Tabs defaultValue="dash">
-        <TabsList>
-          <TabsTrigger value="dash">Dashboard</TabsTrigger>
-          <TabsTrigger value="hist">Histórico de empréstimos</TabsTrigger>
-          <TabsTrigger value="manut">Manutenções</TabsTrigger>
-        </TabsList>
+          {/* KPIs financeiros */}
+          <Card className="space-y-3 p-5">
+            <div className="text-sm font-bold text-[#213368]">Resumo financeiro</div>
+            <KpiRow label="Valor do equipamento" value={brl(eq.valor)} />
+            <KpiRow label="Total gerado" value={brl(totalFaturado)} color="#F37032" icon={ArrowUpRight} />
+            <KpiRow label="Custo de manutenções" value={brl(custoManut)} color="#dc2626" icon={ArrowDownRight} />
+            <div className="border-t pt-3">
+              <KpiRow label="Resultado líquido" value={brl(liquido)} color={liquido >= 0 ? "#16a34a" : "#dc2626"} bold />
+              <KpiRow label="ROI" value={`${roi.toFixed(1)}%`} color={roi >= 0 ? "#16a34a" : "#dc2626"} bold />
+            </div>
 
-        {/* Dashboard */}
-        <TabsContent value="dash" className="mt-4 space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="border-t pt-3">
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="text-muted-foreground">Payback</span>
+                <span className="font-semibold text-[#213368]">{pctRecup.toFixed(1)}%</span>
+              </div>
+              <Progress value={pctRecup} className="h-2" />
+              <div className="mt-1 text-[11px] text-muted-foreground">Recuperado {brl(totalFaturado)} de {brl(eq.valor)}</div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t pt-3 text-center">
+              <div>
+                <div className="text-[11px] text-muted-foreground">Dias em uso</div>
+                <div className="text-lg font-extrabold text-[#213368]">{diasUso}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-muted-foreground">Dias disponíveis</div>
+                <div className="text-lg font-extrabold text-green-600">{diasDisp}</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* COLUNA DIREITA — gráficos */}
+        <div className="space-y-4 lg:col-span-2">
+          <Card className="p-4">
+            <div className="mb-2 text-sm font-semibold text-[#213368]">Receita acumulada vs. valor do equipamento</div>
+            <div className="h-64">
+              <ResponsiveContainer>
+                <AreaChart data={series}>
+                  <defs>
+                    <linearGradient id="gAcum" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#213368" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="#213368" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Legend />
+                  <ReferenceLine y={eq.valor} stroke="#F37032" strokeDasharray="5 5" label={{ value: "Valor", position: "right", fill: "#F37032", fontSize: 11 }} />
+                  <Area type="monotone" dataKey="acumulado" name="Receita acumulada" stroke="#213368" strokeWidth={2.5} fill="url(#gAcum)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <Card className="p-4">
-              <div className="mb-2 text-sm font-semibold text-[#213368]">Receita acumulada vs. valor do equipamento</div>
-              <div className="h-72">
+              <div className="mb-2 text-sm font-semibold text-[#213368]">Receita por mês</div>
+              <div className="h-56">
                 <ResponsiveContainer>
-                  <LineChart data={receitaAcumulada}>
+                  <BarChart data={series}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                     <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(v: number) => brl(v)} />
-                    <Legend />
-                    <ReferenceLine y={eq.valor} stroke="#F37032" strokeDasharray="5 5" label={{ value: "Valor", position: "right", fill: "#F37032", fontSize: 11 }} />
-                    <Line type="monotone" dataKey="acumulado" name="Receita acumulada" stroke="#213368" strokeWidth={3} dot={{ r: 3 }} />
-                  </LineChart>
+                    <Bar dataKey="receita" fill="#F37032" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </Card>
 
             <Card className="p-4">
               <div className="mb-2 text-sm font-semibold text-[#213368]">Custo de manutenção por mês</div>
-              <div className="h-72">
+              <div className="h-56">
                 <ResponsiveContainer>
-                  <BarChart data={custoManutMes}>
+                  <BarChart data={series}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                     <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(v: number) => brl(v)} />
-                    <Bar dataKey="custo" name="Manutenção" fill="#F37032" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="custo" fill="#dc2626" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -265,14 +278,14 @@ function EquipDetalhe() {
           </div>
 
           <Card className="p-4">
-            <div className="mb-2 text-sm font-semibold text-[#213368]">Tempo em uso vs. disponível vs. manutenção</div>
-            <div className="h-72">
+            <div className="mb-2 text-sm font-semibold text-[#213368]">Distribuição de tempo</div>
+            <div className="h-56">
               {statusDist.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Sem histórico suficiente.</div>
               ) : (
                 <ResponsiveContainer>
                   <PieChart>
-                    <Pie data={statusDist} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={2}
+                    <Pie data={statusDist} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={2}
                       label={(e: { name: string; pct: number }) => `${e.name} ${e.pct.toFixed(0)}%`}>
                       {statusDist.map(d => <Cell key={d.name} fill={d.color} />)}
                     </Pie>
@@ -283,26 +296,42 @@ function EquipDetalhe() {
               )}
             </div>
           </Card>
-        </TabsContent>
+        </div>
+      </div>
 
-        {/* Histórico empréstimos */}
-        <TabsContent value="hist" className="mt-4">
+      {/* ABAS */}
+      <Tabs defaultValue="emp">
+        <TabsList>
+          <TabsTrigger value="emp">Empréstimos</TabsTrigger>
+          <TabsTrigger value="manut">Manutenções</TabsTrigger>
+          <TabsTrigger value="hist">Histórico completo</TabsTrigger>
+        </TabsList>
+
+        {/* Empréstimos */}
+        <TabsContent value="emp" className="mt-4">
           <Card className="p-4">
+            <div className="mb-3 flex justify-end">
+              <Button onClick={() => setOpenEmp(true)} disabled={eq.status !== "Disponível"} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+                <PackageOpen className="mr-1 h-4 w-4" /> Registrar empréstimo
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader><TableRow>
                   <TableHead>Destino</TableHead>
                   <TableHead>Responsável</TableHead>
-                  <TableHead>Data início</TableHead>
-                  <TableHead>Devolução</TableHead>
+                  <TableHead>Início</TableHead>
+                  <TableHead>Devolução prev.</TableHead>
+                  <TableHead>Devolução real</TableHead>
                   <TableHead>Período</TableHead>
+                  <TableHead>Custo/{eq.unidade}</TableHead>
                   <TableHead>Custo total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {emprestimos.length === 0 && (
-                    <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">Sem empréstimos registrados.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sem empréstimos registrados.</TableCell></TableRow>
                   )}
                   {emprestimos.slice().reverse().map(e => {
                     const fim = e.dataDevolucaoReal || e.dataDevolucaoPrevista;
@@ -312,8 +341,10 @@ function EquipDetalhe() {
                         <TableCell>{e.destino}</TableCell>
                         <TableCell>{e.responsavel}</TableCell>
                         <TableCell>{fmtDate(e.dataInicio)}</TableCell>
-                        <TableCell>{fmtDate(e.dataDevolucaoReal || e.dataDevolucaoPrevista)}{!e.dataDevolucaoReal && <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>}</TableCell>
+                        <TableCell>{fmtDate(e.dataDevolucaoPrevista)}</TableCell>
+                        <TableCell>{fmtDate(e.dataDevolucaoReal)}</TableCell>
                         <TableCell>{p} {e.unidade}(s)</TableCell>
+                        <TableCell>{brl(e.custoPeriodo)}</TableCell>
                         <TableCell className="font-semibold text-[#F37032]">{brl(e.custoTotal)}</TableCell>
                         <TableCell><StatusBadge status={e.ativo ? "Em uso" : "Concluído"} /></TableCell>
                         <TableCell>
@@ -330,8 +361,9 @@ function EquipDetalhe() {
                 {emprestimos.length > 0 && (
                   <tfoot>
                     <tr className="border-t bg-[#F4F4F4] font-semibold">
-                      <td className="p-3" colSpan={4}>Totais ({emprestimos.length} empréstimo{emprestimos.length > 1 ? "s" : ""})</td>
+                      <td className="p-3" colSpan={5}>Totais ({emprestimos.length})</td>
                       <td className="p-3">{totalPeriodosEmp}</td>
+                      <td className="p-3"></td>
                       <td className="p-3 text-[#F37032]">{brl(totalFaturado)}</td>
                       <td className="p-3" colSpan={2}></td>
                     </tr>
@@ -345,7 +377,7 @@ function EquipDetalhe() {
         {/* Manutenções */}
         <TabsContent value="manut" className="mt-4">
           <Card className="p-4">
-            <div className="mb-4 flex justify-end">
+            <div className="mb-3 flex justify-end">
               <Button onClick={() => setOpenMn(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
                 <Wrench className="mr-1 h-4 w-4" /> Registrar manutenção
               </Button>
@@ -353,26 +385,34 @@ function EquipDetalhe() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader><TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Encerramento</TableHead>
+                  <TableHead>Início</TableHead>
+                  <TableHead>Fim</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Descrição</TableHead>
-                  <TableHead>Custo</TableHead>
+                  <TableHead>Oficina/Resp.</TableHead>
+                  <TableHead>Peças</TableHead>
+                  <TableHead>Mão de obra</TableHead>
+                  <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {manutencoes.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Sem manutenções registradas.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sem manutenções registradas.</TableCell></TableRow>
                   )}
                   {manutencoes.slice().reverse().map(m => (
                     <TableRow key={m.id}>
                       <TableCell>{fmtDate(m.data)}</TableCell>
-                      <TableCell>{fmtDate(m.dataFim)}</TableCell>
-                      <TableCell className="max-w-[320px]">{m.descricao}</TableCell>
-                      <TableCell className="font-semibold">{brl(m.custo)}</TableCell>
-                      <TableCell><StatusBadge status={m.aberta ? "Manutenção" : "Concluído"} /></TableCell>
+                      <TableCell>{fmtDate(m.dataFim || m.dataFimPrevista)}{!m.dataFim && m.dataFimPrevista && <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>}</TableCell>
+                      <TableCell><StatusBadge status={m.tipo} /></TableCell>
+                      <TableCell className="max-w-[240px] truncate" title={m.descricao}>{m.descricao}</TableCell>
+                      <TableCell>{m.oficina || "—"}</TableCell>
+                      <TableCell>{brl(m.custoPecas)}</TableCell>
+                      <TableCell>{brl(m.custoMaoObra)}</TableCell>
+                      <TableCell className="font-semibold text-[#dc2626]">{brl(m.custo)}</TableCell>
+                      <TableCell><StatusBadge status={m.statusManut} /></TableCell>
                       <TableCell>
-                        {m.aberta && (
+                        {m.statusManut !== "Concluída" && (
                           <Button size="sm" variant="outline" onClick={() => encerrarManut(m.id)}>Encerrar</Button>
                         )}
                       </TableCell>
@@ -382,14 +422,43 @@ function EquipDetalhe() {
                 {manutencoes.length > 0 && (
                   <tfoot>
                     <tr className="border-t bg-[#F4F4F4] font-semibold">
-                      <td className="p-3" colSpan={3}>Total ({manutencoes.length} manutenção{manutencoes.length > 1 ? "ões" : ""})</td>
-                      <td className="p-3 text-amber-600">{brl(custoManut)}</td>
+                      <td className="p-3" colSpan={5}>Total ({manutencoes.length})</td>
+                      <td className="p-3">{brl(manutencoes.reduce((a, m) => a + m.custoPecas, 0))}</td>
+                      <td className="p-3">{brl(manutencoes.reduce((a, m) => a + m.custoMaoObra, 0))}</td>
+                      <td className="p-3 text-[#dc2626]">{brl(custoManut)}</td>
                       <td className="p-3" colSpan={2}></td>
                     </tr>
                   </tfoot>
                 )}
               </Table>
             </div>
+          </Card>
+        </TabsContent>
+
+        {/* Histórico completo */}
+        <TabsContent value="hist" className="mt-4">
+          <Card className="p-6">
+            {timeline.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Sem eventos registrados.</div>
+            ) : (
+              <ol className="relative border-l-2 border-[#F4F4F4] pl-6">
+                {timeline.map((ev, i) => {
+                  const Ic = ev.icone;
+                  return (
+                    <li key={i} className="mb-6 last:mb-0">
+                      <span className="absolute -left-[13px] flex h-6 w-6 items-center justify-center rounded-full text-white shadow" style={{ backgroundColor: ev.cor }}>
+                        <Ic className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-sm font-bold text-[#213368]">{ev.titulo}</div>
+                        <div className="text-xs text-muted-foreground">· {fmtDate(ev.data)}</div>
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{ev.sub}</div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
@@ -413,20 +482,7 @@ function EquipDetalhe() {
       </Dialog>
 
       {/* Manutenção */}
-      <Dialog open={openMn} onOpenChange={setOpenMn}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Registrar manutenção</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div><Label>Data de início</Label><Input type="date" value={mnData} onChange={e => setMnData(e.target.value)} /></div>
-            <div><Label>Descrição</Label><Textarea rows={3} value={mnDesc} onChange={e => setMnDesc(e.target.value)} /></div>
-            <div><Label>Custo (R$)</Label><Input inputMode="numeric" value={mnCusto} onChange={e => setMnCusto(e.target.value)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenMn(false)}>Cancelar</Button>
-            <Button onClick={salvarManutencao} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Registrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ManutencaoDialog open={openMn} onOpenChange={setOpenMn} equipamentoId={eq.id} />
 
       {/* Empréstimo */}
       <EmprestimoDialog open={openEmp} onOpenChange={setOpenEmp} equipamentoId={eq.id} />
@@ -434,6 +490,83 @@ function EquipDetalhe() {
       {/* Editar */}
       <EditarDialog open={openEdit} onOpenChange={setOpenEdit} equipamentoId={eq.id} />
     </div>
+  );
+}
+
+function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; value: string; color?: string; bold?: boolean; icon?: React.ComponentType<{ className?: string }> }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5" style={{ color }} />}
+        {label}
+      </span>
+      <span className={bold ? "text-base font-extrabold" : "font-semibold"} style={color ? { color } : undefined}>{value}</span>
+    </div>
+  );
+}
+
+function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean; onOpenChange: (v: boolean) => void; equipamentoId: string }) {
+  const [tipo, setTipo] = useState<ManutencaoTipo>("Preventiva");
+  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [dataFimPrev, setDataFimPrev] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [oficina, setOficina] = useState("");
+  const [pecas, setPecas] = useState("");
+  const [mo, setMo] = useState("");
+  const [status, setStatus] = useState<ManutencaoStatus>("Aberta");
+  const [obs, setObs] = useState("");
+
+  const total = (Number(pecas) || 0) + (Number(mo) || 0);
+
+  const salvar = () => {
+    if (!descricao.trim()) return toast.error("Descreva a manutenção");
+    equipActions.registrarManutencao({
+      equipamentoId, tipo, data, dataFimPrevista: dataFimPrev || undefined,
+      descricao, oficina, custoPecas: Number(pecas) || 0, custoMaoObra: Number(mo) || 0,
+      statusManut: status, observacoes: obs || undefined,
+    });
+    toast.success("Manutenção registrada");
+    onOpenChange(false);
+    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFimPrev(""); setStatus("Aberta"); setTipo("Preventiva");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Registrar manutenção</DialogTitle></DialogHeader>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <Label>Tipo *</Label>
+            <Select value={tipo} onValueChange={v => setTipo(v as ManutencaoTipo)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{TIPOS_MN.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Status *</Label>
+            <Select value={status} onValueChange={v => setStatus(v as ManutencaoStatus)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{STATUS_MN.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div><Label>Data de início *</Label><Input type="date" value={data} onChange={e => setData(e.target.value)} /></div>
+          <div><Label>Data fim prevista</Label><Input type="date" value={dataFimPrev} onChange={e => setDataFimPrev(e.target.value)} /></div>
+          <div className="md:col-span-2"><Label>Descrição detalhada *</Label><Textarea rows={3} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
+          <div className="md:col-span-2"><Label>Oficina / responsável</Label><Input value={oficina} onChange={e => setOficina(e.target.value)} placeholder="Ex.: Oficina Central – João Silva" /></div>
+          <div><Label>Custo de peças (R$)</Label><Input inputMode="numeric" value={pecas} onChange={e => setPecas(e.target.value)} /></div>
+          <div><Label>Custo de mão de obra (R$)</Label><Input inputMode="numeric" value={mo} onChange={e => setMo(e.target.value)} /></div>
+          <div className="md:col-span-2"><Label>Observações</Label><Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} /></div>
+          <div className="md:col-span-2 flex justify-between rounded-lg bg-[#F4F4F4] p-4 text-sm">
+            <span className="text-muted-foreground">Custo total</span>
+            <b className="text-[#dc2626]">{brl(total)}</b>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={salvar} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Registrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -469,7 +602,7 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Registrar empréstimo — {eq.nome}</DialogTitle></DialogHeader>
         <div className="grid gap-3 md:grid-cols-2">
-          <div><Label>Destino (obra ou pessoa) *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
+          <div><Label>Destino *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
           <div><Label>Responsável *</Label><Input value={responsavel} onChange={e => setResponsavel(e.target.value)} /></div>
           <div><Label>Data de início *</Label><Input type="date" value={inicio} onChange={e => setInicio(e.target.value)} /></div>
           <div><Label>Devolução prevista *</Label><Input type="date" value={fim} onChange={e => setFim(e.target.value)} /></div>
