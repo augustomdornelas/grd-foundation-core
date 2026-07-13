@@ -203,7 +203,8 @@ export const equipActions = {
       unidade_periodo: input.unidade, status: input.status,
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+      foto_url: input.fotoUrl ?? null,
+    } as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
     return id;
   },
   atualizarEquipamento(id: string, patch: Partial<Equipamento>) {
