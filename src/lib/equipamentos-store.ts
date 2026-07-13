@@ -130,6 +130,14 @@ async function fetchAll() {
       unidade: (r.unidade ?? "dia") as UnidadePeriodo,
       observacoes: r.observacoes ?? undefined,
       custoTotal: r.custo_total ?? 0, ativo: r.ativo ?? true,
+      respRetiradaNome: r.resp_retirada_nome ?? undefined,
+      respRetiradaCpf: r.resp_retirada_cpf ?? undefined,
+      respRetiradaCargo: r.resp_retirada_cargo ?? undefined,
+      respEntregaNome: r.resp_entrega_nome ?? undefined,
+      respEntregaCargo: r.resp_entrega_cargo ?? undefined,
+      condicaoDevolucao: r.condicao_devolucao ?? undefined,
+      observacoesDevolucao: r.observacoes_devolucao ?? undefined,
+      numeroTermoDevolucao: r.numero_termo_devolucao ?? undefined,
     })),
     manutencoes: (man.data ?? []).map((r: any) => {
       const pecas = Number(r.custo_pecas ?? 0);
