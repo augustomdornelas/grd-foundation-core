@@ -434,7 +434,7 @@ function EquipDetalhe() {
                   {manutencoes.slice().reverse().map(m => (
                     <TableRow key={m.id}>
                       <TableCell>{fmtDate(m.data)}</TableCell>
-                      <TableCell>{fmtDate(m.dataFim || m.dataFimPrevista)}{!m.dataFim && m.dataFimPrevista && <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>}</TableCell>
+                      <TableCell>{fmtDate(m.dataFim)}</TableCell>
                       <TableCell><StatusBadge status={m.tipo} /></TableCell>
                       <TableCell className="max-w-[240px] truncate" title={m.descricao}>{m.descricao}</TableCell>
                       <TableCell>{m.oficina || "—"}</TableCell>
@@ -576,7 +576,7 @@ function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; valu
 function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean; onOpenChange: (v: boolean) => void; equipamentoId: string }) {
   const [tipo, setTipo] = useState<ManutencaoTipo>("Preventiva");
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
-  const [dataFimPrev, setDataFimPrev] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [descricao, setDescricao] = useState("");
   const [oficina, setOficina] = useState("");
   const [pecas, setPecas] = useState("");
@@ -589,13 +589,13 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
   const salvar = () => {
     if (!descricao.trim()) return toast.error("Descreva a manutenção");
     equipActions.registrarManutencao({
-      equipamentoId, tipo, data, dataFimPrevista: dataFimPrev || undefined,
+      equipamentoId, tipo, data, dataFim: dataFim || undefined,
       descricao, oficina, custoPecas: Number(pecas) || 0, custoMaoObra: Number(mo) || 0,
       statusManut: status, observacoes: obs || undefined,
     });
     toast.success("Manutenção registrada");
     onOpenChange(false);
-    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFimPrev(""); setStatus("Aberta"); setTipo("Preventiva");
+    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFim(""); setStatus("Aberta"); setTipo("Preventiva");
   };
 
   return (
@@ -618,7 +618,7 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
             </Select>
           </div>
           <div><Label>Data de início *</Label><Input type="date" value={data} onChange={e => setData(e.target.value)} /></div>
-          <div><Label>Data fim prevista</Label><Input type="date" value={dataFimPrev} onChange={e => setDataFimPrev(e.target.value)} /></div>
+          <div><Label>Data fim (prevista ou real)</Label><Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} /></div>
           <div className="md:col-span-2"><Label>Descrição detalhada *</Label><Textarea rows={3} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="md:col-span-2"><Label>Oficina / responsável</Label><Input value={oficina} onChange={e => setOficina(e.target.value)} placeholder="Ex.: Oficina Central – João Silva" /></div>
           <div><Label>Custo de peças (R$)</Label><Input inputMode="numeric" value={pecas} onChange={e => setPecas(e.target.value)} /></div>

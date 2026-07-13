@@ -50,7 +50,7 @@ export type Manutencao = {
   equipamentoId: string;
   tipo: ManutencaoTipo;
   data: string;
-  dataFimPrevista?: string;
+  
   dataFim?: string;
   descricao: string;
   oficina: string;
@@ -130,7 +130,6 @@ async function fetchAll() {
         equipamentoId: r.equipamento_id ?? "",
         tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
         data: r.data ?? "",
-        dataFimPrevista: r.data_fim_prevista ?? undefined,
         dataFim: r.data_fim ?? undefined,
         descricao: r.descricao ?? "",
         oficina: r.oficina ?? "",
@@ -139,7 +138,7 @@ async function fetchAll() {
         custo: total,
         statusManut: status,
         observacoes: r.observacoes ?? undefined,
-        aberta: status !== "Concluída",
+        aberta: r.aberta ?? (status !== "Concluída"),
       };
     }),
   };
@@ -263,7 +262,7 @@ export const equipActions = {
     emit();
     void supabase.from("manutencoes").insert({
       id, equipamento_id: input.equipamentoId, tipo: input.tipo,
-      data: input.data, data_fim_prevista: input.dataFimPrevista ?? null, data_fim: input.dataFim ?? null,
+      data: input.data, data_fim: input.dataFim ?? null,
       descricao: input.descricao, oficina: input.oficina,
       custo_pecas: input.custoPecas, custo_mao_obra: input.custoMaoObra, custo,
       status: input.statusManut, observacoes: input.observacoes ?? null, aberta,
@@ -288,7 +287,6 @@ export const equipActions = {
     const row: Record<string, unknown> = {};
     if (patch.tipo !== undefined) row.tipo = patch.tipo;
     if (patch.data !== undefined) row.data = patch.data;
-    if (patch.dataFimPrevista !== undefined) row.data_fim_prevista = patch.dataFimPrevista;
     if (patch.dataFim !== undefined) row.data_fim = patch.dataFim;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.oficina !== undefined) row.oficina = patch.oficina;
