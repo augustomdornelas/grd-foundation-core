@@ -41,12 +41,12 @@ export function iconeCategoria(cat: string) {
 type FormEq = {
   nome: string; codigo: string; categoria: string; descricao: string;
   valor: string; custoPeriodo: string; unidade: UnidadePeriodo;
-  status: EquipStatus; localBase: string;
+  status: EquipStatus; localBase: string; fotoUrl: string;
 };
 const novoForm = (): FormEq => ({
   nome: "", codigo: "", categoria: "", descricao: "",
   valor: "", custoPeriodo: "", unidade: "dia",
-  status: "Disponível", localBase: "",
+  status: "Disponível", localBase: "", fotoUrl: "",
 });
 
 function EquipamentosList() {
