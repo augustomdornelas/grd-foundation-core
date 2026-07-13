@@ -60,11 +60,16 @@ function diffDias(a: string, b: string) {
 function EquipDetalhe() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const eq = useEquipStore(s => s.equipamentos.find(e => e.id === id));
-  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id)) ?? [];
-  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id)) ?? [];
 
-  // Hooks — SEMPRE chamados antes de qualquer return condicional
+  // 1) Um único snapshot estável do store — evita loops do useSyncExternalStore
+  const store = useEquipStore();
+
+  // 2) Todas as derivações via useMemo (referências estáveis)
+  const eq = useMemo(() => store.equipamentos.find(e => e.id === id), [store.equipamentos, id]);
+  const emprestimos = useMemo(() => store.emprestimos.filter(e => e.equipamentoId === id), [store.emprestimos, id]);
+  const manutencoes = useMemo(() => store.manutencoes.filter(m => m.equipamentoId === id), [store.manutencoes, id]);
+
+  // 3) Hooks de estado — todos no topo, antes de qualquer return condicional
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
   const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
@@ -73,6 +78,8 @@ function EquipDetalhe() {
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
+
+
 
 
   const totalFaturado = emprestimos.reduce((a, e) => a + e.custoTotal, 0);
