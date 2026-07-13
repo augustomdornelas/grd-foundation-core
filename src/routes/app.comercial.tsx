@@ -39,7 +39,13 @@ export const Route = createFileRoute("/app/comercial")({ component: Comercial })
 const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
 function brl(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Extrai a parte numérica de "ORC_001_2026" ou "ORC-012" -> 1, 12
+function numeroInt(s: string): number {
+  const m = /(\d+)/.exec(s ?? "");
+  return m ? parseInt(m[1], 10) : 0;
 }
 
 // "1.500,50" | "1500.50" | "1500,50" | "1500" -> 1500.5
