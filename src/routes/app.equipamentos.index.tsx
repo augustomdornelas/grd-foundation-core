@@ -58,6 +58,7 @@ function EquipamentosList() {
   const [openEq, setOpenEq] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormEq>(novoForm());
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   const [busca, setBusca] = useState("");
   const [statusF, setStatusF] = useState("todos");
