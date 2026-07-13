@@ -41,6 +41,15 @@ export type Emprestimo = {
   observacoes?: string;
   custoTotal: number;
   ativo: boolean;
+  // Devolução
+  respRetiradaNome?: string;
+  respRetiradaCpf?: string;
+  respRetiradaCargo?: string;
+  respEntregaNome?: string;
+  respEntregaCargo?: string;
+  condicaoDevolucao?: string;
+  observacoesDevolucao?: string;
+  numeroTermoDevolucao?: string;
 };
 
 export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
