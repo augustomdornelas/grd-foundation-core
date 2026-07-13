@@ -173,12 +173,16 @@ function EquipamentosList() {
                 className="group text-left transition-all hover:-translate-y-1"
               >
                 <Card className="overflow-hidden border-2 border-transparent transition-colors group-hover:border-[#F37032]">
-                  <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-[#213368] to-[#2a4185]">
-                    <Ico className="h-14 w-14 text-white/90" strokeWidth={1.5} />
-                    <div className="absolute right-3 top-3">
+                  <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+                    {e.fotoUrl ? (
+                      <img src={e.fotoUrl} alt={e.nome} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <Ico className="h-14 w-14 text-white/90" strokeWidth={1.5} />
+                    )}
+                    <div className="absolute right-3 top-3 z-10">
                       <StatusBadge status={e.status} />
                     </div>
-                    <div className="absolute left-3 top-3 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                    <div className="absolute left-3 top-3 z-10 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
                       {e.codigo}
                     </div>
                   </div>
