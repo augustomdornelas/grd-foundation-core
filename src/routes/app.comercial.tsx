@@ -338,8 +338,8 @@ function Comercial() {
           <div className="text-sm font-semibold text-[#213368]">Funil comercial</div>
           <div className="mt-4 space-y-2">
             {metricas.funil.map((f, i) => {
-              const max = Math.max(...metricas.funil.map(x => x.qtd), 1);
-              const pct = (f.qtd / max) * 100;
+              const max = Math.max(...metricas.funil.map(x => x.valor), 1);
+              const pct = (f.valor / max) * 100;
               const inset = i * 8;
               return (
                 <div key={f.estagio}>
