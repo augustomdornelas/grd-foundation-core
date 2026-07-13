@@ -61,10 +61,10 @@ function EquipDetalhe() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const eq = useEquipStore(s => s.equipamentos.find(e => e.id === id));
-  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id));
-  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id));
-  if (!eq) throw notFound();
+  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id)) ?? [];
+  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id)) ?? [];
 
+  // Hooks — SEMPRE chamados antes de qualquer return condicional
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
   const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
@@ -74,7 +74,6 @@ function EquipDetalhe() {
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
-  const Ico = iconeCategoria(eq.categoria);
 
   const totalFaturado = emprestimos.reduce((a, e) => a + e.custoTotal, 0);
   const custoManut = manutencoes.reduce((a, m) => a + m.custo, 0);
