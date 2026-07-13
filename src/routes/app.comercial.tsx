@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  PieChart, Pie, Cell, LineChart,
+  PieChart, Pie, Cell, BarChart,
 } from "recharts";
 import {
   useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, ESTAGIO_LIST, RESPONSAVEIS,
