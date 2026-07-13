@@ -93,6 +93,7 @@ function EquipDetalhe() {
   const [respEntNome, setRespEntNome] = useState("");
   const [respEntCargo, setRespEntCargo] = useState("");
   const [previewDev, setPreviewDev] = useState(false);
+  const [savingDev, setSavingDev] = useState(false);
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -200,8 +201,8 @@ function EquipDetalhe() {
 
   const condicaoFinal = () => (condicaoOpt === "Outro (especificar)" ? condicaoDev : condicaoOpt);
 
-  const salvarDevolucao = (comPdf: boolean) => {
-    if (!empDev) return;
+  const salvarDevolucao = async (comPdf: boolean) => {
+    if (!empDev || savingDev) return;
     if (!respRetNome.trim() || !respRetCpf.trim()) {
       toast.error("Informe nome e CPF do responsável pela retirada");
       return;
@@ -212,40 +213,47 @@ function EquipDetalhe() {
     }
     const numeroTermo = numeroDoc("DEV");
     const condicao = condicaoFinal();
-    equipActions.registrarDevolucao(empDev.id, dataReal, {
-      respRetiradaNome: respRetNome,
-      respRetiradaCpf: respRetCpf,
-      respRetiradaCargo: respRetCargo || undefined,
-      respEntregaNome: respEntNome,
-      respEntregaCargo: respEntCargo,
+    setSavingDev(true);
+    const ok = await equipActions.registrarDevolucao(empDev.id, dataReal, {
+      respRetiradaNome: respRetNome.trim(),
+      respRetiradaCpf: respRetCpf.trim(),
+      respRetiradaCargo: respRetCargo.trim() || undefined,
+      respEntregaNome: respEntNome.trim(),
+      respEntregaCargo: respEntCargo.trim(),
       condicaoDevolucao: condicao,
-      observacoesDevolucao: obsDev || undefined,
+      observacoesDevolucao: obsDev.trim() || undefined,
       numeroTermoDevolucao: numeroTermo,
     });
+    setSavingDev(false);
+    if (!ok) return;
     if (comPdf) {
-      const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
-      const custoFinal = periodoEfetivo * empDev.custoPeriodo;
-      const termo: TermoData = {
-        tipo: "devolucao",
-        numero: numeroTermo,
-        emissao: new Date().toISOString().slice(0, 10),
-        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
-        destino: empDev.destino,
-        responsavel: empDev.responsavel,
-        dataInicio: empDev.dataInicio,
-        dataDevolucaoReal: dataReal,
-        periodoEfetivo,
-        custoTotalFinal: custoFinal,
-        unidade: empDev.unidade,
-        condicao,
-        observacoes: obsDev,
-        respRetiradaNome: respRetNome,
-        respRetiradaCpf: respRetCpf,
-        respRetiradaCargo: respRetCargo || undefined,
-        respEntregaNome: respEntNome,
-        respEntregaCargo: respEntCargo,
-      };
-      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+      try {
+        const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
+        const custoFinal = periodoEfetivo * empDev.custoPeriodo;
+        const termo: TermoData = {
+          tipo: "devolucao",
+          numero: numeroTermo,
+          emissao: new Date().toISOString().slice(0, 10),
+          equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+          destino: empDev.destino,
+          responsavel: empDev.responsavel,
+          dataInicio: empDev.dataInicio,
+          dataDevolucaoReal: dataReal,
+          periodoEfetivo,
+          custoTotalFinal: custoFinal,
+          unidade: empDev.unidade,
+          condicao,
+          observacoes: obsDev,
+          respRetiradaNome: respRetNome,
+          respRetiradaCpf: respRetCpf,
+          respRetiradaCargo: respRetCargo || undefined,
+          respEntregaNome: respEntNome,
+          respEntregaCargo: respEntCargo,
+        };
+        await gerarTermoPDF(termo);
+      } catch {
+        toast.error("Devolução salva, mas falhou ao gerar PDF");
+      }
     }
     toast.success("Devolução registrada");
     setPreviewDev(false);
@@ -733,8 +741,8 @@ function EquipDetalhe() {
           )}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreviewDev(false)}>Voltar</Button>
-            <Button variant="outline" onClick={() => salvarDevolucao(false)}>Salvar sem PDF</Button>
-            <Button onClick={() => salvarDevolucao(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Button variant="outline" onClick={() => salvarDevolucao(false)} disabled={savingDev}>{savingDev ? "Salvando…" : "Salvar sem PDF"}</Button>
+            <Button onClick={() => salvarDevolucao(true)} disabled={savingDev} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
               <FileText className="mr-1 h-4 w-4" /> Gerar PDF
             </Button>
           </DialogFooter>
@@ -924,6 +932,7 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
   const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
   const [obs, setObs] = useState("");
   const [preview, setPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   if (!eq) return null;
   const custoNum = Number(custo) || 0;
@@ -940,26 +949,40 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
     setPreview(true);
   };
 
-  const salvar = (comPdf: boolean) => {
-    equipActions.registrarEmprestimo({
-      equipamentoId, destino, responsavel, dataInicio: inicio, dataDevolucaoPrevista: fim,
-      custoPeriodo: custoNum, unidade, observacoes: obs,
+  const salvar = async (comPdf: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    const idSalvo = await equipActions.registrarEmprestimo({
+      equipamentoId,
+      destino: destino.trim(),
+      responsavel: responsavel.trim(),
+      dataInicio: inicio,
+      dataDevolucaoPrevista: fim,
+      custoPeriodo: custoNum,
+      unidade,
+      observacoes: obs.trim() || undefined,
     });
+    setSaving(false);
+    if (!idSalvo) return;
     if (comPdf) {
-      const termo: TermoData = {
-        tipo: "emprestimo",
-        numero: `EMP-${eq.codigo}-${Date.now().toString().slice(-6)}`,
-        emissao: new Date().toISOString().slice(0, 10),
-        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
-        destino, responsavel,
-        dataInicio: inicio,
-        dataDevolucaoPrevista: fim,
-        custoPeriodo: custoNum,
-        unidade,
-        custoTotalPrevisto: total,
-        observacoes: obs,
-      };
-      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+      try {
+        const termo: TermoData = {
+          tipo: "emprestimo",
+          numero: `EMP-${eq.codigo}-${Date.now().toString().slice(-6)}`,
+          emissao: new Date().toISOString().slice(0, 10),
+          equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+          destino, responsavel,
+          dataInicio: inicio,
+          dataDevolucaoPrevista: fim,
+          custoPeriodo: custoNum,
+          unidade,
+          custoTotalPrevisto: total,
+          observacoes: obs,
+        };
+        await gerarTermoPDF(termo);
+      } catch {
+        toast.error("Empréstimo salvo, mas falhou ao gerar PDF");
+      }
     }
     toast.success("Empréstimo registrado");
     onOpenChange(false);
@@ -1018,8 +1041,8 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreview(false)}>Voltar</Button>
-            <Button variant="outline" onClick={() => salvar(false)}>Salvar sem PDF</Button>
-            <Button onClick={() => salvar(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Button variant="outline" onClick={() => salvar(false)} disabled={saving}>{saving ? "Salvando…" : "Salvar sem PDF"}</Button>
+            <Button onClick={() => salvar(true)} disabled={saving} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
               <FileText className="mr-1 h-4 w-4" /> Gerar PDF
             </Button>
           </DialogFooter>

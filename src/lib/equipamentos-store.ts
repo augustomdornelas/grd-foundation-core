@@ -263,34 +263,62 @@ export const equipActions = {
     emit();
     void supabase.from("equipamentos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
-  registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">) {
+  async registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">): Promise<string | null> {
     const id = uid("EM");
     const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
-    const novo: Emprestimo = { ...input, id, custoTotal, ativo: true };
-    state = {
-      ...state,
-      emprestimos: [...state.emprestimos, novo],
-      equipamentos: state.equipamentos.map(e =>
-        e.id === input.equipamentoId
-          ? { ...e, status: "Emprestado" as EquipStatus, localAtual: input.destino, responsavelAtual: input.responsavel }
-          : e
-      ),
-    };
-    emit();
-    void supabase.from("emprestimos").insert({
-      id, equipamento_id: input.equipamentoId, destino: input.destino,
-      responsavel: input.responsavel, data_inicio: input.dataInicio,
+    const emprestimoPayload = {
+      id,
+      equipamento_id: input.equipamentoId,
+      destino: input.destino,
+      responsavel: input.responsavel,
+      data_inicio: input.dataInicio,
       data_devolucao_prevista: input.dataDevolucaoPrevista,
-      custo_periodo: input.custoPeriodo, unidade: input.unidade,
-      observacoes: input.observacoes ?? null, custo_total: custoTotal, ativo: true,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
-    void supabase.from("equipamentos").update({
-      status: "Emprestado", local_atual: input.destino, responsavel_atual: input.responsavel,
-    }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
-    return id;
+      custo_periodo: input.custoPeriodo,
+      unidade: input.unidade,
+      observacoes: input.observacoes ?? null,
+      custo_total: custoTotal,
+      ativo: true,
+    };
+
+    try {
+      const insertResult = await supabase
+        .from("emprestimos")
+        .insert(emprestimoPayload as any)
+        .select("*")
+        .single();
+      console.log("Supabase emprestimos insert retorno:", insertResult);
+      if (insertResult.error) {
+        toast.error(`Erro ao registrar empréstimo: ${insertResult.error.message}`);
+        return null;
+      }
+
+      const updateEquipResult = await supabase
+        .from("equipamentos")
+        .update({
+          status: "Emprestado",
+          local_atual: input.destino,
+          responsavel_atual: input.responsavel,
+        } as any)
+        .eq("id", input.equipamentoId)
+        .select("*")
+        .single();
+      console.log("Supabase equipamentos update empréstimo retorno:", updateEquipResult);
+      if (updateEquipResult.error) {
+        toast.error(`Empréstimo salvo, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+        await fetchAll();
+        return null;
+      }
+
+      await fetchAll();
+      return id;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "erro desconhecido";
+      toast.error(`Erro ao registrar empréstimo: ${message}`);
+      return null;
+    }
   },
-  registrarDevolucao(emprestimoId: string, dataReal: string, extra?: {
+  async registrarDevolucao(emprestimoId: string, dataReal: string, extra?: {
     respRetiradaNome?: string;
     respRetiradaCpf?: string;
     respRetiradaCargo?: string;
@@ -299,27 +327,18 @@ export const equipActions = {
     condicaoDevolucao?: string;
     observacoesDevolucao?: string;
     numeroTermoDevolucao?: string;
-  }) {
+  }): Promise<boolean> {
     const emp = state.emprestimos.find(e => e.id === emprestimoId);
-    if (!emp) return;
+    if (!emp) {
+      toast.error("Empréstimo não encontrado para devolução");
+      return false;
+    }
     const qtd = periodos(emp.dataInicio, dataReal, emp.unidade);
     const custoFinal = qtd * emp.custoPeriodo;
-    state = {
-      ...state,
-      emprestimos: state.emprestimos.map(e =>
-        e.id === emprestimoId
-          ? { ...e, dataDevolucaoReal: dataReal, custoTotal: custoFinal, ativo: false, ...(extra ?? {}) }
-          : e
-      ),
-      equipamentos: state.equipamentos.map(e =>
-        e.id === emp.equipamentoId
-          ? { ...e, status: "Disponível" as EquipStatus, localAtual: e.localBase, responsavelAtual: undefined }
-          : e
-      ),
-    };
-    emit();
     const updatePayload: Record<string, unknown> = {
-      data_devolucao_real: dataReal, custo_total: custoFinal, ativo: false,
+      data_devolucao_real: dataReal,
+      custo_total: custoFinal,
+      ativo: false,
     };
     if (extra) {
       if (extra.respRetiradaNome !== undefined) updatePayload.resp_retirada_nome = extra.respRetiradaNome;
@@ -331,12 +350,45 @@ export const equipActions = {
       if (extra.observacoesDevolucao !== undefined) updatePayload.observacoes_devolucao = extra.observacoesDevolucao;
       if (extra.numeroTermoDevolucao !== undefined) updatePayload.numero_termo_devolucao = extra.numeroTermoDevolucao;
     }
-    void supabase.from("emprestimos").update(updatePayload as any).eq("id", emprestimoId)
-      .then(({ error }) => toastErr("Erro ao salvar no banco", error));
     const equip = state.equipamentos.find(e => e.id === emp.equipamentoId);
-    void supabase.from("equipamentos").update({
-      status: "Disponível", local_atual: equip?.localBase ?? "", responsavel_atual: null,
-    }).eq("id", emp.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+
+    try {
+      const updateEmprestimoResult = await supabase
+        .from("emprestimos")
+        .update(updatePayload as any)
+        .eq("id", emprestimoId)
+        .select("*")
+        .single();
+      console.log("Supabase emprestimos devolução update retorno:", updateEmprestimoResult);
+      if (updateEmprestimoResult.error) {
+        toast.error(`Erro ao registrar devolução: ${updateEmprestimoResult.error.message}`);
+        return false;
+      }
+
+      const updateEquipResult = await supabase
+        .from("equipamentos")
+        .update({
+          status: "Disponível",
+          local_atual: equip?.localBase ?? "",
+          responsavel_atual: null,
+        } as any)
+        .eq("id", emp.equipamentoId)
+        .select("*")
+        .single();
+      console.log("Supabase equipamentos update devolução retorno:", updateEquipResult);
+      if (updateEquipResult.error) {
+        toast.error(`Devolução salva, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+        await fetchAll();
+        return false;
+      }
+
+      await fetchAll();
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "erro desconhecido";
+      toast.error(`Erro ao registrar devolução: ${message}`);
+      return false;
+    }
   },
   registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
     const id = uid("MAN");
