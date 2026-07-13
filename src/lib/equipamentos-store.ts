@@ -109,6 +109,7 @@ async function fetchAll() {
       status: (r.status ?? "Disponível") as EquipStatus,
       localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
       responsavelAtual: r.responsavel_atual ?? undefined,
+      fotoUrl: r.foto_url ?? undefined,
     })),
     emprestimos: (emp.data ?? []).map((r: any) => ({
       id: r.id, equipamentoId: r.equipamento_id ?? "",
