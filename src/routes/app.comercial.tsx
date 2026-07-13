@@ -356,18 +356,19 @@ function Comercial() {
           </div>
         </Card>
         <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Probabilidade média de fechamento por mês</div>
+          <div className="text-sm font-semibold text-[#213368]">Top 5 clientes por valor</div>
           <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={metricas.probMeses}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                <YAxis stroke="#6E7280" fontSize={12} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
-                <Legend />
-                <Line type="monotone" dataKey="prob" name="Probabilidade média" stroke="#F37032" strokeWidth={2.5} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {metricas.topClientes.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metricas.topClientes} layout="vertical" margin={{ left: 20, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                  <XAxis type="number" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="cliente" stroke="#6E7280" fontSize={12} width={140} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Bar dataKey="valor" name="Valor total" fill="#213368" radius={[0,6,6,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <Vazio />}
           </div>
         </Card>
       </div>
