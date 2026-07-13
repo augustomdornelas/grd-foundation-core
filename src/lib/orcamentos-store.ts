@@ -27,7 +27,7 @@ export type TipoServico =
   | "Frezamento";
 
 export type EstagioFunil =
-    | "Prospectado"
+    | "Levantamento"
   | "Proposta enviada"
   | "Em negocia\u00e7\u00e3o"
   | "Aprovado"
