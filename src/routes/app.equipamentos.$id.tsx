@@ -132,8 +132,29 @@ function EquipDetalhe() {
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
 
+  // Loading state — todos os hooks já foram chamados acima
+  if (!eq) {
+    return (
+      <div className="space-y-4 p-6 font-[Montserrat] animate-fade-in">
+        <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/equipamentos" })}>
+          <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+        </Button>
+        <Card className="p-8">
+          <div className="mx-auto max-w-md space-y-3 text-center">
+            <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-[#F4F4F4]" />
+            <div className="mx-auto h-4 w-40 animate-pulse rounded bg-[#F4F4F4]" />
+            <div className="mx-auto h-3 w-64 animate-pulse rounded bg-[#F4F4F4]" />
+            <p className="pt-4 text-xs text-muted-foreground">Carregando equipamento…</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const Ico = iconeCategoria(eq.categoria);
   const empDev = emprestimos.find(e => e.id === openDev) || null;
   const numeroDoc = (prefix: string) => `${prefix}-${eq.codigo}-${Date.now().toString().slice(-6)}`;
+
 
   const salvarDevolucao = (comPdf: boolean) => {
     if (!empDev) return;
