@@ -576,7 +576,7 @@ function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; valu
 function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean; onOpenChange: (v: boolean) => void; equipamentoId: string }) {
   const [tipo, setTipo] = useState<ManutencaoTipo>("Preventiva");
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
-  const [dataFimPrev, setDataFimPrev] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [descricao, setDescricao] = useState("");
   const [oficina, setOficina] = useState("");
   const [pecas, setPecas] = useState("");
