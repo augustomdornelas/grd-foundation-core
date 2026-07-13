@@ -306,21 +306,39 @@ export type Periodo = { tipo: PeriodoTipo; ini?: string; fim?: string };
 
 export function rangeDoPeriodo(p: Periodo): { ini: Date; fim: Date } {
     const hoje = new Date();
+    const y = hoje.getFullYear();
+    const m = hoje.getMonth();
     if (p.tipo === "custom" && p.ini && p.fim) {
-          return { ini: new Date(p.ini), fim: new Date(p.fim + "T23:59:59") };
+        return { ini: new Date(p.ini + "T00:00:00"), fim: new Date(p.fim + "T23:59:59.999") };
     }
-    if (p.tipo === "mes") return { ini: new Date(hoje.getFullYear(), hoje.getMonth(), 1), fim: hoje };
-    if (p.tipo === "trimestre") return { ini: new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1), fim: hoje };
-    return { ini: new Date(hoje.getFullYear(), 0, 1), fim: hoje };
+    if (p.tipo === "mes") {
+        // do dia 1 ao último dia do mês atual
+        return {
+            ini: new Date(y, m, 1, 0, 0, 0, 0),
+            fim: new Date(y, m + 1, 0, 23, 59, 59, 999),
+        };
+    }
+    if (p.tipo === "trimestre") {
+        // dos últimos 3 meses até hoje (rolling window)
+        const ini = new Date(y, m, hoje.getDate(), 0, 0, 0, 0);
+        ini.setMonth(ini.getMonth() - 3);
+        return { ini, fim: new Date(y, m, hoje.getDate(), 23, 59, 59, 999) };
+    }
+    // ano: 01/01 até 31/12 do ano atual
+    return {
+        ini: new Date(y, 0, 1, 0, 0, 0, 0),
+        fim: new Date(y, 11, 31, 23, 59, 59, 999),
+    };
 }
 
 export function rangeAnterior(p: Periodo): { ini: Date; fim: Date } {
     const cur = rangeDoPeriodo(p);
     const durMs = cur.fim.getTime() - cur.ini.getTime();
-    return { ini: new Date(cur.ini.getTime() - durMs), fim: new Date(cur.ini.getTime() - 1) };
+    return { ini: new Date(cur.ini.getTime() - durMs - 1), fim: new Date(cur.ini.getTime() - 1) };
 }
 
 export function dentro(dataISO: string, r: { ini: Date; fim: Date }) {
-    const d = new Date(dataISO);
+    if (!dataISO) return false;
+    const d = new Date(dataISO.length <= 10 ? dataISO + "T12:00:00" : dataISO);
     return d >= r.ini && d <= r.fim;
 }
