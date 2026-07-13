@@ -262,6 +262,9 @@ function Comercial() {
               <Input type="date" value={customFim} onChange={e => setCustomFim(e.target.value)} className="w-40" />
             </div>
           )}
+          <Button variant="outline" onClick={() => setLoteOpen(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368]/5">
+            <Plus className="mr-1 h-4 w-4" /> Lançar em lote
+          </Button>
           <Button onClick={() => setNovoOpen(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Plus className="mr-1 h-4 w-4" /> Novo orçamento
           </Button>
