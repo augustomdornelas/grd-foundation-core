@@ -19,6 +19,12 @@ const map: Record<string, string> = {
   "Aprovada": "bg-green-100 text-green-700 border-green-200",
   "Enviada": "bg-blue-100 text-blue-700 border-blue-200",
   "Aguardando retorno": "bg-yellow-100 text-yellow-800 border-yellow-200",
+  "Aberta": "bg-amber-100 text-amber-800 border-amber-200",
+  "Em andamento": "bg-blue-100 text-blue-700 border-blue-200",
+  "Concluída": "bg-green-100 text-green-700 border-green-200",
+  "Preventiva": "bg-blue-100 text-blue-700 border-blue-200",
+  "Corretiva": "bg-amber-100 text-amber-800 border-amber-200",
+  "Emergencial": "bg-red-100 text-red-700 border-red-200",
 };
 
 export function StatusBadge({ status }: { status: string }) {
