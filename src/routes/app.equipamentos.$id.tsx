@@ -133,10 +133,36 @@ function EquipDetalhe() {
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
 
-  const devolver = (empId: string) => {
-    equipActions.registrarDevolucao(empId, dataReal);
+  const empDev = emprestimos.find(e => e.id === openDev) || null;
+  const numeroDoc = (prefix: string) => `${prefix}-${eq.codigo}-${Date.now().toString().slice(-6)}`;
+
+  const salvarDevolucao = (comPdf: boolean) => {
+    if (!empDev) return;
+    equipActions.registrarDevolucao(empDev.id, dataReal);
+    if (comPdf) {
+      const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
+      const custoFinal = periodoEfetivo * empDev.custoPeriodo;
+      const termo: TermoData = {
+        tipo: "devolucao",
+        numero: numeroDoc("DEV"),
+        emissao: new Date().toISOString().slice(0, 10),
+        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+        destino: empDev.destino,
+        responsavel: empDev.responsavel,
+        dataInicio: empDev.dataInicio,
+        dataDevolucaoReal: dataReal,
+        periodoEfetivo,
+        custoTotalFinal: custoFinal,
+        unidade: empDev.unidade,
+        condicao: condicaoDev,
+        observacoes: obsDev,
+      };
+      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+    }
     toast.success("Devolução registrada");
+    setPreviewDev(false);
     setOpenDev(null);
+    setObsDev("");
   };
 
   const encerrarManut = (mnId: string) => {
