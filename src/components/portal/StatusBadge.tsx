@@ -3,7 +3,7 @@ const map: Record<string, string> = {
   "Em análise": "bg-amber-100 text-amber-800 border-amber-200",
   "Enviado": "bg-blue-100 text-blue-700 border-blue-200",
   "Recusado": "bg-red-100 text-red-700 border-red-200",
-  "Em andamento": "bg-blue-100 text-blue-700 border-blue-200",
+  // "Em andamento" defined below with maintenance statuses
   "Planejamento": "bg-amber-100 text-amber-800 border-amber-200",
   "Concluído": "bg-green-100 text-green-700 border-green-200",
   "Disponível": "bg-green-100 text-green-700 border-green-200",
