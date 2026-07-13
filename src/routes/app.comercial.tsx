@@ -106,8 +106,8 @@ function Comercial() {
   const [fStatus, setFStatus] = useState<string>("todos");
   const [fResp, setFResp] = useState<string>("todos");
   const [fTipo, setFTipo] = useState<string>("todos");
-  const [sortBy, setSortBy] = useState<keyof Orcamento>("data");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortBy, setSortBy] = useState<keyof Orcamento>("numero");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pagina, setPagina] = useState(1);
 
   // ---------- Modais / drawer ----------
