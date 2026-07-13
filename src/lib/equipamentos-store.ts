@@ -262,7 +262,7 @@ export const equipActions = {
     emit();
     void supabase.from("manutencoes").insert({
       id, equipamento_id: input.equipamentoId, tipo: input.tipo,
-      data: input.data, data_fim_prevista: input.dataFimPrevista ?? null, data_fim: input.dataFim ?? null,
+      data: input.data, data_fim: input.dataFim ?? null,
       descricao: input.descricao, oficina: input.oficina,
       custo_pecas: input.custoPecas, custo_mao_obra: input.custoMaoObra, custo,
       status: input.statusManut, observacoes: input.observacoes ?? null, aberta,
