@@ -479,8 +479,12 @@ function EquipDetalhe() {
                   {emprestimos.slice().reverse().map(e => {
                     const fim = e.dataDevolucaoReal || e.dataDevolucaoPrevista;
                     const p = periodos(e.dataInicio, fim, e.unidade);
+                    const hojeIso = new Date().toISOString().slice(0, 10);
+                    const statusEmp = !e.ativo
+                      ? "Devolvido"
+                      : (e.dataDevolucaoPrevista && e.dataDevolucaoPrevista < hojeIso ? "Atrasado" : "Em uso");
                     return (
-                      <TableRow key={e.id}>
+                      <TableRow key={e.id} className="cursor-pointer hover:bg-[#F4F4F4]/60" onClick={() => setOpenView(e.id)}>
                         <TableCell>{e.destino}</TableCell>
                         <TableCell>{e.responsavel}</TableCell>
                         <TableCell>{fmtDate(e.dataInicio)}</TableCell>
@@ -489,13 +493,20 @@ function EquipDetalhe() {
                         <TableCell>{p} {e.unidade}(s)</TableCell>
                         <TableCell>{brl(e.custoPeriodo)}</TableCell>
                         <TableCell className="font-semibold text-[#F37032]">{brl(e.custoTotal)}</TableCell>
-                        <TableCell><StatusBadge status={e.ativo ? "Em uso" : "Concluído"} /></TableCell>
-                        <TableCell>
-                          {e.ativo && (
-                            <Button size="sm" variant="ghost" title="Registrar devolução" onClick={() => setOpenDev(e.id)}>
-                              <PackageCheck className="h-4 w-4 text-green-600" />
-                            </Button>
-                          )}
+                        <TableCell><StatusBadge status={statusEmp} /></TableCell>
+                        <TableCell onClick={ev => ev.stopPropagation()}>
+                          <div className="flex gap-1">
+                            {e.ativo && (
+                              <Button size="sm" variant="ghost" title="Registrar devolução" onClick={() => abrirDevolucao(e.id)}>
+                                <PackageCheck className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
+                            {!e.ativo && (
+                              <Button size="sm" variant="ghost" title="Gerar termo de devolução" onClick={() => gerarTermoDevolvido(e.id)}>
+                                <FileText className="h-4 w-4 text-[#213368]" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
