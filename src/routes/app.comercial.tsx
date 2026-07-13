@@ -387,20 +387,6 @@ function Comercial() {
                 {STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={fResp} onValueChange={v => { setFResp(v); setPagina(1); }}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Responsável" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os responsáveis</SelectItem>
-                {RESPONSAVEIS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fTipo} onValueChange={v => { setFTipo(v); setPagina(1); }}>
-              <SelectTrigger className="w-52"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                {TIPOS_SERVICO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
             <Button variant="outline" onClick={exportCSV}><Download className="mr-1 h-4 w-4" /> Exportar</Button>
           </div>
         </div>
