@@ -174,18 +174,53 @@ function EquipDetalhe() {
 
   const Ico = iconeCategoria(eq.categoria);
   const empDev = emprestimos.find(e => e.id === openDev) || null;
-  const numeroDoc = (prefix: string) => `${prefix}-${eq.codigo}-${Date.now().toString().slice(-6)}`;
+  const empView = emprestimos.find(e => e.id === openView) || null;
+  const numeroDoc = (prefix: string) => `${prefix}-GRD-${eq.codigo}-${Date.now().toString().slice(-6)}`;
 
+  const abrirDevolucao = (empId: string) => {
+    const emp = emprestimos.find(e => e.id === empId);
+    setOpenDev(empId);
+    setDataReal(new Date().toISOString().slice(0, 10));
+    setCondicaoOpt(CONDICOES[0]);
+    setCondicaoDev(CONDICOES[0]);
+    setObsDev("");
+    setRespRetNome(emp?.responsavel ?? "");
+    setRespRetCpf("");
+    setRespRetCargo("");
+    setRespEntNome("");
+    setRespEntCargo("");
+  };
+
+  const condicaoFinal = () => (condicaoOpt === "Outro (especificar)" ? condicaoDev : condicaoOpt);
 
   const salvarDevolucao = (comPdf: boolean) => {
     if (!empDev) return;
-    equipActions.registrarDevolucao(empDev.id, dataReal);
+    if (!respRetNome.trim() || !respRetCpf.trim()) {
+      toast.error("Informe nome e CPF do responsável pela retirada");
+      return;
+    }
+    if (!respEntNome.trim() || !respEntCargo.trim()) {
+      toast.error("Informe nome e cargo do responsável GRD");
+      return;
+    }
+    const numeroTermo = numeroDoc("DEV");
+    const condicao = condicaoFinal();
+    equipActions.registrarDevolucao(empDev.id, dataReal, {
+      respRetiradaNome: respRetNome,
+      respRetiradaCpf: respRetCpf,
+      respRetiradaCargo: respRetCargo || undefined,
+      respEntregaNome: respEntNome,
+      respEntregaCargo: respEntCargo,
+      condicaoDevolucao: condicao,
+      observacoesDevolucao: obsDev || undefined,
+      numeroTermoDevolucao: numeroTermo,
+    });
     if (comPdf) {
       const periodoEfetivo = periodos(empDev.dataInicio, dataReal, empDev.unidade);
       const custoFinal = periodoEfetivo * empDev.custoPeriodo;
       const termo: TermoData = {
         tipo: "devolucao",
-        numero: numeroDoc("DEV"),
+        numero: numeroTermo,
         emissao: new Date().toISOString().slice(0, 10),
         equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
         destino: empDev.destino,
@@ -195,8 +230,13 @@ function EquipDetalhe() {
         periodoEfetivo,
         custoTotalFinal: custoFinal,
         unidade: empDev.unidade,
-        condicao: condicaoDev,
+        condicao,
         observacoes: obsDev,
+        respRetiradaNome: respRetNome,
+        respRetiradaCpf: respRetCpf,
+        respRetiradaCargo: respRetCargo || undefined,
+        respEntregaNome: respEntNome,
+        respEntregaCargo: respEntCargo,
       };
       gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
     }
@@ -204,6 +244,33 @@ function EquipDetalhe() {
     setPreviewDev(false);
     setOpenDev(null);
     setObsDev("");
+  };
+
+  const gerarTermoDevolvido = (empId: string) => {
+    const emp = emprestimos.find(e => e.id === empId);
+    if (!emp || !emp.dataDevolucaoReal) return;
+    const periodoEfetivo = periodos(emp.dataInicio, emp.dataDevolucaoReal, emp.unidade);
+    const termo: TermoData = {
+      tipo: "devolucao",
+      numero: emp.numeroTermoDevolucao || numeroDoc("DEV"),
+      emissao: emp.dataDevolucaoReal,
+      equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+      destino: emp.destino,
+      responsavel: emp.responsavel,
+      dataInicio: emp.dataInicio,
+      dataDevolucaoReal: emp.dataDevolucaoReal,
+      periodoEfetivo,
+      custoTotalFinal: emp.custoTotal,
+      unidade: emp.unidade,
+      condicao: emp.condicaoDevolucao || "—",
+      observacoes: emp.observacoesDevolucao || emp.observacoes || "",
+      respRetiradaNome: emp.respRetiradaNome,
+      respRetiradaCpf: emp.respRetiradaCpf,
+      respRetiradaCargo: emp.respRetiradaCargo,
+      respEntregaNome: emp.respEntregaNome,
+      respEntregaCargo: emp.respEntregaCargo,
+    };
+    gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
   };
 
   const encerrarManut = (mnId: string) => {
