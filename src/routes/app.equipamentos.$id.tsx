@@ -434,7 +434,7 @@ function EquipDetalhe() {
                   {manutencoes.slice().reverse().map(m => (
                     <TableRow key={m.id}>
                       <TableCell>{fmtDate(m.data)}</TableCell>
-                      <TableCell>{fmtDate(m.dataFim || m.dataFimPrevista)}{!m.dataFim && m.dataFimPrevista && <span className="ml-1 text-[10px] text-muted-foreground">(prev.)</span>}</TableCell>
+                      <TableCell>{fmtDate(m.dataFim)}</TableCell>
                       <TableCell><StatusBadge status={m.tipo} /></TableCell>
                       <TableCell className="max-w-[240px] truncate" title={m.descricao}>{m.descricao}</TableCell>
                       <TableCell>{m.oficina || "—"}</TableCell>
