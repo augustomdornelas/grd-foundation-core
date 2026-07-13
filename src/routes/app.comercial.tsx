@@ -176,24 +176,17 @@ function Comercial() {
       valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
     }));
 
-    const probMeses: { mes: string; prob: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
-      const lst = orcamentos.filter(o => {
-        const od = new Date(o.data);
-        return od >= d && od < dNext;
-      });
-      const media = lst.length
-        ? lst.reduce((a, o) => a + (o.probabilidade ?? 0), 0) / lst.length
-        : 0;
-      probMeses.push({
-        mes: NOMES_MES[d.getMonth()],
-        prob: Math.round(media),
-      });
+    const clientesMap = new Map<string, number>();
+    for (const o of noPer) {
+      const nome = (o.cliente || "").trim() || "—";
+      clientesMap.set(nome, (clientesMap.get(nome) ?? 0) + o.valor);
     }
+    const topClientes = Array.from(clientesMap.entries())
+      .map(([cliente, valor]) => ({ cliente, valor }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 5);
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, probMeses };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, topClientes };
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
