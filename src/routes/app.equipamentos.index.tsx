@@ -258,6 +258,31 @@ function EquipamentosList() {
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editId ? "Editar equipamento" : "Novo equipamento"}</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <Label>Foto do equipamento</Label>
+              <div className="mt-1 flex items-center gap-4">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-[#F4F4F4]">
+                  {form.fotoUrl ? (
+                    <img src={form.fotoUrl} alt="Foto" className="h-full w-full object-cover" />
+                  ) : (
+                    <Package className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Input
+                    type="file" accept="image/*"
+                    onChange={e => onSelecionarFoto(e.target.files?.[0] ?? null)}
+                    disabled={uploadingFoto}
+                  />
+                  {form.fotoUrl && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setForm(f => ({ ...f, fotoUrl: "" }))}>
+                      Remover foto
+                    </Button>
+                  )}
+                  {uploadingFoto && <p className="text-xs text-muted-foreground">Enviando…</p>}
+                </div>
+              </div>
+            </div>
             <div className="md:col-span-2"><Label>Nome *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
             <div><Label>Código / patrimônio *</Label><Input value={form.codigo} onChange={e => setForm({ ...form, codigo: e.target.value })} /></div>
             <div><Label>Categoria *</Label><Input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} placeholder="Ex.: Energia, Transporte" /></div>
