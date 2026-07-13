@@ -92,6 +92,36 @@ function EquipamentosList() {
   }, [equipamentos, emprestimos, manutencoes]);
 
   const abrirNovo = () => { setEditId(null); setForm(novoForm()); setOpenEq(true); };
+  const abrirEditar = (e: Equipamento) => {
+    setEditId(e.id);
+    setForm({
+      nome: e.nome, codigo: e.codigo, categoria: e.categoria, descricao: e.descricao,
+      valor: String(e.valor || ""), custoPeriodo: String(e.custoPeriodo || ""),
+      unidade: e.unidade, status: e.status, localBase: e.localBase, fotoUrl: e.fotoUrl ?? "",
+    });
+    setOpenEq(true);
+  };
+
+  const onSelecionarFoto = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Foto deve ter até 5MB");
+    setUploadingFoto(true);
+    try {
+      // upload direto para bucket público — mesma pasta se estiver editando
+      const targetId = editId ?? `tmp-${Date.now()}`;
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${targetId}/${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("equipamentos").upload(path, file, {
+        cacheControl: "3600", upsert: true, contentType: file.type,
+      });
+      if (up.error) { toast.error(`Falha no upload: ${up.error.message}`); return; }
+      const { data } = supabase.storage.from("equipamentos").getPublicUrl(path);
+      setForm(f => ({ ...f, fotoUrl: data.publicUrl }));
+      toast.success("Foto enviada");
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
 
   const salvar = () => {
     if (!form.nome.trim() || !form.codigo.trim()) return toast.error("Preencha nome e código");
@@ -102,6 +132,7 @@ function EquipamentosList() {
       nome: form.nome, codigo: form.codigo, categoria: form.categoria, descricao: form.descricao,
       valor, custoPeriodo, unidade: form.unidade, status: form.status,
       localBase: form.localBase, localAtual: form.localBase,
+      fotoUrl: form.fotoUrl || undefined,
     };
     if (editId) { equipActions.atualizarEquipamento(editId, base); toast.success("Equipamento atualizado"); }
     else { equipActions.criarEquipamento(base); toast.success("Equipamento cadastrado"); }
