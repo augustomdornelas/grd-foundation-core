@@ -720,3 +720,147 @@ function Info({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+// ------------------------------------------------------------
+// Lançar em lote
+// ------------------------------------------------------------
+type LoteRow = {
+  cliente: string;
+  obra: string;
+  valor: string;
+  data: string; // ISO
+  status: OrcStatus;
+  tipo: string;
+  responsavel: string;
+  cnpj: string;
+  observacoes: string;
+};
+
+function novaLinha(): LoteRow {
+  return {
+    cliente: "",
+    obra: "",
+    valor: "",
+    data: new Date().toISOString().slice(0, 10),
+    status: "Em análise",
+    tipo: "",
+    responsavel: "",
+    cnpj: "",
+    observacoes: "",
+  };
+}
+
+function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [rows, setRows] = useState<LoteRow[]>([novaLinha()]);
+  const [erro, setErro] = useState("");
+
+  useMemo(() => { if (open) { setRows([novaLinha()]); setErro(""); } }, [open]);
+
+  function setRow(i: number, patch: Partial<LoteRow>) {
+    setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  }
+  function addRow() { setRows(rs => [...rs, novaLinha()]); }
+  function removeRow(i: number) { setRows(rs => rs.length > 1 ? rs.filter((_, idx) => idx !== i) : rs); }
+
+  function salvar() {
+    const validas = rows.filter(r => r.cliente.trim() || r.obra.trim() || r.valor.trim());
+    if (validas.length === 0) { setErro("Adicione ao menos uma linha preenchida."); return; }
+    for (const [i, r] of validas.entries()) {
+      const v = parseValorBR(r.valor);
+      if (!r.cliente.trim() || !r.obra.trim() || v <= 0 || !r.data) {
+        setErro(`Linha ${i + 1}: Cliente, Obra, Valor e Data são obrigatórios.`);
+        return;
+      }
+    }
+    let criados = 0;
+    for (const r of validas) {
+      orcamentosActions.criar({
+        cliente: r.cliente.trim(),
+        cnpj: r.cnpj.trim(),
+        tipo: (r.tipo || TIPOS_SERVICO[0]) as TipoServico,
+        obra: r.obra.trim(),
+        descricao: "",
+        valor: parseValorBR(r.valor),
+        responsavel: r.responsavel.trim(),
+        data: r.data,
+        validade: r.data,
+        status: r.status,
+        estagio: "Proposta enviada",
+        probabilidade: 50,
+        observacoes: r.observacoes.trim(),
+      });
+      criados++;
+    }
+    toast.success(`${criados} orçamento(s) lançado(s) em lote.`);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Lançar orçamentos em lote</DialogTitle></DialogHeader>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-left text-[#213368]">
+                <th className="p-2 font-semibold">Cliente *</th>
+                <th className="p-2 font-semibold">Obra *</th>
+                <th className="p-2 font-semibold">Valor *</th>
+                <th className="p-2 font-semibold">Data *</th>
+                <th className="p-2 font-semibold">Status *</th>
+                <th className="p-2 font-semibold">Tipo</th>
+                <th className="p-2 font-semibold">Resp. comercial</th>
+                <th className="p-2 font-semibold">Técnico</th>
+                <th className="p-2 font-semibold">Observações</th>
+                <th className="p-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b align-top">
+                  <td className="p-1"><Input value={r.cliente} onChange={e => setRow(i, { cliente: e.target.value })} className="h-8 min-w-[140px]" /></td>
+                  <td className="p-1"><Input value={r.obra} onChange={e => setRow(i, { obra: e.target.value })} className="h-8 min-w-[140px]" /></td>
+                  <td className="p-1"><Input inputMode="decimal" placeholder="1.500,50" value={r.valor} onChange={e => setRow(i, { valor: e.target.value })} className="h-8 w-28" /></td>
+                  <td className="p-1 w-36"><DateBRInput value={r.data} onChange={iso => setRow(i, { data: iso })} className="h-8" /></td>
+                  <td className="p-1">
+                    <Select value={r.status} onValueChange={v => setRow(i, { status: v as OrcStatus })}>
+                      <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-1">
+                    <Select value={r.tipo || "__none"} onValueChange={v => setRow(i, { tipo: v === "__none" ? "" : v })}>
+                      <SelectTrigger className="h-8 w-48"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">—</SelectItem>
+                        {TIPOS_SERVICO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-1"><Input value={r.responsavel} onChange={e => setRow(i, { responsavel: e.target.value })} className="h-8 min-w-[120px]" /></td>
+                  <td className="p-1"><Input value={r.cnpj} onChange={e => setRow(i, { cnpj: e.target.value })} className="h-8 min-w-[120px]" /></td>
+                  <td className="p-1"><Input value={r.observacoes} onChange={e => setRow(i, { observacoes: e.target.value })} className="h-8 min-w-[140px]" /></td>
+                  <td className="p-1">
+                    <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} aria-label="Remover linha">
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2">
+          <Button type="button" variant="outline" onClick={addRow}>
+            <Plus className="mr-1 h-4 w-4" /> Adicionar linha
+          </Button>
+        </div>
+        {erro && <div className="mt-2 text-sm text-red-600">{erro}</div>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button type="button" onClick={salvar} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar lote</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
