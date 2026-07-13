@@ -493,7 +493,7 @@ function EquipDetalhe() {
   );
 }
 
-function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; value: string; color?: string; bold?: boolean; icon?: React.ComponentType<{ className?: string }> }) {
+function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; value: string; color?: string; bold?: boolean; icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="flex items-center gap-1.5 text-muted-foreground">
