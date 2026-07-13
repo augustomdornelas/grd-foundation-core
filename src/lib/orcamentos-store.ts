@@ -30,8 +30,7 @@ export type EstagioFunil =
     | "Levantamento"
   | "Proposta enviada"
   | "Em negocia\u00e7\u00e3o"
-  | "Aprovado"
-  | "Contrato assinado";
+  | "Aprovado";
 
 export type TimelineEvento = {
     data: string;
