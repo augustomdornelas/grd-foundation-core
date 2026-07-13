@@ -69,9 +69,22 @@ function EquipDetalhe() {
 
   // 2) Hooks de estado — TODOS antes de qualquer return condicional
   const [openDev, setOpenDev] = useState<string | null>(null);
+  const [openView, setOpenView] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
-  const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
+  const CONDICOES = [
+    "Devolvido em bom estado, sem avarias aparentes",
+    "Devolvido com avarias leves",
+    "Devolvido com avarias graves",
+    "Outro (especificar)",
+  ];
+  const [condicaoOpt, setCondicaoOpt] = useState<string>(CONDICOES[0]);
+  const [condicaoDev, setCondicaoDev] = useState(CONDICOES[0]);
   const [obsDev, setObsDev] = useState("");
+  const [respRetNome, setRespRetNome] = useState("");
+  const [respRetCpf, setRespRetCpf] = useState("");
+  const [respRetCargo, setRespRetCargo] = useState("");
+  const [respEntNome, setRespEntNome] = useState("");
+  const [respEntCargo, setRespEntCargo] = useState("");
   const [previewDev, setPreviewDev] = useState(false);
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
