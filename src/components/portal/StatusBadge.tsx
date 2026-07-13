@@ -9,6 +9,8 @@ const map: Record<string, string> = {
   "Disponível": "bg-green-100 text-green-700 border-green-200",
   "Emprestado": "bg-[#213368] text-white border-[#213368]",
   "Em uso": "bg-[#213368] text-white border-[#213368]",
+  "Devolvido": "bg-green-100 text-green-700 border-green-200",
+  "Atrasado": "bg-red-100 text-red-700 border-red-200",
   "Manutenção": "bg-amber-100 text-amber-800 border-amber-200",
   "Ativo": "bg-green-100 text-green-700 border-green-200",
   "Inativo": "bg-muted text-muted-foreground border-border",
