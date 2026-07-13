@@ -200,8 +200,6 @@ function Comercial() {
       o.obra.toLowerCase().includes(qLower),
     );
     if (fStatus !== "todos") list = list.filter(o => o.status === fStatus);
-    if (fResp !== "todos") list = list.filter(o => o.responsavel === fResp);
-    if (fTipo !== "todos") list = list.filter(o => o.tipo === fTipo);
     list.sort((a, b) => {
       const va = a[sortBy] as unknown as string | number;
       const vb = b[sortBy] as unknown as string | number;
@@ -211,7 +209,7 @@ function Comercial() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [orcamentos, q, fStatus, fResp, fTipo, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
+  }, [orcamentos, q, fStatus, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
 
   const porPagina = 10;
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / porPagina));
