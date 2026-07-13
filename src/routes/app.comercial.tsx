@@ -171,22 +171,24 @@ function Comercial() {
       valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
     }));
 
-    const projMeses: { mes: string; realizado: number; meta: number }[] = [];
+    const probMeses: { mes: string; prob: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
-      const soma = orcamentos.filter(o => {
+      const lst = orcamentos.filter(o => {
         const od = new Date(o.data);
-        return od >= d && od < dNext && o.status === "Aprovado";
-      }).reduce((a, o) => a + o.valor, 0);
-      projMeses.push({
+        return od >= d && od < dNext;
+      });
+      const media = lst.length
+        ? lst.reduce((a, o) => a + (o.probabilidade ?? 0), 0) / lst.length
+        : 0;
+      probMeses.push({
         mes: NOMES_MES[d.getMonth()],
-        realizado: soma,
-        meta: 2_500_000,
+        prob: Math.round(media),
       });
     }
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, projMeses };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, probMeses };
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
