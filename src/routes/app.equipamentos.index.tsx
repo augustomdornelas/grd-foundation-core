@@ -93,15 +93,7 @@ function EquipamentosList() {
   }, [equipamentos, emprestimos, manutencoes]);
 
   const abrirNovo = () => { setEditId(null); setForm(novoForm()); setOpenEq(true); };
-  const abrirEditar = (e: Equipamento) => {
-    setEditId(e.id);
-    setForm({
-      nome: e.nome, codigo: e.codigo, categoria: e.categoria, descricao: e.descricao,
-      valor: String(e.valor || ""), custoPeriodo: String(e.custoPeriodo || ""),
-      unidade: e.unidade, status: e.status, localBase: e.localBase, fotoUrl: e.fotoUrl ?? "",
-    });
-    setOpenEq(true);
-  };
+
 
   const onSelecionarFoto = async (file: File | null) => {
     if (!file) return;
