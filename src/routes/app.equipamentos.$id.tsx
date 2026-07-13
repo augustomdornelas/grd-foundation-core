@@ -78,8 +78,9 @@ function EquipDetalhe() {
   const totalFaturado = emprestimos.reduce((a, e) => a + e.custoTotal, 0);
   const custoManut = manutencoes.reduce((a, m) => a + m.custo, 0);
   const liquido = totalFaturado - custoManut;
-  const roi = eq.valor > 0 ? (liquido / eq.valor) * 100 : 0;
-  const pctRecup = eq.valor > 0 ? Math.min(100, (totalFaturado / eq.valor) * 100) : 0;
+  const valorEq = eq?.valor ?? 0;
+  const roi = valorEq > 0 ? (liquido / valorEq) * 100 : 0;
+  const pctRecup = valorEq > 0 ? Math.min(100, (totalFaturado / valorEq) * 100) : 0;
 
   const hoje = new Date().toISOString().slice(0, 10);
   const diasUso = emprestimos.reduce((a, e) => a + diffDias(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista), 0);
