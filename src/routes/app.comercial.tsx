@@ -113,6 +113,7 @@ function Comercial() {
   const [editOpen, setEditOpen] = useState<Orcamento | null>(null);
   const [detalhe, setDetalhe] = useState<Orcamento | null>(null);
   const [excluir, setExcluir] = useState<Orcamento | null>(null);
+  const [loteOpen, setLoteOpen] = useState(false);
 
   // ---------- Métricas do período ----------
   const metricas = useMemo(() => {
