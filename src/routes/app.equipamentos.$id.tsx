@@ -589,7 +589,7 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
   const salvar = () => {
     if (!descricao.trim()) return toast.error("Descreva a manutenção");
     equipActions.registrarManutencao({
-      equipamentoId, tipo, data, dataFimPrevista: dataFimPrev || undefined,
+      equipamentoId, tipo, data, dataFim: dataFim || undefined,
       descricao, oficina, custoPecas: Number(pecas) || 0, custoMaoObra: Number(mo) || 0,
       statusManut: status, observacoes: obs || undefined,
     });
