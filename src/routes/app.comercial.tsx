@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  PieChart, Pie, Cell, LineChart,
+  PieChart, Pie, Cell, BarChart,
 } from "recharts";
 import {
   useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, ESTAGIO_LIST, RESPONSAVEIS,
@@ -39,7 +39,13 @@ export const Route = createFileRoute("/app/comercial")({ component: Comercial })
 const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
 function brl(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Extrai a parte numérica de "ORC_001_2026" ou "ORC-012" -> 1, 12
+function numeroInt(s: string): number {
+  const m = /(\d+)/.exec(s ?? "");
+  return m ? parseInt(m[1], 10) : 0;
 }
 
 // "1.500,50" | "1500.50" | "1500,50" | "1500" -> 1500.5
@@ -170,24 +176,17 @@ function Comercial() {
       valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
     }));
 
-    const probMeses: { mes: string; prob: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
-      const lst = orcamentos.filter(o => {
-        const od = new Date(o.data);
-        return od >= d && od < dNext;
-      });
-      const media = lst.length
-        ? lst.reduce((a, o) => a + (o.probabilidade ?? 0), 0) / lst.length
-        : 0;
-      probMeses.push({
-        mes: NOMES_MES[d.getMonth()],
-        prob: Math.round(media),
-      });
+    const clientesMap = new Map<string, number>();
+    for (const o of noPer) {
+      const nome = (o.cliente || "").trim() || "—";
+      clientesMap.set(nome, (clientesMap.get(nome) ?? 0) + o.valor);
     }
+    const topClientes = Array.from(clientesMap.entries())
+      .map(([cliente, valor]) => ({ cliente, valor }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 5);
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, probMeses };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, topClientes };
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
@@ -202,11 +201,16 @@ function Comercial() {
     );
     if (fStatus !== "todos") list = list.filter(o => o.status === fStatus);
     list.sort((a, b) => {
-      const va = a[sortBy] as unknown as string | number;
-      const vb = b[sortBy] as unknown as string | number;
-      const cmp = typeof va === "number" && typeof vb === "number"
-        ? va - vb
-        : String(va).localeCompare(String(vb));
+      let cmp: number;
+      if (sortBy === "numero") {
+        cmp = numeroInt(a.numero) - numeroInt(b.numero);
+      } else {
+        const va = a[sortBy] as unknown as string | number;
+        const vb = b[sortBy] as unknown as string | number;
+        cmp = typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb));
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
@@ -352,18 +356,19 @@ function Comercial() {
           </div>
         </Card>
         <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Probabilidade média de fechamento por mês</div>
+          <div className="text-sm font-semibold text-[#213368]">Top 5 clientes por valor</div>
           <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={metricas.probMeses}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                <YAxis stroke="#6E7280" fontSize={12} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
-                <Legend />
-                <Line type="monotone" dataKey="prob" name="Probabilidade média" stroke="#F37032" strokeWidth={2.5} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {metricas.topClientes.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metricas.topClientes} layout="vertical" margin={{ left: 20, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                  <XAxis type="number" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="cliente" stroke="#6E7280" fontSize={12} width={140} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Bar dataKey="valor" name="Valor total" fill="#213368" radius={[0,6,6,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <Vazio />}
           </div>
         </Card>
       </div>
@@ -725,41 +730,59 @@ function Info({ label, value }: { label: string; value: string }) {
 // Lançar em lote
 // ------------------------------------------------------------
 type LoteRow = {
+  numero: string;
   cliente: string;
   obra: string;
   valor: string;
   data: string; // ISO
   status: OrcStatus;
-  tipo: string;
-  responsavel: string;
-  cnpj: string;
-  observacoes: string;
+  estagio: EstagioFunil;
 };
 
-function novaLinha(): LoteRow {
+function novaLinha(numero: string): LoteRow {
   return {
+    numero,
     cliente: "",
     obra: "",
     valor: "",
     data: new Date().toISOString().slice(0, 10),
     status: "Em análise",
-    tipo: "",
-    responsavel: "",
-    cnpj: "",
-    observacoes: "",
+    estagio: "Proposta enviada",
   };
 }
 
+// Próximo número sequencial baseado em um número base já usado (ex.: "ORC-003" + n)
+function proximoNumeroApos(numeros: string[]): string {
+  const usados = new Set(numeros.map(numeroInt).filter(n => n > 0));
+  let n = 1;
+  while (usados.has(n)) n++;
+  return `ORC-${String(n).padStart(3, "0")}`;
+}
+
 function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const [rows, setRows] = useState<LoteRow[]>([novaLinha()]);
+  const orcamentos = useOrcamentos(s => s);
+  const [rows, setRows] = useState<LoteRow[]>(() => [novaLinha(orcamentosActions.proximoNumero())]);
   const [erro, setErro] = useState("");
 
-  useMemo(() => { if (open) { setRows([novaLinha()]); setErro(""); } }, [open]);
+  useMemo(() => {
+    if (open) {
+      setRows([novaLinha(orcamentosActions.proximoNumero())]);
+      setErro("");
+    }
+  }, [open]);
 
   function setRow(i: number, patch: Partial<LoteRow>) {
     setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   }
-  function addRow() { setRows(rs => [...rs, novaLinha()]); }
+  function addRow() {
+    setRows(rs => {
+      const jaUsados = [
+        ...orcamentos.map(o => o.numero),
+        ...rs.map(r => r.numero),
+      ];
+      return [...rs, novaLinha(proximoNumeroApos(jaUsados))];
+    });
+  }
   function removeRow(i: number) { setRows(rs => rs.length > 1 ? rs.filter((_, idx) => idx !== i) : rs); }
 
   function salvar() {
@@ -775,19 +798,20 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
     let criados = 0;
     for (const r of validas) {
       orcamentosActions.criar({
+        numero: r.numero.trim() || undefined,
         cliente: r.cliente.trim(),
-        cnpj: r.cnpj.trim(),
-        tipo: (r.tipo || TIPOS_SERVICO[0]) as TipoServico,
+        cnpj: "",
+        tipo: TIPOS_SERVICO[0],
         obra: r.obra.trim(),
         descricao: "",
         valor: parseValorBR(r.valor),
-        responsavel: r.responsavel.trim(),
+        responsavel: "",
         data: r.data,
         validade: r.data,
         status: r.status,
-        estagio: "Proposta enviada",
+        estagio: r.estagio,
         probabilidade: 50,
-        observacoes: r.observacoes.trim(),
+        observacoes: "",
       });
       criados++;
     }
@@ -797,27 +821,26 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Lançar orçamentos em lote</DialogTitle></DialogHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b text-left text-[#213368]">
+                <th className="p-2 font-semibold">Nº orçamento</th>
                 <th className="p-2 font-semibold">Cliente *</th>
                 <th className="p-2 font-semibold">Obra *</th>
                 <th className="p-2 font-semibold">Valor *</th>
                 <th className="p-2 font-semibold">Data *</th>
                 <th className="p-2 font-semibold">Status *</th>
-                <th className="p-2 font-semibold">Tipo</th>
-                <th className="p-2 font-semibold">Resp. comercial</th>
-                <th className="p-2 font-semibold">Técnico</th>
-                <th className="p-2 font-semibold">Observações</th>
+                <th className="p-2 font-semibold">Estágio</th>
                 <th className="p-2" />
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
                 <tr key={i} className="border-b align-top">
+                  <td className="p-1"><Input value={r.numero} onChange={e => setRow(i, { numero: e.target.value })} className="h-8 w-32" /></td>
                   <td className="p-1"><Input value={r.cliente} onChange={e => setRow(i, { cliente: e.target.value })} className="h-8 min-w-[140px]" /></td>
                   <td className="p-1"><Input value={r.obra} onChange={e => setRow(i, { obra: e.target.value })} className="h-8 min-w-[140px]" /></td>
                   <td className="p-1"><Input inputMode="decimal" placeholder="1.500,50" value={r.valor} onChange={e => setRow(i, { valor: e.target.value })} className="h-8 w-28" /></td>
@@ -829,17 +852,11 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
                     </Select>
                   </td>
                   <td className="p-1">
-                    <Select value={r.tipo || "__none"} onValueChange={v => setRow(i, { tipo: v === "__none" ? "" : v })}>
-                      <SelectTrigger className="h-8 w-48"><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">—</SelectItem>
-                        {TIPOS_SERVICO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
+                    <Select value={r.estagio} onValueChange={v => setRow(i, { estagio: v as EstagioFunil })}>
+                      <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+                      <SelectContent>{ESTAGIO_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                     </Select>
                   </td>
-                  <td className="p-1"><Input value={r.responsavel} onChange={e => setRow(i, { responsavel: e.target.value })} className="h-8 min-w-[120px]" /></td>
-                  <td className="p-1"><Input value={r.cnpj} onChange={e => setRow(i, { cnpj: e.target.value })} className="h-8 min-w-[120px]" /></td>
-                  <td className="p-1"><Input value={r.observacoes} onChange={e => setRow(i, { observacoes: e.target.value })} className="h-8 min-w-[140px]" /></td>
                   <td className="p-1">
                     <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} aria-label="Remover linha">
                       <Trash2 className="h-4 w-4 text-red-600" />
