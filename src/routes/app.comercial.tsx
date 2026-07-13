@@ -208,11 +208,16 @@ function Comercial() {
     );
     if (fStatus !== "todos") list = list.filter(o => o.status === fStatus);
     list.sort((a, b) => {
-      const va = a[sortBy] as unknown as string | number;
-      const vb = b[sortBy] as unknown as string | number;
-      const cmp = typeof va === "number" && typeof vb === "number"
-        ? va - vb
-        : String(va).localeCompare(String(vb));
+      let cmp: number;
+      if (sortBy === "numero") {
+        cmp = numeroInt(a.numero) - numeroInt(b.numero);
+      } else {
+        const va = a[sortBy] as unknown as string | number;
+        const vb = b[sortBy] as unknown as string | number;
+        cmp = typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb));
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
