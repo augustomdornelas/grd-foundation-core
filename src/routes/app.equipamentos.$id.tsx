@@ -595,7 +595,7 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
     });
     toast.success("Manutenção registrada");
     onOpenChange(false);
-    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFimPrev(""); setStatus("Aberta"); setTipo("Preventiva");
+    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFim(""); setStatus("Aberta"); setTipo("Preventiva");
   };
 
   return (
@@ -618,7 +618,7 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
             </Select>
           </div>
           <div><Label>Data de início *</Label><Input type="date" value={data} onChange={e => setData(e.target.value)} /></div>
-          <div><Label>Data fim prevista</Label><Input type="date" value={dataFimPrev} onChange={e => setDataFimPrev(e.target.value)} /></div>
+          <div><Label>Data fim (prevista ou real)</Label><Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} /></div>
           <div className="md:col-span-2"><Label>Descrição detalhada *</Label><Textarea rows={3} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="md:col-span-2"><Label>Oficina / responsável</Label><Input value={oficina} onChange={e => setOficina(e.target.value)} placeholder="Ex.: Oficina Central – João Silva" /></div>
           <div><Label>Custo de peças (R$)</Label><Input inputMode="numeric" value={pecas} onChange={e => setPecas(e.target.value)} /></div>
