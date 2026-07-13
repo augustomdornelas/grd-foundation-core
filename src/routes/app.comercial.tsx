@@ -352,17 +352,16 @@ function Comercial() {
           </div>
         </Card>
         <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Realizado vs. meta</div>
+          <div className="text-sm font-semibold text-[#213368]">Probabilidade média de fechamento por mês</div>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={metricas.projMeses}>
+              <LineChart data={metricas.probMeses}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-                <Tooltip formatter={(v: number) => brl(v)} />
+                <YAxis stroke="#6E7280" fontSize={12} domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                <Tooltip formatter={(v: number) => `${v}%`} />
                 <Legend />
-                <Line type="monotone" dataKey="realizado" name="Realizado" stroke="#F37032" strokeWidth={2.5} />
-                <Line type="monotone" dataKey="meta" name="Meta" stroke="#213368" strokeWidth={2} strokeDasharray="6 4" />
+                <Line type="monotone" dataKey="prob" name="Probabilidade média" stroke="#F37032" strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
