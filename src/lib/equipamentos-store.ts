@@ -1,7 +1,7 @@
 // ============================================================
 // Store de Equipamentos — integração real com Supabase
 // ============================================================
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
