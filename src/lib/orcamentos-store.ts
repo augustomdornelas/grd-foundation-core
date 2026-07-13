@@ -85,7 +85,7 @@ export const STATUS_LIST: OrcStatus[] = [
   ];
 
 export const ESTAGIO_LIST: EstagioFunil[] = [
-    "Prospectado",
+    "Levantamento",
     "Proposta enviada",
     "Em negocia\u00e7\u00e3o",
     "Aprovado",
