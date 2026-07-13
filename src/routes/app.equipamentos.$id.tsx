@@ -932,6 +932,7 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
   const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
   const [obs, setObs] = useState("");
   const [preview, setPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   if (!eq) return null;
   const custoNum = Number(custo) || 0;
@@ -948,26 +949,40 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
     setPreview(true);
   };
 
-  const salvar = (comPdf: boolean) => {
-    equipActions.registrarEmprestimo({
-      equipamentoId, destino, responsavel, dataInicio: inicio, dataDevolucaoPrevista: fim,
-      custoPeriodo: custoNum, unidade, observacoes: obs,
+  const salvar = async (comPdf: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    const idSalvo = await equipActions.registrarEmprestimo({
+      equipamentoId,
+      destino: destino.trim(),
+      responsavel: responsavel.trim(),
+      dataInicio: inicio,
+      dataDevolucaoPrevista: fim,
+      custoPeriodo: custoNum,
+      unidade,
+      observacoes: obs.trim() || undefined,
     });
+    setSaving(false);
+    if (!idSalvo) return;
     if (comPdf) {
-      const termo: TermoData = {
-        tipo: "emprestimo",
-        numero: `EMP-${eq.codigo}-${Date.now().toString().slice(-6)}`,
-        emissao: new Date().toISOString().slice(0, 10),
-        equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
-        destino, responsavel,
-        dataInicio: inicio,
-        dataDevolucaoPrevista: fim,
-        custoPeriodo: custoNum,
-        unidade,
-        custoTotalPrevisto: total,
-        observacoes: obs,
-      };
-      gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
+      try {
+        const termo: TermoData = {
+          tipo: "emprestimo",
+          numero: `EMP-${eq.codigo}-${Date.now().toString().slice(-6)}`,
+          emissao: new Date().toISOString().slice(0, 10),
+          equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
+          destino, responsavel,
+          dataInicio: inicio,
+          dataDevolucaoPrevista: fim,
+          custoPeriodo: custoNum,
+          unidade,
+          custoTotalPrevisto: total,
+          observacoes: obs,
+        };
+        await gerarTermoPDF(termo);
+      } catch {
+        toast.error("Empréstimo salvo, mas falhou ao gerar PDF");
+      }
     }
     toast.success("Empréstimo registrado");
     onOpenChange(false);
@@ -1026,8 +1041,8 @@ function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreview(false)}>Voltar</Button>
-            <Button variant="outline" onClick={() => salvar(false)}>Salvar sem PDF</Button>
-            <Button onClick={() => salvar(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Button variant="outline" onClick={() => salvar(false)} disabled={saving}>{saving ? "Salvando…" : "Salvar sem PDF"}</Button>
+            <Button onClick={() => salvar(true)} disabled={saving} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
               <FileText className="mr-1 h-4 w-4" /> Gerar PDF
             </Button>
           </DialogFooter>
