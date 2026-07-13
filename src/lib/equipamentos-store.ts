@@ -149,16 +149,43 @@ async function fetchAll() {
 
 if (typeof window !== "undefined") void fetchAll();
 
-// Retorna o snapshot inteiro (referência estável até um emit()).
-// Componentes derivam com useMemo — evita loops causados por selectors
-// que retornam novo array a cada render (find/filter).
-export function useEquipStore(): State {
-  return useSyncExternalStore(subscribe, () => state, () => SSR);
+function shallowEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
+    return true;
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const ka = Object.keys(a as object); const kb = Object.keys(b as object);
+    if (ka.length !== kb.length) return false;
+    for (const k of ka) if (!Object.is((a as any)[k], (b as any)[k])) return false;
+    return true;
+  }
+  return false;
+}
+
+// Subscribe-based hook com equality shallow → evita loops causados por
+// selectors que retornam nova referência (find/filter) a cada render.
+export function useEquipStore<T>(selector: (s: State) => T): T {
+  const selRef = useRef(selector);
+  selRef.current = selector;
+  const [value, setValue] = useState<T>(() => selector(state));
+  useEffect(() => {
+    const check = () => {
+      const next = selRef.current(state);
+      setValue(prev => shallowEqual(prev, next) ? prev : next);
+    };
+    check();
+    return subscribe(check);
+  }, []);
+  return value;
 }
 
 export async function refetchEquipamentos() {
   await fetchAll();
 }
+
 
 
 function uid(prefix: string) {
