@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,10 +61,10 @@ function EquipDetalhe() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const eq = useEquipStore(s => s.equipamentos.find(e => e.id === id));
-  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id));
-  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id));
-  if (!eq) throw notFound();
+  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id)) ?? [];
+  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id)) ?? [];
 
+  // Hooks — SEMPRE chamados antes de qualquer return condicional
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
   const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
@@ -74,13 +74,13 @@ function EquipDetalhe() {
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
-  const Ico = iconeCategoria(eq.categoria);
 
   const totalFaturado = emprestimos.reduce((a, e) => a + e.custoTotal, 0);
   const custoManut = manutencoes.reduce((a, m) => a + m.custo, 0);
   const liquido = totalFaturado - custoManut;
-  const roi = eq.valor > 0 ? (liquido / eq.valor) * 100 : 0;
-  const pctRecup = eq.valor > 0 ? Math.min(100, (totalFaturado / eq.valor) * 100) : 0;
+  const valorEq = eq?.valor ?? 0;
+  const roi = valorEq > 0 ? (liquido / valorEq) * 100 : 0;
+  const pctRecup = valorEq > 0 ? Math.min(100, (totalFaturado / valorEq) * 100) : 0;
 
   const hoje = new Date().toISOString().slice(0, 10);
   const diasUso = emprestimos.reduce((a, e) => a + diffDias(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista), 0);
@@ -133,8 +133,29 @@ function EquipDetalhe() {
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
 
+  // Loading state — todos os hooks já foram chamados acima
+  if (!eq) {
+    return (
+      <div className="space-y-4 p-6 font-[Montserrat] animate-fade-in">
+        <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/equipamentos" })}>
+          <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+        </Button>
+        <Card className="p-8">
+          <div className="mx-auto max-w-md space-y-3 text-center">
+            <div className="mx-auto h-12 w-12 animate-pulse rounded-full bg-[#F4F4F4]" />
+            <div className="mx-auto h-4 w-40 animate-pulse rounded bg-[#F4F4F4]" />
+            <div className="mx-auto h-3 w-64 animate-pulse rounded bg-[#F4F4F4]" />
+            <p className="pt-4 text-xs text-muted-foreground">Carregando equipamento…</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const Ico = iconeCategoria(eq.categoria);
   const empDev = emprestimos.find(e => e.id === openDev) || null;
   const numeroDoc = (prefix: string) => `${prefix}-${eq.codigo}-${Date.now().toString().slice(-6)}`;
+
 
   const salvarDevolucao = (comPdf: boolean) => {
     if (!empDev) return;
