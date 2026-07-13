@@ -222,7 +222,20 @@ export const equipActions = {
     if (patch.localBase !== undefined) row.local_base = patch.localBase;
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
+    if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl;
     void supabase.from("equipamentos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+  },
+  async uploadFoto(id: string, file: File): Promise<string | null> {
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${id}/${Date.now()}.${ext}`;
+    const up = await supabase.storage.from("equipamentos").upload(path, file, {
+      cacheControl: "3600", upsert: true, contentType: file.type,
+    });
+    if (up.error) { toast.error(`Falha no upload da foto: ${up.error.message}`); return null; }
+    const { data } = supabase.storage.from("equipamentos").getPublicUrl(path);
+    const url = data.publicUrl;
+    equipActions.atualizarEquipamento(id, { fotoUrl: url });
+    return url;
   },
   excluirEquipamento(id: string) {
     state = {
