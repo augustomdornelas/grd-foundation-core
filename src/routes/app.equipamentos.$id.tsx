@@ -826,6 +826,25 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Editar equipamento</DialogTitle></DialogHeader>
         <div className="grid gap-3 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <Label>Foto do equipamento</Label>
+            <div className="mt-1 flex items-center gap-4">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-[#F4F4F4]">
+                {fotoUrl ? (
+                  <img src={fotoUrl} alt="Foto" className="h-full w-full object-cover" />
+                ) : (
+                  <Package className="h-8 w-8 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Input type="file" accept="image/*" onChange={e => onSelecionarFoto(e.target.files?.[0] ?? null)} disabled={uploadingFoto} />
+                {fotoUrl && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setFotoUrl("")}>Remover foto</Button>
+                )}
+                {uploadingFoto && <p className="text-xs text-muted-foreground">Enviando…</p>}
+              </div>
+            </div>
+          </div>
           <div><Label>Nome *</Label><Input value={nome} onChange={e => setNome(e.target.value)} /></div>
           <div><Label>Código *</Label><Input value={codigo} onChange={e => setCodigo(e.target.value)} /></div>
           <div><Label>Categoria</Label><Input value={categoria} onChange={e => setCategoria(e.target.value)} /></div>
