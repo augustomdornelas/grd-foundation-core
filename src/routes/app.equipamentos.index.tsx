@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useEquipStore, equipActions,
   type Equipamento, type EquipStatus, type UnidadePeriodo,
@@ -41,12 +42,12 @@ export function iconeCategoria(cat: string) {
 type FormEq = {
   nome: string; codigo: string; categoria: string; descricao: string;
   valor: string; custoPeriodo: string; unidade: UnidadePeriodo;
-  status: EquipStatus; localBase: string;
+  status: EquipStatus; localBase: string; fotoUrl: string;
 };
 const novoForm = (): FormEq => ({
   nome: "", codigo: "", categoria: "", descricao: "",
   valor: "", custoPeriodo: "", unidade: "dia",
-  status: "Disponível", localBase: "",
+  status: "Disponível", localBase: "", fotoUrl: "",
 });
 
 function EquipamentosList() {
@@ -58,6 +59,7 @@ function EquipamentosList() {
   const [openEq, setOpenEq] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormEq>(novoForm());
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   const [busca, setBusca] = useState("");
   const [statusF, setStatusF] = useState("todos");
@@ -92,6 +94,28 @@ function EquipamentosList() {
 
   const abrirNovo = () => { setEditId(null); setForm(novoForm()); setOpenEq(true); };
 
+
+  const onSelecionarFoto = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Foto deve ter até 5MB");
+    setUploadingFoto(true);
+    try {
+      // upload direto para bucket público — mesma pasta se estiver editando
+      const targetId = editId ?? `tmp-${Date.now()}`;
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${targetId}/${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("equipamentos").upload(path, file, {
+        cacheControl: "3600", upsert: true, contentType: file.type,
+      });
+      if (up.error) { toast.error(`Falha no upload: ${up.error.message}`); return; }
+      const { data } = supabase.storage.from("equipamentos").getPublicUrl(path);
+      setForm(f => ({ ...f, fotoUrl: data.publicUrl }));
+      toast.success("Foto enviada");
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
+
   const salvar = () => {
     if (!form.nome.trim() || !form.codigo.trim()) return toast.error("Preencha nome e código");
     if (!form.categoria.trim()) return toast.error("Informe a categoria");
@@ -101,6 +125,7 @@ function EquipamentosList() {
       nome: form.nome, codigo: form.codigo, categoria: form.categoria, descricao: form.descricao,
       valor, custoPeriodo, unidade: form.unidade, status: form.status,
       localBase: form.localBase, localAtual: form.localBase,
+      fotoUrl: form.fotoUrl || undefined,
     };
     if (editId) { equipActions.atualizarEquipamento(editId, base); toast.success("Equipamento atualizado"); }
     else { equipActions.criarEquipamento(base); toast.success("Equipamento cadastrado"); }
@@ -173,12 +198,16 @@ function EquipamentosList() {
                 className="group text-left transition-all hover:-translate-y-1"
               >
                 <Card className="overflow-hidden border-2 border-transparent transition-colors group-hover:border-[#F37032]">
-                  <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-[#213368] to-[#2a4185]">
-                    <Ico className="h-14 w-14 text-white/90" strokeWidth={1.5} />
-                    <div className="absolute right-3 top-3">
+                  <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+                    {e.fotoUrl ? (
+                      <img src={e.fotoUrl} alt={e.nome} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <Ico className="h-14 w-14 text-white/90" strokeWidth={1.5} />
+                    )}
+                    <div className="absolute right-3 top-3 z-10">
                       <StatusBadge status={e.status} />
                     </div>
-                    <div className="absolute left-3 top-3 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                    <div className="absolute left-3 top-3 z-10 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
                       {e.codigo}
                     </div>
                   </div>
@@ -221,6 +250,31 @@ function EquipamentosList() {
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editId ? "Editar equipamento" : "Novo equipamento"}</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <Label>Foto do equipamento</Label>
+              <div className="mt-1 flex items-center gap-4">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-[#F4F4F4]">
+                  {form.fotoUrl ? (
+                    <img src={form.fotoUrl} alt="Foto" className="h-full w-full object-cover" />
+                  ) : (
+                    <Package className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Input
+                    type="file" accept="image/*"
+                    onChange={e => onSelecionarFoto(e.target.files?.[0] ?? null)}
+                    disabled={uploadingFoto}
+                  />
+                  {form.fotoUrl && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setForm(f => ({ ...f, fotoUrl: "" }))}>
+                      Remover foto
+                    </Button>
+                  )}
+                  {uploadingFoto && <p className="text-xs text-muted-foreground">Enviando…</p>}
+                </div>
+              </div>
+            </div>
             <div className="md:col-span-2"><Label>Nome *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
             <div><Label>Código / patrimônio *</Label><Input value={form.codigo} onChange={e => setForm({ ...form, codigo: e.target.value })} /></div>
             <div><Label>Categoria *</Label><Input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} placeholder="Ex.: Energia, Transporte" /></div>

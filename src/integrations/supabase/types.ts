@@ -77,6 +77,7 @@ export type Database = {
           created_at: string
           custo_periodo: number
           descricao: string
+          foto_url: string | null
           id: string
           local_atual: string
           local_base: string
@@ -93,6 +94,7 @@ export type Database = {
           created_at?: string
           custo_periodo?: number
           descricao?: string
+          foto_url?: string | null
           id: string
           local_atual?: string
           local_base?: string
@@ -109,6 +111,7 @@ export type Database = {
           created_at?: string
           custo_periodo?: number
           descricao?: string
+          foto_url?: string | null
           id?: string
           local_atual?: string
           local_base?: string

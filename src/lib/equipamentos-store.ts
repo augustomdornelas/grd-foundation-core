@@ -1,7 +1,7 @@
 // ============================================================
 // Store de Equipamentos — integração real com Supabase
 // ============================================================
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,6 +25,7 @@ export type Equipamento = {
   localBase: string;
   localAtual: string;
   responsavelAtual?: string;
+  fotoUrl?: string;
 };
 
 export type Emprestimo = {
@@ -72,7 +73,7 @@ const SSR: State = { equipamentos: [], emprestimos: [], manutencoes: [] };
 let state: State = SSR;
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach(l => l()); }
-function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
+function subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; }
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -108,6 +109,7 @@ async function fetchAll() {
       status: (r.status ?? "Disponível") as EquipStatus,
       localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
       responsavelAtual: r.responsavel_atual ?? undefined,
+      fotoUrl: r.foto_url ?? undefined,
     })),
     emprestimos: (emp.data ?? []).map((r: any) => ({
       id: r.id, equipamentoId: r.equipamento_id ?? "",
@@ -147,9 +149,44 @@ async function fetchAll() {
 
 if (typeof window !== "undefined") void fetchAll();
 
-export function useEquipStore<T>(selector: (s: State) => T): T {
-  return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
+function shallowEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
+    return true;
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const ka = Object.keys(a as object); const kb = Object.keys(b as object);
+    if (ka.length !== kb.length) return false;
+    for (const k of ka) if (!Object.is((a as any)[k], (b as any)[k])) return false;
+    return true;
+  }
+  return false;
 }
+
+// Subscribe-based hook com equality shallow → evita loops causados por
+// selectors que retornam nova referência (find/filter) a cada render.
+export function useEquipStore<T>(selector: (s: State) => T): T {
+  const selRef = useRef(selector);
+  selRef.current = selector;
+  const [value, setValue] = useState<T>(() => selector(state));
+  useEffect(() => {
+    const check = () => {
+      const next = selRef.current(state);
+      setValue(prev => shallowEqual(prev, next) ? prev : next);
+    };
+    check();
+    return subscribe(check);
+  }, []);
+  return value;
+}
+
+export async function refetchEquipamentos() {
+  await fetchAll();
+}
+
+
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
@@ -166,7 +203,8 @@ export const equipActions = {
       unidade_periodo: input.unidade, status: input.status,
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+      foto_url: input.fotoUrl ?? null,
+    } as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
     return id;
   },
   atualizarEquipamento(id: string, patch: Partial<Equipamento>) {
@@ -184,7 +222,20 @@ export const equipActions = {
     if (patch.localBase !== undefined) row.local_base = patch.localBase;
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
+    if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl;
     void supabase.from("equipamentos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+  },
+  async uploadFoto(id: string, file: File): Promise<string | null> {
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${id}/${Date.now()}.${ext}`;
+    const up = await supabase.storage.from("equipamentos").upload(path, file, {
+      cacheControl: "3600", upsert: true, contentType: file.type,
+    });
+    if (up.error) { toast.error(`Falha no upload da foto: ${up.error.message}`); return null; }
+    const { data } = supabase.storage.from("equipamentos").getPublicUrl(path);
+    const url = data.publicUrl;
+    equipActions.atualizarEquipamento(id, { fotoUrl: url });
+    return url;
   },
   excluirEquipamento(id: string) {
     state = {

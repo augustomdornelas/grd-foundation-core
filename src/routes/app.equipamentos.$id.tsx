@@ -60,11 +60,14 @@ function diffDias(a: string, b: string) {
 function EquipDetalhe() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const eq = useEquipStore(s => s.equipamentos.find(e => e.id === id));
-  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id)) ?? [];
-  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id)) ?? [];
 
-  // Hooks — SEMPRE chamados antes de qualquer return condicional
+  // 1) Selectors — o store agora aplica equality shallow, então re-renderiza
+  // apenas quando os arrays selecionados mudam de conteúdo.
+  const eq = useEquipStore(s => s.equipamentos.find(e => e.id === id));
+  const emprestimos = useEquipStore(s => s.emprestimos.filter(e => e.equipamentoId === id));
+  const manutencoes = useEquipStore(s => s.manutencoes.filter(m => m.equipamentoId === id));
+
+  // 2) Hooks de estado — TODOS antes de qualquer return condicional
   const [openDev, setOpenDev] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
   const [condicaoDev, setCondicaoDev] = useState("Equipamento devolvido em bom estado, sem avarias aparentes.");
@@ -73,6 +76,10 @@ function EquipDetalhe() {
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
+
+
+
+
 
 
   const totalFaturado = emprestimos.reduce((a, e) => a + e.custoTotal, 0);
@@ -221,8 +228,12 @@ function EquipDetalhe() {
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4 lg:col-span-1">
           <Card className="overflow-hidden">
-            <div className="flex h-44 items-center justify-center bg-gradient-to-br from-[#213368] to-[#2a4185]">
-              <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
+            <div className="relative flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+              {eq.fotoUrl ? (
+                <img src={eq.fotoUrl} alt={eq.nome} className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
+              )}
             </div>
             <div className="space-y-3 p-5">
               <div>
@@ -785,15 +796,26 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
   const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
   const [status, setStatus] = useState<EquipStatus>(eq?.status ?? "Disponível");
   const [localBase, setLocalBase] = useState(eq?.localBase ?? "");
+  const [fotoUrl, setFotoUrl] = useState(eq?.fotoUrl ?? "");
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   if (!eq) return null;
+
+  const onSelecionarFoto = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast.error("Foto deve ter até 5MB");
+    setUploadingFoto(true);
+    const url = await equipActions.uploadFoto(equipamentoId, file);
+    if (url) { setFotoUrl(url); toast.success("Foto atualizada"); }
+    setUploadingFoto(false);
+  };
 
   const salvar = () => {
     if (!nome.trim() || !codigo.trim()) return toast.error("Preencha nome e código");
     equipActions.atualizarEquipamento(equipamentoId, {
       nome, codigo, categoria, descricao,
       valor: Number(valor) || 0, custoPeriodo: Number(custoPeriodo) || 0,
-      unidade, status, localBase,
+      unidade, status, localBase, fotoUrl: fotoUrl || undefined,
     });
     toast.success("Equipamento atualizado");
     onOpenChange(false);
@@ -804,6 +826,25 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Editar equipamento</DialogTitle></DialogHeader>
         <div className="grid gap-3 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <Label>Foto do equipamento</Label>
+            <div className="mt-1 flex items-center gap-4">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-[#F4F4F4]">
+                {fotoUrl ? (
+                  <img src={fotoUrl} alt="Foto" className="h-full w-full object-cover" />
+                ) : (
+                  <Package className="h-8 w-8 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Input type="file" accept="image/*" onChange={e => onSelecionarFoto(e.target.files?.[0] ?? null)} disabled={uploadingFoto} />
+                {fotoUrl && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setFotoUrl("")}>Remover foto</Button>
+                )}
+                {uploadingFoto && <p className="text-xs text-muted-foreground">Enviando…</p>}
+              </div>
+            </div>
+          </div>
           <div><Label>Nome *</Label><Input value={nome} onChange={e => setNome(e.target.value)} /></div>
           <div><Label>Código *</Label><Input value={codigo} onChange={e => setCodigo(e.target.value)} /></div>
           <div><Label>Categoria</Label><Input value={categoria} onChange={e => setCategoria(e.target.value)} /></div>
