@@ -120,11 +120,28 @@ async function fetchAll() {
       observacoes: r.observacoes ?? undefined,
       custoTotal: r.custo_total ?? 0, ativo: r.ativo ?? true,
     })),
-    manutencoes: (man.data ?? []).map((r: any) => ({
-      id: r.id, equipamentoId: r.equipamento_id ?? "",
-      data: r.data ?? "", dataFim: r.data_fim ?? undefined,
-      descricao: r.descricao ?? "", custo: r.custo ?? 0, aberta: r.aberta ?? true,
-    })),
+    manutencoes: (man.data ?? []).map((r: any) => {
+      const pecas = Number(r.custo_pecas ?? 0);
+      const mo = Number(r.custo_mao_obra ?? 0);
+      const total = Number(r.custo ?? pecas + mo);
+      const status = (r.status ?? (r.aberta === false ? "Concluída" : "Aberta")) as ManutencaoStatus;
+      return {
+        id: r.id,
+        equipamentoId: r.equipamento_id ?? "",
+        tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
+        data: r.data ?? "",
+        dataFimPrevista: r.data_fim_prevista ?? undefined,
+        dataFim: r.data_fim ?? undefined,
+        descricao: r.descricao ?? "",
+        oficina: r.oficina ?? "",
+        custoPecas: pecas,
+        custoMaoObra: mo,
+        custo: total,
+        statusManut: status,
+        observacoes: r.observacoes ?? undefined,
+        aberta: status !== "Concluída",
+      };
+    }),
   };
   emit();
 }
