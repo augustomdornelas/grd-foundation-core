@@ -73,7 +73,7 @@ const SSR: State = { equipamentos: [], emprestimos: [], manutencoes: [] };
 let state: State = SSR;
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach(l => l()); }
-function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
+function subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; }
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
