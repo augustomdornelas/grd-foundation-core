@@ -741,8 +741,8 @@ function EquipDetalhe() {
           )}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPreviewDev(false)}>Voltar</Button>
-            <Button variant="outline" onClick={() => salvarDevolucao(false)}>Salvar sem PDF</Button>
-            <Button onClick={() => salvarDevolucao(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Button variant="outline" onClick={() => salvarDevolucao(false)} disabled={savingDev}>{savingDev ? "Salvando…" : "Salvar sem PDF"}</Button>
+            <Button onClick={() => salvarDevolucao(true)} disabled={savingDev} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
               <FileText className="mr-1 h-4 w-4" /> Gerar PDF
             </Button>
           </DialogFooter>
