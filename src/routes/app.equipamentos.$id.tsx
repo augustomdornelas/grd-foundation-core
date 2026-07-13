@@ -617,27 +617,79 @@ function EquipDetalhe() {
         </TabsContent>
       </Tabs>
 
-      {/* Devolução — passo 1: data */}
+      {/* Devolução — passo 1: dados completos */}
       <Dialog open={!!openDev && !previewDev} onOpenChange={(v) => { if (!v) setOpenDev(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Registrar devolução</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <Label>Data real da devolução</Label>
-            <Input type="date" value={dataReal} onChange={e => setDataReal(e.target.value)} />
-            <div className="rounded-lg bg-[#F4F4F4] p-3 text-xs text-muted-foreground">
-              O custo final será recalculado com base no período efetivo.
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-[#213368]">Registrar devolução</DialogTitle></DialogHeader>
+          {empDev && (
+            <div className="grid gap-4">
+              <div className="rounded-lg bg-[#F4F4F4] p-3 text-xs text-muted-foreground">
+                Equipamento: <b className="text-foreground">{eq.nome}</b> · {eq.codigo} · Saída {fmtDate(empDev.dataInicio)} · Obra {empDev.destino}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <Label>Data real da devolução *</Label>
+                  <Input type="date" value={dataReal} onChange={e => setDataReal(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Condição do equipamento *</Label>
+                  <Select value={condicaoOpt} onValueChange={v => { setCondicaoOpt(v); if (v !== "Outro (especificar)") setCondicaoDev(v); else setCondicaoDev(""); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CONDICOES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {condicaoOpt === "Outro (especificar)" && (
+                  <div className="md:col-span-2">
+                    <Label>Especifique a condição *</Label>
+                    <Textarea rows={2} value={condicaoDev} onChange={e => setCondicaoDev(e.target.value)} />
+                  </div>
+                )}
+                <div className="md:col-span-2">
+                  <Label>Observações</Label>
+                  <Textarea rows={2} value={obsDev} onChange={e => setObsDev(e.target.value)} placeholder="Ex.: acessórios devolvidos, pendências, etc." />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#F37032]">Responsável pela retirada (quem devolveu)</div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2"><Label>Nome completo *</Label><Input value={respRetNome} onChange={e => setRespRetNome(e.target.value)} /></div>
+                  <div><Label>CPF *</Label><Input placeholder="000.000.000-00" value={respRetCpf} onChange={e => setRespRetCpf(mascaraCpf(e.target.value))} maxLength={14} /></div>
+                  <div><Label>Cargo / Função</Label><Input value={respRetCargo} onChange={e => setRespRetCargo(e.target.value)} /></div>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#213368]">Responsável GRD (quem recebeu)</div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div><Label>Nome *</Label><Input value={respEntNome} onChange={e => setRespEntNome(e.target.value)} /></div>
+                  <div><Label>Cargo *</Label><Input value={respEntCargo} onChange={e => setRespEntCargo(e.target.value)} /></div>
+                </div>
+              </div>
+
+              <div className="flex justify-between rounded-lg bg-[#F4F4F4] p-3 text-sm">
+                <span className="text-muted-foreground">Período efetivo</span>
+                <b>{periodos(empDev.dataInicio, dataReal, empDev.unidade)} {empDev.unidade}(s)</b>
+              </div>
+              <div className="flex justify-between rounded-lg bg-[#F4F4F4] p-3 text-sm">
+                <span className="text-muted-foreground">Custo total final</span>
+                <b className="text-[#F37032]">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</b>
+              </div>
             </div>
-          </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenDev(null)}>Cancelar</Button>
-            <Button onClick={() => setPreviewDev(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Continuar</Button>
+            <Button onClick={() => setPreviewDev(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">Revisar termo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Devolução — passo 2: preview do termo */}
       <Dialog open={previewDev} onOpenChange={(v) => { if (!v) { setPreviewDev(false); } }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader><DialogTitle className="text-[#213368]">Prévia — Termo de Devolução</DialogTitle></DialogHeader>
           {empDev && (
             <div className="grid gap-3">
@@ -645,19 +697,30 @@ function EquipDetalhe() {
                 <div><b className="text-[#213368]">Equipamento:</b> {eq.nome} ({eq.codigo})</div>
                 <div><b className="text-[#213368]">Categoria:</b> {eq.categoria}</div>
                 <div><b className="text-[#213368]">Destino:</b> {empDev.destino}</div>
-                <div><b className="text-[#213368]">Responsável:</b> {empDev.responsavel}</div>
                 <div><b className="text-[#213368]">Saída:</b> {fmtDate(empDev.dataInicio)}</div>
                 <div><b className="text-[#213368]">Devolução real:</b> {fmtDate(dataReal)}</div>
                 <div><b className="text-[#213368]">Período efetivo:</b> {periodos(empDev.dataInicio, dataReal, empDev.unidade)} {empDev.unidade}(s)</div>
-                <div><b className="text-[#213368]">Custo final:</b> <span className="text-[#F37032] font-semibold">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</span></div>
+                <div className="md:col-span-2"><b className="text-[#213368]">Custo final:</b> <span className="font-semibold text-[#F37032]">{brl(periodos(empDev.dataInicio, dataReal, empDev.unidade) * empDev.custoPeriodo)}</span></div>
               </div>
-              <div>
-                <Label>Condição do equipamento na devolução</Label>
-                <Textarea rows={3} value={condicaoDev} onChange={e => setCondicaoDev(e.target.value)} />
+              <div className="rounded-lg border p-3 text-sm">
+                <div className="text-xs font-bold uppercase text-muted-foreground">Condição</div>
+                <div>{condicaoFinal()}</div>
               </div>
-              <div>
-                <Label>Observações</Label>
-                <Textarea rows={3} value={obsDev} onChange={e => setObsDev(e.target.value)} placeholder="Ex.: acessórios devolvidos, pendências, etc." />
+              <div className="rounded-lg border p-3 text-sm">
+                <div className="text-xs font-bold uppercase text-muted-foreground">Observações</div>
+                <div>{obsDev || "—"}</div>
+              </div>
+              <div className="grid gap-3 text-sm md:grid-cols-2">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs font-bold uppercase text-[#F37032]">Retirada</div>
+                  <div>{respRetNome || "—"}</div>
+                  <div className="text-xs text-muted-foreground">CPF: {respRetCpf || "—"}{respRetCargo ? ` · ${respRetCargo}` : ""}</div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs font-bold uppercase text-[#213368]">Entrega (GRD)</div>
+                  <div>{respEntNome || "—"}</div>
+                  <div className="text-xs text-muted-foreground">{respEntCargo || "—"}</div>
+                </div>
               </div>
             </div>
           )}
@@ -670,6 +733,89 @@ function EquipDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Detalhes do empréstimo */}
+      <Dialog open={!!openView} onOpenChange={(v) => { if (!v) setOpenView(null); }}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader><DialogTitle className="text-[#213368]">Detalhes do empréstimo</DialogTitle></DialogHeader>
+          {empView && (() => {
+            const hojeIso = new Date().toISOString().slice(0, 10);
+            const statusEmp = !empView.ativo
+              ? "Devolvido"
+              : (empView.dataDevolucaoPrevista && empView.dataDevolucaoPrevista < hojeIso ? "Atrasado" : "Em uso");
+            const periodoEfetivo = empView.dataDevolucaoReal
+              ? periodos(empView.dataInicio, empView.dataDevolucaoReal, empView.unidade)
+              : null;
+            return (
+              <div className="grid gap-4 text-sm">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#F37032]">Equipamento</div>
+                  <div className="grid gap-1 rounded-lg bg-[#F4F4F4] p-3">
+                    <div><b>Nome:</b> {eq.nome}</div>
+                    <div><b>Código:</b> {eq.codigo}</div>
+                    <div><b>Categoria:</b> {eq.categoria}</div>
+                    {eq.descricao && <div><b>Descrição:</b> {eq.descricao}</div>}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#213368]">Empréstimo</div>
+                    <StatusBadge status={statusEmp} />
+                  </div>
+                  <div className="grid gap-1 rounded-lg border p-3 md:grid-cols-2">
+                    <div><b>Obra / Destino:</b> {empView.destino}</div>
+                    <div><b>Responsável:</b> {empView.responsavel}</div>
+                    <div><b>Data de saída:</b> {fmtDate(empView.dataInicio)}</div>
+                    <div><b>Previsão de devolução:</b> {fmtDate(empView.dataDevolucaoPrevista)}</div>
+                    <div><b>Custo por período:</b> {brl(empView.custoPeriodo)} / {empView.unidade}</div>
+                    <div><b>Observações:</b> {empView.observacoes || "—"}</div>
+                  </div>
+                </div>
+                {!empView.ativo && (
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-wider text-green-700">Devolução</div>
+                    <div className="grid gap-1 rounded-lg border border-green-200 bg-green-50/50 p-3 md:grid-cols-2">
+                      <div><b>Data real:</b> {fmtDate(empView.dataDevolucaoReal)}</div>
+                      <div><b>Período efetivo:</b> {periodoEfetivo ?? 0} {empView.unidade}(s)</div>
+                      <div className="md:col-span-2"><b>Custo total final:</b> <span className="font-semibold text-[#F37032]">{brl(empView.custoTotal)}</span></div>
+                      <div className="md:col-span-2"><b>Condição:</b> {empView.condicaoDevolucao || "—"}</div>
+                      <div className="md:col-span-2"><b>Observações:</b> {empView.observacoesDevolucao || "—"}</div>
+                      {(empView.respRetiradaNome || empView.respRetiradaCpf) && (
+                        <div className="md:col-span-2">
+                          <b>Retirado por:</b> {empView.respRetiradaNome || "—"} · CPF {empView.respRetiradaCpf || "—"}
+                          {empView.respRetiradaCargo ? ` · ${empView.respRetiradaCargo}` : ""}
+                        </div>
+                      )}
+                      {(empView.respEntregaNome || empView.respEntregaCargo) && (
+                        <div className="md:col-span-2">
+                          <b>Recebido por (GRD):</b> {empView.respEntregaNome || "—"}{empView.respEntregaCargo ? ` · ${empView.respEntregaCargo}` : ""}
+                        </div>
+                      )}
+                      {empView.numeroTermoDevolucao && (
+                        <div className="md:col-span-2 text-xs text-muted-foreground">Nº termo: {empView.numeroTermoDevolucao}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2">
+            {empView && !empView.ativo && (
+              <Button onClick={() => { gerarTermoDevolvido(empView.id); }} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+                <FileText className="mr-1 h-4 w-4" /> Gerar termo
+              </Button>
+            )}
+            {empView && empView.ativo && (
+              <Button onClick={() => { setOpenView(null); abrirDevolucao(empView.id); }} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+                <PackageCheck className="mr-1 h-4 w-4" /> Registrar devolução
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setOpenView(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
 
       {/* Manutenção */}
