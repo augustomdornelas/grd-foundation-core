@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useEquipStore, equipActions,
   type Equipamento, type EquipStatus, type UnidadePeriodo,
