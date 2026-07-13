@@ -104,10 +104,8 @@ function Comercial() {
   // ---------- Filtros da tabela ----------
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState<string>("todos");
-  const [fResp, setFResp] = useState<string>("todos");
-  const [fTipo, setFTipo] = useState<string>("todos");
-  const [sortBy, setSortBy] = useState<keyof Orcamento>("data");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortBy, setSortBy] = useState<keyof Orcamento>("numero");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pagina, setPagina] = useState(1);
 
   // ---------- Modais / drawer ----------
@@ -115,6 +113,7 @@ function Comercial() {
   const [editOpen, setEditOpen] = useState<Orcamento | null>(null);
   const [detalhe, setDetalhe] = useState<Orcamento | null>(null);
   const [excluir, setExcluir] = useState<Orcamento | null>(null);
+  const [loteOpen, setLoteOpen] = useState(false);
 
   // ---------- Métricas do período ----------
   const metricas = useMemo(() => {
@@ -171,22 +170,24 @@ function Comercial() {
       valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
     }));
 
-    const projMeses: { mes: string; realizado: number; meta: number }[] = [];
+    const probMeses: { mes: string; prob: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
-      const soma = orcamentos.filter(o => {
+      const lst = orcamentos.filter(o => {
         const od = new Date(o.data);
-        return od >= d && od < dNext && o.status === "Aprovado";
-      }).reduce((a, o) => a + o.valor, 0);
-      projMeses.push({
+        return od >= d && od < dNext;
+      });
+      const media = lst.length
+        ? lst.reduce((a, o) => a + (o.probabilidade ?? 0), 0) / lst.length
+        : 0;
+      probMeses.push({
         mes: NOMES_MES[d.getMonth()],
-        realizado: soma,
-        meta: 2_500_000,
+        prob: Math.round(media),
       });
     }
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, projMeses };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, probMeses };
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
@@ -200,8 +201,6 @@ function Comercial() {
       o.obra.toLowerCase().includes(qLower),
     );
     if (fStatus !== "todos") list = list.filter(o => o.status === fStatus);
-    if (fResp !== "todos") list = list.filter(o => o.responsavel === fResp);
-    if (fTipo !== "todos") list = list.filter(o => o.tipo === fTipo);
     list.sort((a, b) => {
       const va = a[sortBy] as unknown as string | number;
       const vb = b[sortBy] as unknown as string | number;
@@ -211,7 +210,7 @@ function Comercial() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [orcamentos, q, fStatus, fResp, fTipo, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
+  }, [orcamentos, q, fStatus, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
 
   const porPagina = 10;
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / porPagina));
@@ -263,6 +262,9 @@ function Comercial() {
               <Input type="date" value={customFim} onChange={e => setCustomFim(e.target.value)} className="w-40" />
             </div>
           )}
+          <Button variant="outline" onClick={() => setLoteOpen(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368]/5">
+            <Plus className="mr-1 h-4 w-4" /> Lançar em lote
+          </Button>
           <Button onClick={() => setNovoOpen(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Plus className="mr-1 h-4 w-4" /> Novo orçamento
           </Button>
@@ -350,17 +352,16 @@ function Comercial() {
           </div>
         </Card>
         <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Realizado vs. meta</div>
+          <div className="text-sm font-semibold text-[#213368]">Probabilidade média de fechamento por mês</div>
           <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={metricas.projMeses}>
+              <LineChart data={metricas.probMeses}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-                <Tooltip formatter={(v: number) => brl(v)} />
+                <YAxis stroke="#6E7280" fontSize={12} domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                <Tooltip formatter={(v: number) => `${v}%`} />
                 <Legend />
-                <Line type="monotone" dataKey="realizado" name="Realizado" stroke="#F37032" strokeWidth={2.5} />
-                <Line type="monotone" dataKey="meta" name="Meta" stroke="#213368" strokeWidth={2} strokeDasharray="6 4" />
+                <Line type="monotone" dataKey="prob" name="Probabilidade média" stroke="#F37032" strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -384,20 +385,6 @@ function Comercial() {
               <SelectContent>
                 <SelectItem value="todos">Todos os status</SelectItem>
                 {STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fResp} onValueChange={v => { setFResp(v); setPagina(1); }}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Responsável" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os responsáveis</SelectItem>
-                {RESPONSAVEIS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={fTipo} onValueChange={v => { setFTipo(v); setPagina(1); }}>
-              <SelectTrigger className="w-52"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                {TIPOS_SERVICO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={exportCSV}><Download className="mr-1 h-4 w-4" /> Exportar</Button>
@@ -457,6 +444,7 @@ function Comercial() {
 
       {/* Modais */}
       <OrcamentoForm open={novoOpen} onOpenChange={setNovoOpen} />
+      <BatchDialog open={loteOpen} onOpenChange={setLoteOpen} />
       <OrcamentoForm open={!!editOpen} onOpenChange={o => !o && setEditOpen(null)} orcamento={editOpen ?? undefined} />
       <DetalheDrawer orcamento={detalhe} onClose={() => setDetalhe(null)} onEdit={o => { setDetalhe(null); setEditOpen(o); }} />
 
@@ -730,5 +718,149 @@ function Info({ label, value }: { label: string; value: string }) {
       <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-sm text-[#213368]">{value}</div>
     </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Lançar em lote
+// ------------------------------------------------------------
+type LoteRow = {
+  cliente: string;
+  obra: string;
+  valor: string;
+  data: string; // ISO
+  status: OrcStatus;
+  tipo: string;
+  responsavel: string;
+  cnpj: string;
+  observacoes: string;
+};
+
+function novaLinha(): LoteRow {
+  return {
+    cliente: "",
+    obra: "",
+    valor: "",
+    data: new Date().toISOString().slice(0, 10),
+    status: "Em análise",
+    tipo: "",
+    responsavel: "",
+    cnpj: "",
+    observacoes: "",
+  };
+}
+
+function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [rows, setRows] = useState<LoteRow[]>([novaLinha()]);
+  const [erro, setErro] = useState("");
+
+  useMemo(() => { if (open) { setRows([novaLinha()]); setErro(""); } }, [open]);
+
+  function setRow(i: number, patch: Partial<LoteRow>) {
+    setRows(rs => rs.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  }
+  function addRow() { setRows(rs => [...rs, novaLinha()]); }
+  function removeRow(i: number) { setRows(rs => rs.length > 1 ? rs.filter((_, idx) => idx !== i) : rs); }
+
+  function salvar() {
+    const validas = rows.filter(r => r.cliente.trim() || r.obra.trim() || r.valor.trim());
+    if (validas.length === 0) { setErro("Adicione ao menos uma linha preenchida."); return; }
+    for (const [i, r] of validas.entries()) {
+      const v = parseValorBR(r.valor);
+      if (!r.cliente.trim() || !r.obra.trim() || v <= 0 || !r.data) {
+        setErro(`Linha ${i + 1}: Cliente, Obra, Valor e Data são obrigatórios.`);
+        return;
+      }
+    }
+    let criados = 0;
+    for (const r of validas) {
+      orcamentosActions.criar({
+        cliente: r.cliente.trim(),
+        cnpj: r.cnpj.trim(),
+        tipo: (r.tipo || TIPOS_SERVICO[0]) as TipoServico,
+        obra: r.obra.trim(),
+        descricao: "",
+        valor: parseValorBR(r.valor),
+        responsavel: r.responsavel.trim(),
+        data: r.data,
+        validade: r.data,
+        status: r.status,
+        estagio: "Proposta enviada",
+        probabilidade: 50,
+        observacoes: r.observacoes.trim(),
+      });
+      criados++;
+    }
+    toast.success(`${criados} orçamento(s) lançado(s) em lote.`);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Lançar orçamentos em lote</DialogTitle></DialogHeader>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-left text-[#213368]">
+                <th className="p-2 font-semibold">Cliente *</th>
+                <th className="p-2 font-semibold">Obra *</th>
+                <th className="p-2 font-semibold">Valor *</th>
+                <th className="p-2 font-semibold">Data *</th>
+                <th className="p-2 font-semibold">Status *</th>
+                <th className="p-2 font-semibold">Tipo</th>
+                <th className="p-2 font-semibold">Resp. comercial</th>
+                <th className="p-2 font-semibold">Técnico</th>
+                <th className="p-2 font-semibold">Observações</th>
+                <th className="p-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b align-top">
+                  <td className="p-1"><Input value={r.cliente} onChange={e => setRow(i, { cliente: e.target.value })} className="h-8 min-w-[140px]" /></td>
+                  <td className="p-1"><Input value={r.obra} onChange={e => setRow(i, { obra: e.target.value })} className="h-8 min-w-[140px]" /></td>
+                  <td className="p-1"><Input inputMode="decimal" placeholder="1.500,50" value={r.valor} onChange={e => setRow(i, { valor: e.target.value })} className="h-8 w-28" /></td>
+                  <td className="p-1 w-36"><DateBRInput value={r.data} onChange={iso => setRow(i, { data: iso })} className="h-8" /></td>
+                  <td className="p-1">
+                    <Select value={r.status} onValueChange={v => setRow(i, { status: v as OrcStatus })}>
+                      <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-1">
+                    <Select value={r.tipo || "__none"} onValueChange={v => setRow(i, { tipo: v === "__none" ? "" : v })}>
+                      <SelectTrigger className="h-8 w-48"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">—</SelectItem>
+                        {TIPOS_SERVICO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="p-1"><Input value={r.responsavel} onChange={e => setRow(i, { responsavel: e.target.value })} className="h-8 min-w-[120px]" /></td>
+                  <td className="p-1"><Input value={r.cnpj} onChange={e => setRow(i, { cnpj: e.target.value })} className="h-8 min-w-[120px]" /></td>
+                  <td className="p-1"><Input value={r.observacoes} onChange={e => setRow(i, { observacoes: e.target.value })} className="h-8 min-w-[140px]" /></td>
+                  <td className="p-1">
+                    <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} aria-label="Remover linha">
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2">
+          <Button type="button" variant="outline" onClick={addRow}>
+            <Plus className="mr-1 h-4 w-4" /> Adicionar linha
+          </Button>
+        </div>
+        {erro && <div className="mt-2 text-sm text-red-600">{erro}</div>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button type="button" onClick={salvar} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar lote</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

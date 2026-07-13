@@ -213,9 +213,12 @@ export function useOrcamentos<T>(selector: (s: Orcamento[]) => T): T {
 function uid() { return `tmp-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`; }
 
 function proximoNumero(): string {
-  const nums = state.map(o => Number(o.numero.replace(/\D/g, ""))).filter(n => !isNaN(n));
-  const max = nums.length ? Math.max(...nums) : 2500;
-  return `ORC-${max + 1}`;
+  const used = new Set(
+    state.map(o => Number(o.numero.replace(/\D/g, ""))).filter(n => !isNaN(n) && n > 0)
+  );
+  let n = 1;
+  while (used.has(n)) n++;
+  return `ORC-${String(n).padStart(3, "0")}`;
 }
 
 export const orcamentosActions = {
