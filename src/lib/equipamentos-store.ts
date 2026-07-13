@@ -42,14 +42,24 @@ export type Emprestimo = {
   ativo: boolean;
 };
 
+export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
+export type ManutencaoStatus = "Aberta" | "Em andamento" | "Concluída";
+
 export type Manutencao = {
   id: string;
   equipamentoId: string;
+  tipo: ManutencaoTipo;
   data: string;
+  dataFimPrevista?: string;
   dataFim?: string;
   descricao: string;
-  custo: number;
-  aberta: boolean;
+  oficina: string;
+  custoPecas: number;
+  custoMaoObra: number;
+  custo: number; // total = peças + mão de obra
+  statusManut: ManutencaoStatus;
+  observacoes?: string;
+  aberta: boolean; // derivado: status !== "Concluída"
 };
 
 type State = {
@@ -110,11 +120,28 @@ async function fetchAll() {
       observacoes: r.observacoes ?? undefined,
       custoTotal: r.custo_total ?? 0, ativo: r.ativo ?? true,
     })),
-    manutencoes: (man.data ?? []).map((r: any) => ({
-      id: r.id, equipamentoId: r.equipamento_id ?? "",
-      data: r.data ?? "", dataFim: r.data_fim ?? undefined,
-      descricao: r.descricao ?? "", custo: r.custo ?? 0, aberta: r.aberta ?? true,
-    })),
+    manutencoes: (man.data ?? []).map((r: any) => {
+      const pecas = Number(r.custo_pecas ?? 0);
+      const mo = Number(r.custo_mao_obra ?? 0);
+      const total = Number(r.custo ?? pecas + mo);
+      const status = (r.status ?? (r.aberta === false ? "Concluída" : "Aberta")) as ManutencaoStatus;
+      return {
+        id: r.id,
+        equipamentoId: r.equipamento_id ?? "",
+        tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
+        data: r.data ?? "",
+        dataFimPrevista: r.data_fim_prevista ?? undefined,
+        dataFim: r.data_fim ?? undefined,
+        descricao: r.descricao ?? "",
+        oficina: r.oficina ?? "",
+        custoPecas: pecas,
+        custoMaoObra: mo,
+        custo: total,
+        statusManut: status,
+        observacoes: r.observacoes ?? undefined,
+        aberta: status !== "Concluída",
+      };
+    }),
   };
   emit();
 }
@@ -221,34 +248,70 @@ export const equipActions = {
       status: "Disponível", local_atual: equip?.localBase ?? "", responsavel_atual: null,
     }).eq("id", emp.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
-  registrarManutencao(input: Omit<Manutencao, "id">) {
+  registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
     const id = uid("MAN");
+    const custo = (input.custoPecas || 0) + (input.custoMaoObra || 0);
+    const aberta = input.statusManut !== "Concluída";
+    const novo: Manutencao = { ...input, id, custo, aberta };
     state = {
       ...state,
-      manutencoes: [...state.manutencoes, { ...input, id }],
+      manutencoes: [...state.manutencoes, novo],
       equipamentos: state.equipamentos.map(e =>
-        e.id === input.equipamentoId ? { ...e, status: "Manutenção" as EquipStatus } : e
+        e.id === input.equipamentoId && aberta ? { ...e, status: "Manutenção" as EquipStatus } : e
       ),
     };
     emit();
     void supabase.from("manutencoes").insert({
-      id, equipamento_id: input.equipamentoId, data: input.data,
-      descricao: input.descricao, custo: input.custo, aberta: true,
+      id, equipamento_id: input.equipamentoId, tipo: input.tipo,
+      data: input.data, data_fim_prevista: input.dataFimPrevista ?? null, data_fim: input.dataFim ?? null,
+      descricao: input.descricao, oficina: input.oficina,
+      custo_pecas: input.custoPecas, custo_mao_obra: input.custoMaoObra, custo,
+      status: input.statusManut, observacoes: input.observacoes ?? null, aberta,
     }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
-    void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    if (aberta) {
+      void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    }
+    return id;
+  },
+  atualizarManutencao(id: string, patch: Partial<Manutencao>) {
+    state = {
+      ...state,
+      manutencoes: state.manutencoes.map(m => {
+        if (m.id !== id) return m;
+        const merged = { ...m, ...patch };
+        merged.custo = (merged.custoPecas || 0) + (merged.custoMaoObra || 0);
+        merged.aberta = merged.statusManut !== "Concluída";
+        return merged;
+      }),
+    };
+    emit();
+    const row: Record<string, unknown> = {};
+    if (patch.tipo !== undefined) row.tipo = patch.tipo;
+    if (patch.data !== undefined) row.data = patch.data;
+    if (patch.dataFimPrevista !== undefined) row.data_fim_prevista = patch.dataFimPrevista;
+    if (patch.dataFim !== undefined) row.data_fim = patch.dataFim;
+    if (patch.descricao !== undefined) row.descricao = patch.descricao;
+    if (patch.oficina !== undefined) row.oficina = patch.oficina;
+    if (patch.custoPecas !== undefined) row.custo_pecas = patch.custoPecas;
+    if (patch.custoMaoObra !== undefined) row.custo_mao_obra = patch.custoMaoObra;
+    if (patch.statusManut !== undefined) { row.status = patch.statusManut; row.aberta = patch.statusManut !== "Concluída"; }
+    if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
+    const m = state.manutencoes.find(x => x.id === id);
+    if (m) row.custo = m.custo;
+    void supabase.from("manutencoes").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   fecharManutencao(id: string, dataFim: string) {
     const man = state.manutencoes.find(m => m.id === id);
     if (!man) return;
     state = {
       ...state,
-      manutencoes: state.manutencoes.map(m => m.id === id ? { ...m, dataFim, aberta: false } : m),
+      manutencoes: state.manutencoes.map(m => m.id === id ? { ...m, dataFim, aberta: false, statusManut: "Concluída" as ManutencaoStatus } : m),
       equipamentos: state.equipamentos.map(e =>
         e.id === man.equipamentoId ? { ...e, status: "Disponível" as EquipStatus } : e
       ),
     };
     emit();
-    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false }).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false, status: "Concluída" }).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     void supabase.from("equipamentos").update({ status: "Disponível" }).eq("id", man.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
 };
