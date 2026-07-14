@@ -238,9 +238,9 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
         <Kpi label="Taxa de conversão" value={`${dados.conv.toFixed(0)}%`} icon={CheckCircle2} />
         <Kpi
           label="Vs. período anterior"
-          value={dados.variacao !== null ? `${dados.variacao > 0 ? "↑" : "↓"} ${Math.abs(dados.variacao).toFixed(0)}%` : "—"}
+          value={dados.variacao !== null ? `${dados.variacao > 0 ? "↑ " : dados.variacao < 0 ? "↓ " : ""}${Math.abs(dados.variacao).toFixed(0)}%` : "—"}
           icon={Percent}
-          tone={dados.variacao !== null ? (dados.variacao > 0 ? "up" : "down") : undefined}
+          tone={dados.variacao !== null ? (dados.variacao > 0 ? "up" : dados.variacao < 0 ? "down" : undefined) : undefined}
         />
       </div>
 
