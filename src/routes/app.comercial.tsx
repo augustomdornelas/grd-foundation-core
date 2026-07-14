@@ -464,7 +464,7 @@ function Comercial() {
               <TableRow>
                 <SortableTh label="Nº" col="numero" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Cliente" col="cliente" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <SortableTh label="Tipo" col="tipo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                <SortableTh label="Obra" col="obra" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Valor" col="valor" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Responsável" col="responsavel" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Data" col="data" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
