@@ -240,7 +240,7 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
           label="Vs. período anterior"
           value={dados.variacao !== null ? `${dados.variacao > 0 ? "↑" : "↓"} ${Math.abs(dados.variacao).toFixed(0)}%` : "—"}
           icon={Percent}
-          tone={dados.variacao !== null ? (dados.variacao >= 0 ? "up" : "down") : undefined}
+          tone={dados.variacao !== null ? (dados.variacao > 0 ? "up" : "down") : undefined}
         />
       </div>
 
