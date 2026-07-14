@@ -676,6 +676,72 @@ function EquipamentosList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo Gerenciar Locais */}
+      <Dialog open={openLocais} onOpenChange={(v) => { setOpenLocais(v); if (!v) { setEditLocalId(null); setNovoLocalNome(""); setNovoLocalTipo("Base"); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Gerenciar Locais</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
+              <div>
+                <Label>Nome do local</Label>
+                <Input
+                  value={novoLocalNome}
+                  onChange={e => setNovoLocalNome(e.target.value)}
+                  placeholder="Ex.: Depósito GRD"
+                />
+              </div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={novoLocalTipo} onValueChange={v => setNovoLocalTipo(v as LocalTipo)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_LOCAL.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              {editLocalId && (
+                <Button variant="ghost" onClick={() => { setEditLocalId(null); setNovoLocalNome(""); setNovoLocalTipo("Base"); }}>
+                  Cancelar edição
+                </Button>
+              )}
+              <Button onClick={salvarLocal} disabled={savingLocal} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+                {savingLocal ? "Salvando…" : editLocalId ? "Atualizar" : "Adicionar"}
+              </Button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto rounded-md border">
+              {locais.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">Nenhum local cadastrado.</div>
+              ) : (
+                <ul className="divide-y">
+                  {locais.map(l => (
+                    <li key={l.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-[#213368]">{l.nome}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[#F37032]">{l.tipo}</div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => editarLocal(l)} title="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => excluirLocal(l.id)} title="Excluir">
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenLocais(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -689,5 +755,22 @@ function KpiCard({ label, value, color, icon: Icon }: { label: string; value: st
       </div>
       <div className="mt-1 text-lg font-extrabold" style={{ color }}>{value}</div>
     </Card>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="bg-white p-4 shadow-sm">
+      <div className="text-sm font-semibold text-[#213368]">{title}</div>
+      <div className="mt-3 h-64">{children}</div>
+    </Card>
+  );
+}
+
+function Vazio() {
+  return (
+    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+      Sem dados para exibir
+    </div>
   );
 }
