@@ -182,6 +182,28 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
     const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
 
+    // Variação geral do pipeline: mês atual vs mês anterior (sem filtro de status)
+    const hojeVar = new Date();
+    const mesAtualIni = new Date(hojeVar.getFullYear(), hojeVar.getMonth(), 1, 0, 0, 0, 0);
+    const mesAtualFim = new Date(hojeVar.getFullYear(), hojeVar.getMonth() + 1, 0, 23, 59, 59, 999);
+    const mesAnteriorIni = new Date(hojeVar.getFullYear(), hojeVar.getMonth() - 1, 1, 0, 0, 0, 0);
+    const mesAnteriorFim = new Date(hojeVar.getFullYear(), hojeVar.getMonth(), 0, 23, 59, 59, 999);
+    const somaMesAtual = orcamentos
+      .filter(o => {
+        if (!o.data) return false;
+        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
+        return d >= mesAtualIni && d <= mesAtualFim;
+      })
+      .reduce((a, o) => a + o.valor, 0);
+    const somaMesAnterior = orcamentos
+      .filter(o => {
+        if (!o.data) return false;
+        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
+        return d >= mesAnteriorIni && d <= mesAnteriorFim;
+      })
+      .reduce((a, o) => a + o.valor, 0);
+    const variacao = somaMesAnterior > 0 ? ((somaMesAtual - somaMesAnterior) / somaMesAnterior) * 100 : null;
+
     // Série mensal (últimos 6 meses)
     const hoje = new Date();
     const meses: { mes: string; valor: number }[] = [];
@@ -204,7 +226,7 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
       noPer.reduce<Record<string, number>>((acc, o) => { acc[o.cliente] = (acc[o.cliente] || 0) + o.valor; return acc; }, {}),
     ) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-    return { total, qtd, ticket, conv, meses, porStatus, ultimos, topClientes };
+    return { total, qtd, ticket, conv, variacao, meses, porStatus, ultimos, topClientes };
   }, [orcamentos, periodo]);
 
   return (
