@@ -80,7 +80,9 @@ function EquipamentosList() {
         .select("id, nome")
         .order("nome", { ascending: true });
       if (error) { console.error(error); return; }
-      setGrupos((data ?? []) as Grupo[]);
+      const lista = (data ?? []) as Grupo[];
+      setGrupos(lista);
+      setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
     })();
   }, []);
 
