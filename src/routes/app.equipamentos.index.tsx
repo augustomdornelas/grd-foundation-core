@@ -11,7 +11,12 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   Plus, Search, MapPin, User, ArrowRight, Package, Wrench, Zap, Truck, Hammer,
   Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FolderPlus,
+  MapPinned, Trash2, Pencil,
 } from "lucide-react";
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, LineChart, Line,
+} from "recharts";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
