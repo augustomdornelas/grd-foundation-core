@@ -656,7 +656,19 @@ function EquipamentosList() {
                 <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="md:col-span-2"><Label>Local base</Label><Input value={form.localBase} onChange={e => setForm({ ...form, localBase: e.target.value })} placeholder="Ex.: Almoxarifado Central" /></div>
+            <div className="md:col-span-2">
+              <Label>Local base</Label>
+              {locais.length > 0 ? (
+                <Select value={form.localBase} onValueChange={v => setForm({ ...form, localBase: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um local" /></SelectTrigger>
+                  <SelectContent>
+                    {locais.map(l => <SelectItem key={l.id} value={l.nome}>{l.nome} · {l.tipo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={form.localBase} onChange={e => setForm({ ...form, localBase: e.target.value })} placeholder="Ex.: Almoxarifado Central" />
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenEq(false)}>Cancelar</Button>
