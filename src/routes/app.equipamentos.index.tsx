@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,14 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   Plus, Search, MapPin, User, ArrowRight, Package, Wrench, Zap, Truck, Hammer,
-  Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown,
+  Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FolderPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useEquipStore, equipActions,
-  type Equipamento, type EquipStatus, type UnidadePeriodo,
+  type EquipStatus, type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
 
 export const Route = createFileRoute("/app/equipamentos/")({ component: EquipamentosList });
@@ -30,7 +30,7 @@ export function iconeCategoria(cat: string) {
   if (c.includes("energia") || c.includes("gerador") || c.includes("elétri")) return Zap;
   if (c.includes("transp") || c.includes("caminh") || c.includes("veíc")) return Truck;
   if (c.includes("concreto") || c.includes("betoneira")) return Cog;
-  if (c.includes("furad") || c.includes("perfur")) return Drill;
+  if (c.includes("furad") || c.includes("perfur") || c.includes("parafus")) return Drill;
   if (c.includes("marte") || c.includes("demol")) return Hammer;
   if (c.includes("segurança") || c.includes("epi")) return HardHat;
   if (c.includes("combust") || c.includes("óleo")) return Fuel;
@@ -44,11 +44,13 @@ type FormEq = {
   valor: string; custoPeriodo: string; unidade: UnidadePeriodo;
   status: EquipStatus; localBase: string; fotoUrl: string;
 };
-const novoForm = (): FormEq => ({
-  nome: "", codigo: "", categoria: "", descricao: "",
+const novoForm = (categoria = ""): FormEq => ({
+  nome: "", codigo: "", categoria, descricao: "",
   valor: "", custoPeriodo: "", unidade: "dia",
   status: "Disponível", localBase: "", fotoUrl: "",
 });
+
+type Grupo = { id: string; nome: string };
 
 function EquipamentosList() {
   const navigate = useNavigate();
@@ -65,7 +67,31 @@ function EquipamentosList() {
   const [statusF, setStatusF] = useState("todos");
   const [catF, setCatF] = useState("todas");
 
-  const categorias = useMemo(() => Array.from(new Set(equipamentos.map(e => e.categoria))).filter(Boolean), [equipamentos]);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [openGrupo, setOpenGrupo] = useState(false);
+  const [novoGrupoNome, setNovoGrupoNome] = useState("");
+  const [savingGrupo, setSavingGrupo] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from("categorias_equipamentos")
+        .select("id, nome")
+        .order("nome", { ascending: true });
+      if (error) { console.error(error); return; }
+      setGrupos((data ?? []) as Grupo[]);
+    })();
+  }, []);
+
+  const categoriasEquip = useMemo(
+    () => Array.from(new Set(equipamentos.map(e => e.categoria))).filter(Boolean),
+    [equipamentos],
+  );
+  const categoriasFiltro = useMemo(
+    () => Array.from(new Set([...grupos.map(g => g.nome), ...categoriasEquip])),
+    [grupos, categoriasEquip],
+  );
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -76,6 +102,16 @@ function EquipamentosList() {
       return okQ && okS && okC;
     });
   }, [equipamentos, busca, statusF, catF]);
+
+  const gruposComEquipamentos = useMemo(() => {
+    const nomes = new Set(grupos.map(g => g.nome.toLowerCase()));
+    const porGrupo: { nome: string; equipamentos: typeof filtrados }[] = grupos.map(g => ({
+      nome: g.nome,
+      equipamentos: filtrados.filter(e => e.categoria.toLowerCase() === g.nome.toLowerCase()),
+    }));
+    const semGrupo = filtrados.filter(e => !nomes.has((e.categoria || "").toLowerCase()));
+    return { porGrupo, semGrupo };
+  }, [grupos, filtrados]);
 
   const kpis = useMemo(() => {
     const receita = emprestimos.reduce((a, e) => a + (e.custoTotal || 0), 0);
@@ -92,15 +128,33 @@ function EquipamentosList() {
     };
   }, [equipamentos, emprestimos, manutencoes]);
 
-  const abrirNovo = () => { setEditId(null); setForm(novoForm()); setOpenEq(true); };
+  const abrirNovo = (categoria = "") => { setEditId(null); setForm(novoForm(categoria)); setOpenEq(true); };
 
+  const salvarGrupo = async () => {
+    const nome = novoGrupoNome.trim();
+    if (!nome) return toast.error("Informe o nome do grupo");
+    if (grupos.some(g => g.nome.toLowerCase() === nome.toLowerCase())) {
+      return toast.error("Já existe um grupo com esse nome");
+    }
+    setSavingGrupo(true);
+    const { data, error } = await supabase
+      .from("categorias_equipamentos")
+      .insert({ nome })
+      .select("id, nome")
+      .single();
+    setSavingGrupo(false);
+    if (error) { toast.error(`Falha ao criar grupo: ${error.message}`); return; }
+    setGrupos(gs => [...gs, data as Grupo].sort((a, b) => a.nome.localeCompare(b.nome)));
+    setNovoGrupoNome("");
+    setOpenGrupo(false);
+    toast.success("Grupo criado");
+  };
 
   const onSelecionarFoto = async (file: File | null) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) return toast.error("Foto deve ter até 5MB");
     setUploadingFoto(true);
     try {
-      // upload direto para bucket público — mesma pasta se estiver editando
       const targetId = editId ?? `tmp-${Date.now()}`;
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${targetId}/${Date.now()}.${ext}`;
@@ -132,6 +186,100 @@ function EquipamentosList() {
     setOpenEq(false); setEditId(null);
   };
 
+  const toggleCollapse = (nome: string) => setCollapsed(c => ({ ...c, [nome]: !c[nome] }));
+
+  const renderCard = (e: typeof filtrados[number]) => {
+    const Ico = iconeCategoria(e.categoria);
+    return (
+      <button
+        key={e.id}
+        onClick={() => navigate({ to: "/app/equipamentos/$id", params: { id: e.id } })}
+        className="group text-left transition-all hover:-translate-y-1"
+      >
+        <Card className="overflow-hidden border-2 border-transparent transition-colors group-hover:border-[#F37032]">
+          <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+            {e.fotoUrl ? (
+              <img src={e.fotoUrl} alt={e.nome} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+            ) : (
+              <Ico className="h-14 w-14 text-white/90" strokeWidth={1.5} />
+            )}
+            <div className="absolute right-3 top-3 z-10">
+              <StatusBadge status={e.status} />
+            </div>
+            <div className="absolute left-3 top-3 z-10 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+              {e.codigo}
+            </div>
+          </div>
+          <div className="space-y-2 p-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-[#F37032]">{e.categoria || "—"}</div>
+              <div className="line-clamp-1 text-sm font-bold text-[#213368]">{e.nome}</div>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="line-clamp-1">{e.localAtual || e.localBase || "—"}</span>
+            </div>
+            {e.responsavelAtual && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <User className="h-3 w-3 shrink-0" />
+                <span className="line-clamp-1">{e.responsavelAtual}</span>
+              </div>
+            )}
+            <div className="mt-2 flex items-end justify-between border-t pt-2">
+              <div>
+                <div className="text-[10px] text-muted-foreground">Custo</div>
+                <div className="text-sm font-bold text-[#F37032]">{brl(e.custoPeriodo)}<span className="text-[10px] font-normal text-muted-foreground">/{e.unidade}</span></div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-muted-foreground">Valor</div>
+                <div className="text-sm font-semibold text-[#213368]">{brl(e.valor)}</div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-[#F37032]" />
+            </div>
+          </div>
+        </Card>
+      </button>
+    );
+  };
+
+  const renderGrupoSection = (nome: string, itens: typeof filtrados, opts?: { grupo?: boolean }) => {
+    const isCollapsed = !!collapsed[nome];
+    return (
+      <Card key={nome} className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-[#F8F9FB] px-4 py-3">
+          <button
+            onClick={() => toggleCollapse(nome)}
+            className="flex items-center gap-2 text-left"
+          >
+            {isCollapsed ? <ChevronRight className="h-4 w-4 text-[#213368]" /> : <ChevronDown className="h-4 w-4 text-[#213368]" />}
+            <span className="text-sm font-extrabold uppercase tracking-wide text-[#213368]">{nome}</span>
+            <span className="rounded-full bg-[#213368]/10 px-2 py-0.5 text-[10px] font-bold text-[#213368]">{itens.length}</span>
+          </button>
+          {opts?.grupo && (
+            <Button
+              size="sm" variant="outline"
+              onClick={() => abrirNovo(nome)}
+              className="border-[#F37032] text-[#F37032] hover:bg-[#F37032] hover:text-white"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" /> Novo equipamento
+            </Button>
+          )}
+        </div>
+        {!isCollapsed && (
+          <div className="p-4">
+            {itens.length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground">Nenhum equipamento neste grupo.</div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {itens.map(renderCard)}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6 font-[Montserrat] animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,9 +287,14 @@ function EquipamentosList() {
           <h2 className="text-2xl font-extrabold text-[#213368]">Equipamentos</h2>
           <p className="text-xs text-muted-foreground">Frota, empréstimos, manutenções e rentabilidade.</p>
         </div>
-        <Button onClick={abrirNovo} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-          <Plus className="mr-1 h-4 w-4" /> Novo equipamento
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setOpenGrupo(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
+            <FolderPlus className="mr-1 h-4 w-4" /> Novo grupo
+          </Button>
+          <Button onClick={() => abrirNovo()} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Plus className="mr-1 h-4 w-4" /> Novo equipamento
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -178,74 +331,47 @@ function EquipamentosList() {
             <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as categorias</SelectItem>
-              {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              {categoriasFiltro.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
       </Card>
 
-      {/* Cards de equipamentos */}
-      {filtrados.length === 0 ? (
+      {/* Grupos */}
+      {filtrados.length === 0 && grupos.length === 0 ? (
         <Card className="p-12 text-center text-muted-foreground">Nenhum equipamento encontrado.</Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtrados.map(e => {
-            const Ico = iconeCategoria(e.categoria);
-            return (
-              <button
-                key={e.id}
-                onClick={() => navigate({ to: "/app/equipamentos/$id", params: { id: e.id } })}
-                className="group text-left transition-all hover:-translate-y-1"
-              >
-                <Card className="overflow-hidden border-2 border-transparent transition-colors group-hover:border-[#F37032]">
-                  <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
-                    {e.fotoUrl ? (
-                      <img src={e.fotoUrl} alt={e.nome} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <Ico className="h-14 w-14 text-white/90" strokeWidth={1.5} />
-                    )}
-                    <div className="absolute right-3 top-3 z-10">
-                      <StatusBadge status={e.status} />
-                    </div>
-                    <div className="absolute left-3 top-3 z-10 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
-                      {e.codigo}
-                    </div>
-                  </div>
-                  <div className="space-y-2 p-4">
-                    <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-[#F37032]">{e.categoria || "—"}</div>
-                      <div className="line-clamp-1 text-sm font-bold text-[#213368]">{e.nome}</div>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      <span className="line-clamp-1">{e.localAtual || e.localBase || "—"}</span>
-                    </div>
-                    {e.responsavelAtual && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <User className="h-3 w-3 shrink-0" />
-                        <span className="line-clamp-1">{e.responsavelAtual}</span>
-                      </div>
-                    )}
-                    <div className="mt-2 flex items-end justify-between border-t pt-2">
-                      <div>
-                        <div className="text-[10px] text-muted-foreground">Custo</div>
-                        <div className="text-sm font-bold text-[#F37032]">{brl(e.custoPeriodo)}<span className="text-[10px] font-normal text-muted-foreground">/{e.unidade}</span></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-muted-foreground">Valor</div>
-                        <div className="text-sm font-semibold text-[#213368]">{brl(e.valor)}</div>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-[#F37032]" />
-                    </div>
-                  </div>
-                </Card>
-              </button>
-            );
-          })}
+        <div className="space-y-4">
+          {gruposComEquipamentos.porGrupo.map(g => renderGrupoSection(g.nome, g.equipamentos, { grupo: true }))}
+          {gruposComEquipamentos.semGrupo.length > 0 &&
+            renderGrupoSection("Sem grupo", gruposComEquipamentos.semGrupo)}
         </div>
       )}
 
-      {/* Diálogo Novo */}
+      {/* Diálogo Novo grupo */}
+      <Dialog open={openGrupo} onOpenChange={setOpenGrupo}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Novo grupo</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label>Nome do grupo</Label>
+            <Input
+              value={novoGrupoNome}
+              onChange={e => setNovoGrupoNome(e.target.value)}
+              placeholder="Ex.: Parafusadeiras, Andaimes, Veículos"
+              onKeyDown={e => { if (e.key === "Enter") salvarGrupo(); }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenGrupo(false)}>Cancelar</Button>
+            <Button onClick={salvarGrupo} disabled={savingGrupo} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+              {savingGrupo ? "Salvando…" : "Criar grupo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo Novo equipamento */}
       <Dialog open={openEq} onOpenChange={(v) => { setOpenEq(v); if (!v) setEditId(null); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editId ? "Editar equipamento" : "Novo equipamento"}</DialogTitle></DialogHeader>
@@ -277,7 +403,19 @@ function EquipamentosList() {
             </div>
             <div className="md:col-span-2"><Label>Nome *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
             <div><Label>Código / patrimônio *</Label><Input value={form.codigo} onChange={e => setForm({ ...form, codigo: e.target.value })} /></div>
-            <div><Label>Categoria *</Label><Input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} placeholder="Ex.: Energia, Transporte" /></div>
+            <div>
+              <Label>Categoria *</Label>
+              {grupos.length > 0 ? (
+                <Select value={form.categoria} onValueChange={v => setForm({ ...form, categoria: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                  <SelectContent>
+                    {grupos.map(g => <SelectItem key={g.id} value={g.nome}>{g.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} placeholder="Ex.: Energia, Transporte" />
+              )}
+            </div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
             <div><Label>Valor (R$)</Label><Input inputMode="numeric" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></div>
             <div><Label>Custo por período (R$)</Label><Input inputMode="numeric" value={form.custoPeriodo} onChange={e => setForm({ ...form, custoPeriodo: e.target.value })} /></div>
