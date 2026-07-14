@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   BriefcaseBusiness, FolderKanban, Wrench, TrendingUp, AlertTriangle,
-  DollarSign, CheckCircle2, Clock, PackageCheck, PackageX, Hammer, ArrowRight,
+  DollarSign, CheckCircle2, Clock, PackageCheck, PackageX, Hammer, ArrowRight, Percent,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -147,18 +147,19 @@ function Secao({ titulo, subtitulo, icon: Icon, modulo, children }: {
   );
 }
 
-function Kpi({ label, value, delta, icon: Icon }: {
-  label: string; value: string; delta?: string; icon: typeof BriefcaseBusiness;
+function Kpi({ label, value, delta, tone, icon: Icon }: {
+  label: string; value: string; delta?: string; tone?: "up" | "down"; icon: typeof BriefcaseBusiness;
 }) {
+  const toneCls = tone === "up" ? "text-green-600" : tone === "down" ? "text-red-600" : "text-[#213368]";
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#213368] text-white">
           <Icon className="h-5 w-5" />
         </div>
-        {delta && <span className="text-xs font-semibold text-[#F37032]">{delta}</span>}
+        {delta && <span className={`text-xs font-semibold ${tone ? toneCls : "text-[#F37032]"}`}>{delta}</span>}
       </div>
-      <div className="mt-4 text-2xl font-extrabold text-[#213368]">{value}</div>
+      <div className={`mt-4 text-2xl font-extrabold ${toneCls}`}>{value}</div>
       <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
     </Card>
   );
@@ -180,6 +181,28 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
     const ticket = qtd ? total / qtd : 0;
     const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
+
+    // Variação geral do pipeline: mês atual vs mês anterior (sem filtro de status)
+    const hojeVar = new Date();
+    const mesAtualIni = new Date(hojeVar.getFullYear(), hojeVar.getMonth(), 1, 0, 0, 0, 0);
+    const mesAtualFim = new Date(hojeVar.getFullYear(), hojeVar.getMonth() + 1, 0, 23, 59, 59, 999);
+    const mesAnteriorIni = new Date(hojeVar.getFullYear(), hojeVar.getMonth() - 1, 1, 0, 0, 0, 0);
+    const mesAnteriorFim = new Date(hojeVar.getFullYear(), hojeVar.getMonth(), 0, 23, 59, 59, 999);
+    const somaMesAtual = orcamentos
+      .filter(o => {
+        if (!o.data) return false;
+        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
+        return d >= mesAtualIni && d <= mesAtualFim;
+      })
+      .reduce((a, o) => a + o.valor, 0);
+    const somaMesAnterior = orcamentos
+      .filter(o => {
+        if (!o.data) return false;
+        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
+        return d >= mesAnteriorIni && d <= mesAnteriorFim;
+      })
+      .reduce((a, o) => a + o.valor, 0);
+    const variacao = somaMesAnterior > 0 ? ((somaMesAtual - somaMesAnterior) / somaMesAnterior) * 100 : null;
 
     // Série mensal (últimos 6 meses)
     const hoje = new Date();
@@ -203,16 +226,22 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
       noPer.reduce<Record<string, number>>((acc, o) => { acc[o.cliente] = (acc[o.cliente] || 0) + o.valor; return acc; }, {}),
     ) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-    return { total, qtd, ticket, conv, meses, porStatus, ultimos, topClientes };
+    return { total, qtd, ticket, conv, variacao, meses, porStatus, ultimos, topClientes };
   }, [orcamentos, periodo]);
 
   return (
     <Secao titulo="Comercial" subtitulo={`Orçamentos e conversão · ${PERIODO_LABEL[periodo]}`} icon={BriefcaseBusiness} modulo="comercial">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Kpi label="Valor total de orçamentos" value={brl(dados.total)} icon={DollarSign} />
         <Kpi label="Nº de orçamentos" value={String(dados.qtd)} icon={BriefcaseBusiness} />
         <Kpi label="Ticket médio" value={brl(dados.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${dados.conv.toFixed(0)}%`} icon={CheckCircle2} />
+        <Kpi
+          label="Vs. período anterior"
+          value={dados.variacao !== null ? `${dados.variacao > 0 ? "↑ " : dados.variacao < 0 ? "↓ " : ""}${Math.abs(dados.variacao).toFixed(0)}%` : "—"}
+          icon={Percent}
+          tone={dados.variacao !== null ? (dados.variacao > 0 ? "up" : dados.variacao < 0 ? "down" : undefined) : undefined}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

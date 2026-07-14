@@ -21,7 +21,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Eye, Pencil, Copy, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, Percent,
+  DollarSign, FileText, TrendingUp, CheckCircle2, Clock,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -137,25 +137,6 @@ function Comercial() {
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
     const abertos = noPer.filter(o => o.status === "Em análise" || o.status === "Aguardando retorno");
     const abertoValor = abertos.reduce((a, o) => a + o.valor, 0);
-    // Crescimento: mês atual vs mês anterior (sempre, independente do filtro)
-    const hojeCresc = new Date();
-    const mesAtualIni = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth(), 1, 0, 0, 0, 0);
-    const mesAtualFim = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth() + 1, 0, 23, 59, 59, 999);
-    const mesAnteriorIni = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth() - 1, 1, 0, 0, 0, 0);
-    const mesAnteriorFim = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth(), 0, 23, 59, 59, 999);
-    const valorMesAtual = orcamentos
-      .filter(o => {
-        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
-        return d >= mesAtualIni && d <= mesAtualFim;
-      })
-      .reduce((a, o) => a + o.valor, 0);
-    const valorMesAnterior = orcamentos
-      .filter(o => {
-        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
-        return d >= mesAnteriorIni && d <= mesAnteriorFim;
-      })
-      .reduce((a, o) => a + o.valor, 0);
-    const cresc = valorMesAnterior > 0 ? ((valorMesAtual - valorMesAnterior) / valorMesAnterior) * 100 : null;
 
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
@@ -205,7 +186,7 @@ function Comercial() {
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 5);
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, cresc, meses, porStatus, porTipo, porResp, funil, topClientes };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, funil, topClientes };
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
@@ -359,15 +340,12 @@ function Comercial() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <Kpi label="Valor total" value={brl(metricas.total)} icon={DollarSign} />
         <Kpi label="Nº de orçamentos" value={String(metricas.qtd)} icon={FileText} />
         <Kpi label="Ticket médio" value={brl(metricas.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${metricas.conv.toFixed(0)}%`} icon={CheckCircle2} />
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
-        <Kpi label="Vs. período anterior"
-             value={metricas.cresc !== null ? `${metricas.cresc > 0 ? "↑" : metricas.cresc < 0 ? "↓" : "—"} ${Math.abs(metricas.cresc).toFixed(0)}%` : "—"}
-             icon={Percent} tone={metricas.cresc !== null ? (metricas.cresc >= 0 ? "up" : "down") : undefined} />
       </div>
 
       {/* Gráficos linha 1 */}
