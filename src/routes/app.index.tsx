@@ -147,18 +147,19 @@ function Secao({ titulo, subtitulo, icon: Icon, modulo, children }: {
   );
 }
 
-function Kpi({ label, value, delta, icon: Icon }: {
-  label: string; value: string; delta?: string; icon: typeof BriefcaseBusiness;
+function Kpi({ label, value, delta, tone, icon: Icon }: {
+  label: string; value: string; delta?: string; tone?: "up" | "down"; icon: typeof BriefcaseBusiness;
 }) {
+  const toneCls = tone === "up" ? "text-green-600" : tone === "down" ? "text-red-600" : "text-[#213368]";
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#213368] text-white">
           <Icon className="h-5 w-5" />
         </div>
-        {delta && <span className="text-xs font-semibold text-[#F37032]">{delta}</span>}
+        {delta && <span className={`text-xs font-semibold ${tone ? toneCls : "text-[#F37032]"}`}>{delta}</span>}
       </div>
-      <div className="mt-4 text-2xl font-extrabold text-[#213368]">{value}</div>
+      <div className={`mt-4 text-2xl font-extrabold ${toneCls}`}>{value}</div>
       <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
     </Card>
   );
