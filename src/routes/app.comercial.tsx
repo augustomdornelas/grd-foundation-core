@@ -376,7 +376,7 @@ function Comercial() {
               <>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={metricas.porStatus} dataKey="value" nameKey="name" innerRadius={65} outerRadius={100} paddingAngle={3}>
+                    <Pie data={metricas.porStatus} dataKey="value" nameKey="name" innerRadius={80} outerRadius={120} paddingAngle={3}>
                       {metricas.porStatus.map((s, i) => <Cell key={i} fill={s.color} />)}
                     </Pie>
                     <Legend />
@@ -464,7 +464,7 @@ function Comercial() {
               <TableRow>
                 <SortableTh label="Nº" col="numero" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Cliente" col="cliente" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <SortableTh label="Tipo" col="tipo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                <SortableTh label="Obra" col="obra" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Valor" col="valor" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Responsável" col="responsavel" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Data" col="data" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
@@ -479,7 +479,7 @@ function Comercial() {
                 <TableRow key={o.id}>
                   <TableCell className="font-semibold">{o.numero}</TableCell>
                   <TableCell>{o.cliente}</TableCell>
-                  <TableCell className="text-xs">{o.tipo}</TableCell>
+                  <TableCell className="text-xs">{o.obra}</TableCell>
                   <TableCell className="font-semibold">{brl(o.valor)}</TableCell>
                   <TableCell>{o.responsavel}</TableCell>
                   <TableCell>{new Date(o.data).toLocaleDateString("pt-BR")}</TableCell>
