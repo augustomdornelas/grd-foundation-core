@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   BriefcaseBusiness, FolderKanban, Wrench, TrendingUp, AlertTriangle,
-  DollarSign, CheckCircle2, Clock, PackageCheck, PackageX, Hammer, ArrowRight,
+  DollarSign, CheckCircle2, Clock, PackageCheck, PackageX, Hammer, ArrowRight, Percent,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
