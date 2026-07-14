@@ -166,6 +166,27 @@ export type Database = {
         }
         Relationships: []
       }
+      locais_equipamentos: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       manutencoes: {
         Row: {
           aberta: boolean

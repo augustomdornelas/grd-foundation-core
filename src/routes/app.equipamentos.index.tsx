@@ -11,7 +11,12 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   Plus, Search, MapPin, User, ArrowRight, Package, Wrench, Zap, Truck, Hammer,
   Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FolderPlus,
+  MapPinned, Trash2, Pencil,
 } from "lucide-react";
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, LineChart, Line,
+} from "recharts";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +56,9 @@ const novoForm = (categoria = ""): FormEq => ({
 });
 
 type Grupo = { id: string; nome: string };
+type LocalTipo = "Base" | "Almoxarifado" | "Obra";
+type Local = { id: string; nome: string; tipo: LocalTipo };
+const TIPOS_LOCAL: LocalTipo[] = ["Base", "Almoxarifado", "Obra"];
 
 function EquipamentosList() {
   const navigate = useNavigate();
@@ -73,18 +81,72 @@ function EquipamentosList() {
   const [savingGrupo, setSavingGrupo] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  const [locais, setLocais] = useState<Local[]>([]);
+  const [openLocais, setOpenLocais] = useState(false);
+  const [novoLocalNome, setNovoLocalNome] = useState("");
+  const [novoLocalTipo, setNovoLocalTipo] = useState<LocalTipo>("Base");
+  const [editLocalId, setEditLocalId] = useState<string | null>(null);
+  const [savingLocal, setSavingLocal] = useState(false);
+
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("categorias_equipamentos")
-        .select("id, nome")
-        .order("nome", { ascending: true });
-      if (error) { console.error(error); return; }
-      const lista = (data ?? []) as Grupo[];
-      setGrupos(lista);
-      setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+      const [gRes, lRes] = await Promise.all([
+        supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
+        supabase.from("locais_equipamentos").select("id, nome, tipo").order("nome", { ascending: true }),
+      ]);
+      if (gRes.error) console.error(gRes.error);
+      else {
+        const lista = (gRes.data ?? []) as Grupo[];
+        setGrupos(lista);
+        setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+      }
+      if (lRes.error) console.error(lRes.error);
+      else setLocais((lRes.data ?? []) as Local[]);
     })();
   }, []);
+
+  const salvarLocal = async () => {
+    const nome = novoLocalNome.trim();
+    if (!nome) return toast.error("Informe o nome do local");
+    setSavingLocal(true);
+    if (editLocalId) {
+      const { data, error } = await supabase
+        .from("locais_equipamentos")
+        .update({ nome, tipo: novoLocalTipo })
+        .eq("id", editLocalId)
+        .select("id, nome, tipo")
+        .single();
+      setSavingLocal(false);
+      if (error) return toast.error(`Falha ao atualizar: ${error.message}`);
+      setLocais(ls => ls.map(l => l.id === editLocalId ? (data as Local) : l).sort((a, b) => a.nome.localeCompare(b.nome)));
+      toast.success("Local atualizado");
+    } else {
+      const { data, error } = await supabase
+        .from("locais_equipamentos")
+        .insert({ nome, tipo: novoLocalTipo })
+        .select("id, nome, tipo")
+        .single();
+      setSavingLocal(false);
+      if (error) return toast.error(`Falha ao criar: ${error.message}`);
+      setLocais(ls => [...ls, data as Local].sort((a, b) => a.nome.localeCompare(b.nome)));
+      toast.success("Local criado");
+    }
+    setNovoLocalNome(""); setNovoLocalTipo("Base"); setEditLocalId(null);
+  };
+
+  const editarLocal = (l: Local) => {
+    setEditLocalId(l.id); setNovoLocalNome(l.nome); setNovoLocalTipo(l.tipo);
+  };
+
+  const excluirLocal = async (id: string) => {
+    if (!confirm("Excluir este local?")) return;
+    const { error } = await supabase.from("locais_equipamentos").delete().eq("id", id);
+    if (error) return toast.error(`Falha ao excluir: ${error.message}`);
+    setLocais(ls => ls.filter(l => l.id !== id));
+    if (editLocalId === id) { setEditLocalId(null); setNovoLocalNome(""); setNovoLocalTipo("Base"); }
+    toast.success("Local excluído");
+  };
+
 
   const categoriasEquip = useMemo(
     () => Array.from(new Set(equipamentos.map(e => e.categoria))).filter(Boolean),
@@ -129,6 +191,74 @@ function EquipamentosList() {
       receita, custoManut, roi, valorFrota,
     };
   }, [equipamentos, emprestimos, manutencoes]);
+
+  const charts = useMemo(() => {
+    // 1. Status pie
+    const statusMap: Record<EquipStatus, { name: string; value: number; color: string }> = {
+      "Disponível": { name: "Disponível", value: 0, color: "#16a34a" },
+      "Emprestado": { name: "Alugado", value: 0, color: "#F37032" },
+      "Manutenção": { name: "Em Manutenção", value: 0, color: "#dc2626" },
+    };
+    equipamentos.forEach(e => { if (statusMap[e.status]) statusMap[e.status].value += 1; });
+    const porStatus = Object.values(statusMap).filter(s => s.value > 0);
+
+    // 2. Valor da frota por categoria (horizontal bar)
+    const valorCatMap = new Map<string, number>();
+    equipamentos.forEach(e => {
+      const c = e.categoria || "Sem categoria";
+      valorCatMap.set(c, (valorCatMap.get(c) || 0) + (e.valor || 0));
+    });
+    const valorPorCategoria = Array.from(valorCatMap.entries())
+      .map(([categoria, valor]) => ({ categoria, valor }))
+      .sort((a, b) => b.valor - a.valor);
+
+    // 3. Receita diária potencial por categoria (custoPeriodo dos disponíveis)
+    const receitaCatMap = new Map<string, number>();
+    equipamentos.filter(e => e.status === "Disponível").forEach(e => {
+      const c = e.categoria || "Sem categoria";
+      let diario = e.custoPeriodo || 0;
+      if (e.unidade === "semana") diario = diario / 7;
+      else if (e.unidade === "mês") diario = diario / 30;
+      receitaCatMap.set(c, (receitaCatMap.get(c) || 0) + diario);
+    });
+    const receitaPorCategoria = Array.from(receitaCatMap.entries())
+      .map(([categoria, valor]) => ({ categoria, valor: Math.round(valor) }))
+      .sort((a, b) => b.valor - a.valor);
+
+    // 4. Equipamentos por local
+    const localMap = new Map<string, number>();
+    equipamentos.forEach(e => {
+      const l = e.localAtual || e.localBase || "Sem local";
+      localMap.set(l, (localMap.get(l) || 0) + 1);
+    });
+    const porLocal = Array.from(localMap.entries())
+      .map(([local, qtd]) => ({ local, qtd }))
+      .sort((a, b) => b.qtd - a.qtd);
+
+    // 5. Alugados vs Disponíveis por categoria
+    const acMap = new Map<string, { categoria: string; alugados: number; disponiveis: number }>();
+    equipamentos.forEach(e => {
+      const c = e.categoria || "Sem categoria";
+      if (!acMap.has(c)) acMap.set(c, { categoria: c, alugados: 0, disponiveis: 0 });
+      const row = acMap.get(c)!;
+      if (e.status === "Emprestado") row.alugados += 1;
+      else if (e.status === "Disponível") row.disponiveis += 1;
+    });
+    const alugadosVsDisp = Array.from(acMap.values()).sort((a, b) => (b.alugados + b.disponiveis) - (a.alugados + a.disponiveis));
+
+    // 6. Evolução de aluguéis por mês (ano atual)
+    const anoAtual = new Date().getFullYear();
+    const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const evolucao = meses.map((mes, i) => ({ mes, qtd: 0, idx: i }));
+    emprestimos.forEach(e => {
+      const d = new Date(e.dataInicio);
+      if (!isNaN(d.getTime()) && d.getFullYear() === anoAtual) {
+        evolucao[d.getMonth()].qtd += 1;
+      }
+    });
+
+    return { porStatus, valorPorCategoria, receitaPorCategoria, porLocal, alugadosVsDisp, evolucao };
+  }, [equipamentos, emprestimos]);
 
   const abrirNovo = (categoria = "") => { setEditId(null); setForm(novoForm(categoria)); setOpenEq(true); };
 
@@ -293,6 +423,9 @@ function EquipamentosList() {
           <Button variant="outline" onClick={() => setOpenGrupo(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
             <FolderPlus className="mr-1 h-4 w-4" /> Novo grupo
           </Button>
+          <Button variant="outline" onClick={() => setOpenLocais(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
+            <MapPinned className="mr-1 h-4 w-4" /> Gerenciar Locais
+          </Button>
           <Button onClick={() => abrirNovo()} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Plus className="mr-1 h-4 w-4" /> Novo equipamento
           </Button>
@@ -314,6 +447,94 @@ function EquipamentosList() {
           icon={kpis.roi >= 0 ? TrendingUp : TrendingDown}
         />
       </div>
+
+      {/* Gráficos */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ChartCard title="Equipamentos por Status">
+          {charts.porStatus.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={charts.porStatus} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
+                  {charts.porStatus.map((s, i) => <Cell key={i} fill={s.color} />)}
+                </Pie>
+                <Legend />
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Valor da Frota por Categoria">
+          {charts.valorPorCategoria.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.valorPorCategoria} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                <XAxis type="number" stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <YAxis type="category" dataKey="categoria" stroke="#6E7280" fontSize={11} width={110} />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="valor" name="Valor" fill="#213368" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Receita Diária Potencial por Categoria">
+          {charts.receitaPorCategoria.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.receitaPorCategoria}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="categoria" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(1)}k`} />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="valor" name="Receita/dia" fill="#F37032" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Equipamentos por Local">
+          {charts.porLocal.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.porLocal}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="local" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="qtd" name="Equipamentos" fill="#213368" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Alugados vs Disponíveis por Categoria">
+          {charts.alugadosVsDisp.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.alugadosVsDisp}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="categoria" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="alugados" name="Alugados" fill="#F37032" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="disponiveis" name="Disponíveis" fill="#213368" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Evolução de Aluguéis por Mês">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={charts.evolucao}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="mes" stroke="#6E7280" fontSize={11} />
+              <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="qtd" name="Aluguéis" stroke="#F37032" strokeWidth={2.5} dot={{ r: 3, fill: "#213368" }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
 
       {/* Filtros */}
       <Card className="p-4">
@@ -435,11 +656,89 @@ function EquipamentosList() {
                 <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="md:col-span-2"><Label>Local base</Label><Input value={form.localBase} onChange={e => setForm({ ...form, localBase: e.target.value })} placeholder="Ex.: Almoxarifado Central" /></div>
+            <div className="md:col-span-2">
+              <Label>Local base</Label>
+              {locais.length > 0 ? (
+                <Select value={form.localBase} onValueChange={v => setForm({ ...form, localBase: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione um local" /></SelectTrigger>
+                  <SelectContent>
+                    {locais.map(l => <SelectItem key={l.id} value={l.nome}>{l.nome} · {l.tipo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={form.localBase} onChange={e => setForm({ ...form, localBase: e.target.value })} placeholder="Ex.: Almoxarifado Central" />
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenEq(false)}>Cancelar</Button>
             <Button onClick={salvar} className="bg-[#213368] text-white hover:bg-[#2a4185]">{editId ? "Salvar" : "Cadastrar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo Gerenciar Locais */}
+      <Dialog open={openLocais} onOpenChange={(v) => { setOpenLocais(v); if (!v) { setEditLocalId(null); setNovoLocalNome(""); setNovoLocalTipo("Base"); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Gerenciar Locais</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
+              <div>
+                <Label>Nome do local</Label>
+                <Input
+                  value={novoLocalNome}
+                  onChange={e => setNovoLocalNome(e.target.value)}
+                  placeholder="Ex.: Depósito GRD"
+                />
+              </div>
+              <div>
+                <Label>Tipo</Label>
+                <Select value={novoLocalTipo} onValueChange={v => setNovoLocalTipo(v as LocalTipo)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_LOCAL.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              {editLocalId && (
+                <Button variant="ghost" onClick={() => { setEditLocalId(null); setNovoLocalNome(""); setNovoLocalTipo("Base"); }}>
+                  Cancelar edição
+                </Button>
+              )}
+              <Button onClick={salvarLocal} disabled={savingLocal} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+                {savingLocal ? "Salvando…" : editLocalId ? "Atualizar" : "Adicionar"}
+              </Button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto rounded-md border">
+              {locais.length === 0 ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">Nenhum local cadastrado.</div>
+              ) : (
+                <ul className="divide-y">
+                  {locais.map(l => (
+                    <li key={l.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-[#213368]">{l.nome}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[#F37032]">{l.tipo}</div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => editarLocal(l)} title="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => excluirLocal(l.id)} title="Excluir">
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenLocais(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -456,5 +755,22 @@ function KpiCard({ label, value, color, icon: Icon }: { label: string; value: st
       </div>
       <div className="mt-1 text-lg font-extrabold" style={{ color }}>{value}</div>
     </Card>
+  );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="bg-white p-4 shadow-sm">
+      <div className="text-sm font-semibold text-[#213368]">{title}</div>
+      <div className="mt-3 h-64">{children}</div>
+    </Card>
+  );
+}
+
+function Vazio() {
+  return (
+    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+      Sem dados para exibir
+    </div>
   );
 }
