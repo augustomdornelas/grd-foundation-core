@@ -192,6 +192,74 @@ function EquipamentosList() {
     };
   }, [equipamentos, emprestimos, manutencoes]);
 
+  const charts = useMemo(() => {
+    // 1. Status pie
+    const statusMap: Record<EquipStatus, { name: string; value: number; color: string }> = {
+      "Disponível": { name: "Disponível", value: 0, color: "#16a34a" },
+      "Emprestado": { name: "Alugado", value: 0, color: "#F37032" },
+      "Manutenção": { name: "Em Manutenção", value: 0, color: "#dc2626" },
+    };
+    equipamentos.forEach(e => { if (statusMap[e.status]) statusMap[e.status].value += 1; });
+    const porStatus = Object.values(statusMap).filter(s => s.value > 0);
+
+    // 2. Valor da frota por categoria (horizontal bar)
+    const valorCatMap = new Map<string, number>();
+    equipamentos.forEach(e => {
+      const c = e.categoria || "Sem categoria";
+      valorCatMap.set(c, (valorCatMap.get(c) || 0) + (e.valor || 0));
+    });
+    const valorPorCategoria = Array.from(valorCatMap.entries())
+      .map(([categoria, valor]) => ({ categoria, valor }))
+      .sort((a, b) => b.valor - a.valor);
+
+    // 3. Receita diária potencial por categoria (custoPeriodo dos disponíveis)
+    const receitaCatMap = new Map<string, number>();
+    equipamentos.filter(e => e.status === "Disponível").forEach(e => {
+      const c = e.categoria || "Sem categoria";
+      let diario = e.custoPeriodo || 0;
+      if (e.unidade === "semana") diario = diario / 7;
+      else if (e.unidade === "mês") diario = diario / 30;
+      receitaCatMap.set(c, (receitaCatMap.get(c) || 0) + diario);
+    });
+    const receitaPorCategoria = Array.from(receitaCatMap.entries())
+      .map(([categoria, valor]) => ({ categoria, valor: Math.round(valor) }))
+      .sort((a, b) => b.valor - a.valor);
+
+    // 4. Equipamentos por local
+    const localMap = new Map<string, number>();
+    equipamentos.forEach(e => {
+      const l = e.localAtual || e.localBase || "Sem local";
+      localMap.set(l, (localMap.get(l) || 0) + 1);
+    });
+    const porLocal = Array.from(localMap.entries())
+      .map(([local, qtd]) => ({ local, qtd }))
+      .sort((a, b) => b.qtd - a.qtd);
+
+    // 5. Alugados vs Disponíveis por categoria
+    const acMap = new Map<string, { categoria: string; alugados: number; disponiveis: number }>();
+    equipamentos.forEach(e => {
+      const c = e.categoria || "Sem categoria";
+      if (!acMap.has(c)) acMap.set(c, { categoria: c, alugados: 0, disponiveis: 0 });
+      const row = acMap.get(c)!;
+      if (e.status === "Emprestado") row.alugados += 1;
+      else if (e.status === "Disponível") row.disponiveis += 1;
+    });
+    const alugadosVsDisp = Array.from(acMap.values()).sort((a, b) => (b.alugados + b.disponiveis) - (a.alugados + a.disponiveis));
+
+    // 6. Evolução de aluguéis por mês (ano atual)
+    const anoAtual = new Date().getFullYear();
+    const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const evolucao = meses.map((mes, i) => ({ mes, qtd: 0, idx: i }));
+    emprestimos.forEach(e => {
+      const d = new Date(e.dataInicio);
+      if (!isNaN(d.getTime()) && d.getFullYear() === anoAtual) {
+        evolucao[d.getMonth()].qtd += 1;
+      }
+    });
+
+    return { porStatus, valorPorCategoria, receitaPorCategoria, porLocal, alugadosVsDisp, evolucao };
+  }, [equipamentos, emprestimos]);
+
   const abrirNovo = (categoria = "") => { setEditId(null); setForm(novoForm(categoria)); setOpenEq(true); };
 
   const salvarGrupo = async () => {
