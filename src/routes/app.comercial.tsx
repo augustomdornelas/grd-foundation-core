@@ -137,7 +137,25 @@ function Comercial() {
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
     const abertos = noPer.filter(o => o.status === "Em análise" || o.status === "Aguardando retorno");
     const abertoValor = abertos.reduce((a, o) => a + o.valor, 0);
-    const cresc = totalAnt > 0 ? ((total - totalAnt) / totalAnt) * 100 : total > 0 ? 100 : 0;
+    // Crescimento: mês atual vs mês anterior (sempre, independente do filtro)
+    const hojeCresc = new Date();
+    const mesAtualIni = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth(), 1, 0, 0, 0, 0);
+    const mesAtualFim = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth() + 1, 0, 23, 59, 59, 999);
+    const mesAnteriorIni = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth() - 1, 1, 0, 0, 0, 0);
+    const mesAnteriorFim = new Date(hojeCresc.getFullYear(), hojeCresc.getMonth(), 0, 23, 59, 59, 999);
+    const valorMesAtual = orcamentos
+      .filter(o => {
+        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
+        return d >= mesAtualIni && d <= mesAtualFim;
+      })
+      .reduce((a, o) => a + o.valor, 0);
+    const valorMesAnterior = orcamentos
+      .filter(o => {
+        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
+        return d >= mesAnteriorIni && d <= mesAnteriorFim;
+      })
+      .reduce((a, o) => a + o.valor, 0);
+    const cresc = valorMesAnterior > 0 ? ((valorMesAtual - valorMesAnterior) / valorMesAnterior) * 100 : null;
 
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
@@ -347,8 +365,9 @@ function Comercial() {
         <Kpi label="Ticket médio" value={brl(metricas.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${metricas.conv.toFixed(0)}%`} icon={CheckCircle2} />
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
-        <Kpi label="Vs. período anterior" value={`${metricas.cresc > 0 ? "↑" : metricas.cresc < 0 ? "↓" : "—"} ${Math.abs(metricas.cresc).toFixed(0)}%`}
-             icon={Percent} tone={metricas.cresc >= 0 ? "up" : "down"} />
+        <Kpi label="Vs. período anterior"
+             value={metricas.cresc !== null ? `${metricas.cresc > 0 ? "↑" : metricas.cresc < 0 ? "↓" : "—"} ${Math.abs(metricas.cresc).toFixed(0)}%` : "—"}
+             icon={Percent} tone={metricas.cresc !== null ? (metricas.cresc >= 0 ? "up" : "down") : undefined} />
       </div>
 
       {/* Gráficos linha 1 */}
