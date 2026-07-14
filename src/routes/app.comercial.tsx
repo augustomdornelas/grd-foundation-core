@@ -479,7 +479,7 @@ function Comercial() {
                 <TableRow key={o.id}>
                   <TableCell className="font-semibold">{o.numero}</TableCell>
                   <TableCell>{o.cliente}</TableCell>
-                  <TableCell className="text-xs">{o.tipo}</TableCell>
+                  <TableCell className="text-xs">{o.obra}</TableCell>
                   <TableCell className="font-semibold">{brl(o.valor)}</TableCell>
                   <TableCell>{o.responsavel}</TableCell>
                   <TableCell>{new Date(o.data).toLocaleDateString("pt-BR")}</TableCell>
