@@ -448,6 +448,94 @@ function EquipamentosList() {
         />
       </div>
 
+      {/* Gráficos */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ChartCard title="Equipamentos por Status">
+          {charts.porStatus.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={charts.porStatus} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
+                  {charts.porStatus.map((s, i) => <Cell key={i} fill={s.color} />)}
+                </Pie>
+                <Legend />
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Valor da Frota por Categoria">
+          {charts.valorPorCategoria.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.valorPorCategoria} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                <XAxis type="number" stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <YAxis type="category" dataKey="categoria" stroke="#6E7280" fontSize={11} width={110} />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="valor" name="Valor" fill="#213368" radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Receita Diária Potencial por Categoria">
+          {charts.receitaPorCategoria.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.receitaPorCategoria}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="categoria" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(1)}k`} />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Bar dataKey="valor" name="Receita/dia" fill="#F37032" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Equipamentos por Local">
+          {charts.porLocal.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.porLocal}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="local" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="qtd" name="Equipamentos" fill="#213368" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Alugados vs Disponíveis por Categoria">
+          {charts.alugadosVsDisp.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.alugadosVsDisp}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="categoria" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="alugados" name="Alugados" fill="#F37032" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="disponiveis" name="Disponíveis" fill="#213368" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : <Vazio />}
+        </ChartCard>
+
+        <ChartCard title="Evolução de Aluguéis por Mês">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={charts.evolucao}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="mes" stroke="#6E7280" fontSize={11} />
+              <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="qtd" name="Aluguéis" stroke="#F37032" strokeWidth={2.5} dot={{ r: 3, fill: "#213368" }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+
       {/* Filtros */}
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
