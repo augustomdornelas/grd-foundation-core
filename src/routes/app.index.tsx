@@ -231,11 +231,17 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
 
   return (
     <Secao titulo="Comercial" subtitulo={`Orçamentos e conversão · ${PERIODO_LABEL[periodo]}`} icon={BriefcaseBusiness} modulo="comercial">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Kpi label="Valor total de orçamentos" value={brl(dados.total)} icon={DollarSign} />
         <Kpi label="Nº de orçamentos" value={String(dados.qtd)} icon={BriefcaseBusiness} />
         <Kpi label="Ticket médio" value={brl(dados.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${dados.conv.toFixed(0)}%`} icon={CheckCircle2} />
+        <Kpi
+          label="Vs. período anterior"
+          value={dados.variacao !== null ? `${dados.variacao > 0 ? "↑" : "↓"} ${Math.abs(dados.variacao).toFixed(0)}%` : "—"}
+          icon={Percent}
+          tone={dados.variacao !== null ? (dados.variacao >= 0 ? "up" : "down") : undefined}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
