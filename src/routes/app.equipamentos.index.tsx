@@ -81,18 +81,72 @@ function EquipamentosList() {
   const [savingGrupo, setSavingGrupo] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  const [locais, setLocais] = useState<Local[]>([]);
+  const [openLocais, setOpenLocais] = useState(false);
+  const [novoLocalNome, setNovoLocalNome] = useState("");
+  const [novoLocalTipo, setNovoLocalTipo] = useState<LocalTipo>("Base");
+  const [editLocalId, setEditLocalId] = useState<string | null>(null);
+  const [savingLocal, setSavingLocal] = useState(false);
+
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("categorias_equipamentos")
-        .select("id, nome")
-        .order("nome", { ascending: true });
-      if (error) { console.error(error); return; }
-      const lista = (data ?? []) as Grupo[];
-      setGrupos(lista);
-      setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+      const [gRes, lRes] = await Promise.all([
+        supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
+        supabase.from("locais_equipamentos").select("id, nome, tipo").order("nome", { ascending: true }),
+      ]);
+      if (gRes.error) console.error(gRes.error);
+      else {
+        const lista = (gRes.data ?? []) as Grupo[];
+        setGrupos(lista);
+        setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+      }
+      if (lRes.error) console.error(lRes.error);
+      else setLocais((lRes.data ?? []) as Local[]);
     })();
   }, []);
+
+  const salvarLocal = async () => {
+    const nome = novoLocalNome.trim();
+    if (!nome) return toast.error("Informe o nome do local");
+    setSavingLocal(true);
+    if (editLocalId) {
+      const { data, error } = await supabase
+        .from("locais_equipamentos")
+        .update({ nome, tipo: novoLocalTipo })
+        .eq("id", editLocalId)
+        .select("id, nome, tipo")
+        .single();
+      setSavingLocal(false);
+      if (error) return toast.error(`Falha ao atualizar: ${error.message}`);
+      setLocais(ls => ls.map(l => l.id === editLocalId ? (data as Local) : l).sort((a, b) => a.nome.localeCompare(b.nome)));
+      toast.success("Local atualizado");
+    } else {
+      const { data, error } = await supabase
+        .from("locais_equipamentos")
+        .insert({ nome, tipo: novoLocalTipo })
+        .select("id, nome, tipo")
+        .single();
+      setSavingLocal(false);
+      if (error) return toast.error(`Falha ao criar: ${error.message}`);
+      setLocais(ls => [...ls, data as Local].sort((a, b) => a.nome.localeCompare(b.nome)));
+      toast.success("Local criado");
+    }
+    setNovoLocalNome(""); setNovoLocalTipo("Base"); setEditLocalId(null);
+  };
+
+  const editarLocal = (l: Local) => {
+    setEditLocalId(l.id); setNovoLocalNome(l.nome); setNovoLocalTipo(l.tipo);
+  };
+
+  const excluirLocal = async (id: string) => {
+    if (!confirm("Excluir este local?")) return;
+    const { error } = await supabase.from("locais_equipamentos").delete().eq("id", id);
+    if (error) return toast.error(`Falha ao excluir: ${error.message}`);
+    setLocais(ls => ls.filter(l => l.id !== id));
+    if (editLocalId === id) { setEditLocalId(null); setNovoLocalNome(""); setNovoLocalTipo("Base"); }
+    toast.success("Local excluído");
+  };
+
 
   const categoriasEquip = useMemo(
     () => Array.from(new Set(equipamentos.map(e => e.categoria))).filter(Boolean),
