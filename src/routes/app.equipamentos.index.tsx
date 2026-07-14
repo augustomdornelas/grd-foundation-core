@@ -56,6 +56,9 @@ const novoForm = (categoria = ""): FormEq => ({
 });
 
 type Grupo = { id: string; nome: string };
+type LocalTipo = "Base" | "Almoxarifado" | "Obra";
+type Local = { id: string; nome: string; tipo: LocalTipo };
+const TIPOS_LOCAL: LocalTipo[] = ["Base", "Almoxarifado", "Obra"];
 
 function EquipamentosList() {
   const navigate = useNavigate();
