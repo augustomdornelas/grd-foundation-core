@@ -376,7 +376,7 @@ function Comercial() {
               <>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={metricas.porStatus} dataKey="value" nameKey="name" innerRadius={65} outerRadius={100} paddingAngle={3}>
+                    <Pie data={metricas.porStatus} dataKey="value" nameKey="name" innerRadius={80} outerRadius={120} paddingAngle={3}>
                       {metricas.porStatus.map((s, i) => <Cell key={i} fill={s.color} />)}
                     </Pie>
                     <Legend />
