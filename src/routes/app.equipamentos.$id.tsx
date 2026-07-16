@@ -27,6 +27,7 @@ import {
 } from "@/lib/equipamentos-store";
 import { iconeCategoria } from "./app.equipamentos.index";
 import { gerarTermoPDF, type TermoData } from "@/lib/termo-pdf";
+import { EmprestimoDialog } from "@/components/equipamentos/EmprestimoDialog";
 import { FileText } from "lucide-react";
 
 export const Route = createFileRoute("/app/equipamentos/$id")({
