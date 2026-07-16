@@ -841,8 +841,8 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
         data: r.data,
         validade: r.data,
         status: r.status,
-        estagio: r.estagio,
         probabilidade: 50,
+
         observacoes: "",
       });
       criados++;
