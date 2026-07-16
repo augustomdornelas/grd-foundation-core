@@ -781,6 +781,15 @@ function EquipamentosList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Empréstimo (compartilhado) */}
+      {empEquipId && (
+        <EmprestimoDialog
+          open={!!empEquipId}
+          onOpenChange={(v) => { if (!v) setEmpEquipId(null); }}
+          equipamentoId={empEquipId}
+        />
+      )}
     </div>
   );
 }
