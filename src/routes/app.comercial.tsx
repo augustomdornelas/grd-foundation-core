@@ -171,12 +171,6 @@ function Comercial() {
       return { responsavel: r.split(" ")[0], valor: lst.reduce((a, o) => a + o.valor, 0), qtd: lst.length };
     });
 
-    const funil = ESTAGIO_LIST.map(e => ({
-      estagio: e,
-      qtd: noPer.filter(o => o.estagio === e).length,
-      valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
-    }));
-
     const clientesMap = new Map<string, number>();
     for (const o of noPer.filter(o => o.status === "Aprovado")) {
       const nome = (o.cliente || "").trim() || "—";
@@ -187,7 +181,8 @@ function Comercial() {
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 5);
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, funil, topClientes };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, topClientes };
+
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
