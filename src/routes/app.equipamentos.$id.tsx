@@ -27,6 +27,7 @@ import {
 } from "@/lib/equipamentos-store";
 import { iconeCategoria } from "./app.equipamentos.index";
 import { gerarTermoPDF, type TermoData } from "@/lib/termo-pdf";
+import { EmprestimoDialog } from "@/components/equipamentos/EmprestimoDialog";
 import { FileText } from "lucide-react";
 
 export const Route = createFileRoute("/app/equipamentos/$id")({
@@ -967,135 +968,6 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
   );
 }
 
-function EmprestimoDialog({ open, onOpenChange, equipamentoId }: { open: boolean; onOpenChange: (v: boolean) => void; equipamentoId: string }) {
-  const eq = useEquipStore(s => s.equipamentos.find(e => e.id === equipamentoId));
-  const [destino, setDestino] = useState("");
-  const [responsavel, setResponsavel] = useState("");
-  const [inicio, setInicio] = useState(new Date().toISOString().slice(0, 10));
-  const [fim, setFim] = useState("");
-  const [custo, setCusto] = useState<string>(eq ? String(eq.custoPeriodo) : "");
-  const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
-  const [obs, setObs] = useState("");
-  const [preview, setPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  if (!eq) return null;
-  const custoNum = Number(custo) || 0;
-  const p = periodos(inicio, fim, unidade);
-  const total = p * custoNum;
-
-  const reset = () => {
-    setDestino(""); setResponsavel(""); setFim(""); setObs(""); setPreview(false);
-  };
-
-  const irParaPreview = () => {
-    if (!destino.trim() || !responsavel.trim()) return toast.error("Informe destino e responsável");
-    if (!inicio || !fim) return toast.error("Informe as datas");
-    setPreview(true);
-  };
-
-  const salvar = async (comPdf: boolean) => {
-    if (saving) return;
-    setSaving(true);
-    const idSalvo = await equipActions.registrarEmprestimo({
-      equipamentoId,
-      destino: destino.trim(),
-      responsavel: responsavel.trim(),
-      dataInicio: inicio,
-      dataDevolucaoPrevista: fim,
-      custoPeriodo: custoNum,
-      unidade,
-      observacoes: obs.trim() || undefined,
-    });
-    setSaving(false);
-    if (!idSalvo) return;
-    if (comPdf) {
-      try {
-        const termo: TermoData = {
-          tipo: "emprestimo",
-          numero: `EMP-${eq.codigo}-${Date.now().toString().slice(-6)}`,
-          emissao: new Date().toISOString().slice(0, 10),
-          equipamento: { nome: eq.nome, codigo: eq.codigo, categoria: eq.categoria, descricao: eq.descricao },
-          destino, responsavel,
-          dataInicio: inicio,
-          dataDevolucaoPrevista: fim,
-          custoPeriodo: custoNum,
-          unidade,
-          custoTotalPrevisto: total,
-          observacoes: obs,
-        };
-        await gerarTermoPDF(termo);
-      } catch {
-        toast.error("Empréstimo salvo, mas falhou ao gerar PDF");
-      }
-    }
-    toast.success("Empréstimo registrado");
-    onOpenChange(false);
-    reset();
-  };
-
-  return (
-    <>
-      <Dialog open={open && !preview} onOpenChange={(v) => { onOpenChange(v); if (!v) reset(); }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Registrar empréstimo — {eq.nome}</DialogTitle></DialogHeader>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div><Label>Destino *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
-            <div><Label>Responsável *</Label><Input value={responsavel} onChange={e => setResponsavel(e.target.value)} /></div>
-            <div><Label>Data de início *</Label><Input type="date" value={inicio} onChange={e => setInicio(e.target.value)} /></div>
-            <div><Label>Devolução prevista *</Label><Input type="date" value={fim} onChange={e => setFim(e.target.value)} /></div>
-            <div><Label>Custo por período (R$)</Label><Input inputMode="numeric" value={custo} onChange={e => setCusto(e.target.value)} /></div>
-            <div>
-              <Label>Unidade</Label>
-              <Select value={unidade} onValueChange={v => setUnidade(v as UnidadePeriodo)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{UNIDADES.map(u => <SelectItem key={u} value={u}>por {u}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2"><Label>Observações</Label><Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} /></div>
-            <div className="md:col-span-2 rounded-lg bg-[#F4F4F4] p-4 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Períodos ({unidade})</span><b>{p}</b></div>
-              <div className="mt-1 flex justify-between"><span className="text-muted-foreground">Custo total previsto</span><b className="text-[#213368]">{brl(total)}</b></div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={irParaPreview} className="bg-[#F37032] text-white hover:bg-[#ff8850]">Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={preview} onOpenChange={(v) => { if (!v) setPreview(false); }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle className="text-[#213368]">Prévia — Termo de Empréstimo</DialogTitle></DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid gap-2 rounded-lg bg-[#F4F4F4] p-4 text-sm md:grid-cols-2">
-              <div><b className="text-[#213368]">Equipamento:</b> {eq.nome} ({eq.codigo})</div>
-              <div><b className="text-[#213368]">Categoria:</b> {eq.categoria}</div>
-              <div><b className="text-[#213368]">Destino/Obra:</b> {destino}</div>
-              <div><b className="text-[#213368]">Responsável:</b> {responsavel}</div>
-              <div><b className="text-[#213368]">Saída:</b> {inicio.split("-").reverse().join("/")}</div>
-              <div><b className="text-[#213368]">Devolução prev.:</b> {fim.split("-").reverse().join("/")}</div>
-              <div><b className="text-[#213368]">Custo/{unidade}:</b> {brl(custoNum)}</div>
-              <div><b className="text-[#213368]">Total previsto:</b> <span className="text-[#F37032] font-semibold">{brl(total)}</span></div>
-            </div>
-            <div>
-              <Label>Observações (aparecem no termo)</Label>
-              <Textarea rows={4} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ex.: acessórios inclusos, condições de uso, etc." />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setPreview(false)}>Voltar</Button>
-            <Button variant="outline" onClick={() => salvar(false)} disabled={saving}>{saving ? "Salvando…" : "Salvar sem PDF"}</Button>
-            <Button onClick={() => salvar(true)} disabled={saving} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-              <FileText className="mr-1 h-4 w-4" /> Gerar PDF
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
 
 function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; onOpenChange: (v: boolean) => void; equipamentoId: string }) {
   const eq = useEquipStore(s => s.equipamentos.find(e => e.id === equipamentoId));

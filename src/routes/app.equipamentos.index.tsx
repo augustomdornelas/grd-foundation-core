@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   Plus, Search, MapPin, User, ArrowRight, Package, Wrench, Zap, Truck, Hammer,
   Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FolderPlus,
-  MapPinned, Trash2, Pencil, DollarSign,
+  MapPinned, Trash2, Pencil, DollarSign, PackageOpen,
 } from "lucide-react";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -24,6 +24,7 @@ import {
   useEquipStore, equipActions,
   type EquipStatus, type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
+import { EmprestimoDialog } from "@/components/equipamentos/EmprestimoDialog";
 
 export const Route = createFileRoute("/app/equipamentos/")({
   component: EquipamentosList,
@@ -89,6 +90,7 @@ function EquipamentosList() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormEq>(novoForm());
   const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [empEquipId, setEmpEquipId] = useState<string | null>(null);
 
   const [busca, setBusca] = useState("");
   const [statusF, setStatusF] = useState("todos");
@@ -346,10 +348,13 @@ function EquipamentosList() {
   const renderCard = (e: typeof filtrados[number]) => {
     const Ico = iconeCategoria(e.categoria);
     return (
-      <button
+      <div
         key={e.id}
+        role="button"
+        tabIndex={0}
         onClick={() => navigate({ to: "/app/equipamentos/$id", params: { id: e.id } })}
-        className="group text-left transition-all hover:-translate-y-1"
+        onKeyDown={(ev) => { if (ev.key === "Enter") navigate({ to: "/app/equipamentos/$id", params: { id: e.id } }); }}
+        className="group cursor-pointer text-left transition-all hover:-translate-y-1"
       >
         <Card className="overflow-hidden border-2 border-transparent transition-colors group-hover:border-[#F37032]">
           <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
@@ -391,9 +396,19 @@ function EquipamentosList() {
               </div>
               <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-[#F37032]" />
             </div>
+            {e.status === "Disponível" && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={(ev) => { ev.stopPropagation(); setEmpEquipId(e.id); }}
+                className="mt-2 w-full bg-[#213368] text-white hover:bg-[#2a4185]"
+              >
+                <PackageOpen className="mr-1 h-3.5 w-3.5" /> Registrar empréstimo
+              </Button>
+            )}
           </div>
         </Card>
-      </button>
+      </div>
     );
   };
 
@@ -766,6 +781,15 @@ function EquipamentosList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Empréstimo (compartilhado) */}
+      {empEquipId && (
+        <EmprestimoDialog
+          open={!!empEquipId}
+          onOpenChange={(v) => { if (!v) setEmpEquipId(null); }}
+          equipamentoId={empEquipId}
+        />
+      )}
     </div>
   );
 }

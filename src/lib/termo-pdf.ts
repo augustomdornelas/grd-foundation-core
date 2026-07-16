@@ -61,11 +61,15 @@ export interface TermoData {
   };
   destino?: string;
   responsavel?: string;
+  responsavelCpf?: string;
+  responsavelRg?: string;
+  responsavelCargo?: string;
   dataInicio?: string;
   dataDevolucaoPrevista?: string;
   custoPeriodo?: number;
   unidade?: string;
   custoTotalPrevisto?: number;
+  valorEquipamento?: number;
   dataDevolucaoReal?: string;
   periodoEfetivo?: number;
   custoTotalFinal?: number;
@@ -220,14 +224,32 @@ export async function gerarTermoPDF(t: TermoData) {
   // ============ Seção 2 — Empréstimo / Devolução ============
   if (t.tipo === "emprestimo") {
     drawSectionTitle("2. Dados do empréstimo");
-    drawGrid([
+    const grid: [string, string][] = [
       ["Destino / Obra", t.destino || "—"],
       ["Responsável pela retirada", t.responsavel || "—"],
       ["Data de saída", fmtDate(t.dataInicio)],
       ["Devolução prevista", fmtDate(t.dataDevolucaoPrevista)],
       ["Custo por período", `${brl(t.custoPeriodo || 0)} / ${t.unidade || "dia"}`],
       ["Custo total previsto", brl(t.custoTotalPrevisto || 0)],
-    ]);
+    ];
+    if (t.valorEquipamento !== undefined) grid.splice(0, 0, ["Valor do equipamento", brl(t.valorEquipamento)]);
+    drawGrid(grid);
+
+    // Seção 3 — Termo de responsabilidade
+    drawSectionTitle("3. Termo de responsabilidade");
+    const nome = (t.responsavel || "____________________").toUpperCase();
+    const cpf = t.responsavelCpf || "________________";
+    const rg = t.responsavelRg || "________________";
+    const cargo = t.responsavelCargo || "________________";
+    const texto =
+      `Eu, ${nome}, portador do CPF ${cpf} e RG ${rg}, cargo ${cargo}, declaro estar recebendo em regime de empréstimo o equipamento descrito acima, pertencente ao Grupo GRD, comprometendo-me a:\n` +
+      `• Zelar pelo bom estado de conservação do equipamento;\n` +
+      `• Utilizar exclusivamente para fins relacionados à obra/destino indicado;\n` +
+      `• Devolver até a data prevista em perfeito estado de funcionamento;\n` +
+      `• Arcar com os custos de reparo em caso de dano, perda ou extravio;\n` +
+      `• Comunicar imediatamente qualquer avaria ou ocorrência ao responsável da GRD.\n` +
+      `Em caso de não devolução no prazo, fica ciente de que serão cobrados os dias adicionais conforme a tabela de preços vigente.`;
+    drawTextBox(texto, 40);
   } else {
     drawSectionTitle("2. Dados da devolução");
     drawGrid([
@@ -244,7 +266,7 @@ export async function gerarTermoPDF(t: TermoData) {
   }
 
   // ============ Observações ============
-  drawSectionTitle(t.tipo === "emprestimo" ? "3. Observações" : "4. Observações");
+  drawSectionTitle(t.tipo === "emprestimo" ? "4. Observações" : "4. Observações");
   drawTextBox(t.observacoes?.trim() || "—", 18);
 
   // ============ Assinaturas ============
