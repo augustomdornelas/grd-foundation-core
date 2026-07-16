@@ -432,6 +432,37 @@ function Comercial() {
       </div>
 
 
+      {/* Acompanhamento por status — últimos 6 meses */}
+      <div className="grid gap-6">
+        <Card className="p-6">
+          <div className="text-sm font-semibold text-[#213368]">Acompanhamento por status</div>
+          <div className="text-xs text-muted-foreground">Aprovado · Em negociação · Aguardando Retorno</div>
+          <div className="mt-4" style={{ height: 320 }}>
+            {metricas.acompanhamento.some(m => m.total > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={metricas.acompanhamento} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} style={{ fontFamily: "Montserrat" }} />
+                  <YAxis yAxisId="left" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(v: number) => brl(v)}
+                    labelStyle={{ fontFamily: "Montserrat", color: "#213368", fontWeight: 700 }}
+                    contentStyle={{ fontFamily: "Montserrat", borderRadius: 8, border: "1px solid #E5E7EB" }}
+                  />
+                  <Legend wrapperStyle={{ fontFamily: "Montserrat", fontSize: 12 }} />
+                  <Bar yAxisId="left" dataKey="Aprovado" fill="#16A34A" radius={[4,4,0,0]} />
+                  <Bar yAxisId="left" dataKey="Em negociação" fill="#213368" radius={[4,4,0,0]} />
+                  <Bar yAxisId="left" dataKey="Aguardando Retorno" fill="#F37032" radius={[4,4,0,0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="total" name="Total" stroke="#213368" strokeWidth={2.5} dot={{ r: 4, fill: "#F37032" }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : <Vazio />}
+          </div>
+        </Card>
+      </div>
+
+
       {/* Tabela */}
       <Card className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
