@@ -107,62 +107,66 @@ async function fetchAll() {
       supabase.from("emprestimos").select("*").order("data_inicio", { ascending: false }),
       supabase.from("manutencoes").select("*").order("data", { ascending: false }),
     ]);
-  toastErr("Falha ao carregar equipamentos", eq.error);
-  toastErr("Falha ao carregar empréstimos", emp.error);
-  toastErr("Falha ao carregar manutenções", man.error);
-  state = {
-    equipamentos: (eq.data ?? []).map((r: any) => ({
-      id: r.id, nome: r.nome ?? "", codigo: r.codigo ?? "",
-      categoria: r.categoria ?? "", descricao: r.descricao ?? "",
-      valor: r.valor ?? 0, custoPeriodo: r.custo_periodo ?? 0,
-      unidade: (r.unidade_periodo ?? r.unidade ?? "dia") as UnidadePeriodo,
-      status: (r.status ?? "Disponível") as EquipStatus,
-      localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
-      responsavelAtual: r.responsavel_atual ?? undefined,
-      fotoUrl: r.foto_url ?? undefined,
-    })),
-    emprestimos: (emp.data ?? []).map((r: any) => ({
-      id: r.id, equipamentoId: r.equipamento_id ?? "",
-      destino: r.destino ?? "", responsavel: r.responsavel ?? "",
-      dataInicio: r.data_inicio ?? "",
-      dataDevolucaoPrevista: r.data_devolucao_prevista ?? r.data_prevista ?? "",
-      dataDevolucaoReal: r.data_devolucao_real ?? r.data_real ?? undefined,
-      custoPeriodo: r.custo_periodo ?? 0,
-      unidade: (r.unidade ?? "dia") as UnidadePeriodo,
-      observacoes: r.observacoes ?? undefined,
-      custoTotal: r.custo_total ?? 0, ativo: r.ativo ?? true,
-      respRetiradaNome: r.resp_retirada_nome ?? undefined,
-      respRetiradaCpf: r.resp_retirada_cpf ?? undefined,
-      respRetiradaCargo: r.resp_retirada_cargo ?? undefined,
-      respEntregaNome: r.resp_entrega_nome ?? undefined,
-      respEntregaCargo: r.resp_entrega_cargo ?? undefined,
-      condicaoDevolucao: r.condicao_devolucao ?? undefined,
-      observacoesDevolucao: r.observacoes_devolucao ?? undefined,
-      numeroTermoDevolucao: r.numero_termo_devolucao ?? undefined,
-    })),
-    manutencoes: (man.data ?? []).map((r: any) => {
-      const pecas = Number(r.custo_pecas ?? 0);
-      const mo = Number(r.custo_mao_obra ?? 0);
-      const total = Number(r.custo ?? pecas + mo);
-      const status = (r.status ?? (r.aberta === false ? "Concluída" : "Aberta")) as ManutencaoStatus;
-      return {
-        id: r.id,
-        equipamentoId: r.equipamento_id ?? "",
-        tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
-        data: r.data ?? "",
-        dataFim: r.data_fim ?? undefined,
-        descricao: r.descricao ?? "",
-        oficina: r.oficina ?? "",
-        custoPecas: pecas,
-        custoMaoObra: mo,
-        custo: total,
-        statusManut: status,
+    toastErr("Falha ao carregar equipamentos", eq.error);
+    toastErr("Falha ao carregar empréstimos", emp.error);
+    toastErr("Falha ao carregar manutenções", man.error);
+    state = {
+      equipamentos: (eq.data ?? []).map((r: any) => ({
+        id: r.id, nome: r.nome ?? "", codigo: r.codigo ?? "",
+        categoria: r.categoria ?? "", descricao: r.descricao ?? "",
+        valor: Number(r.valor ?? 0) || 0, custoPeriodo: Number(r.custo_periodo ?? 0) || 0,
+        unidade: (r.unidade_periodo ?? r.unidade ?? "dia") as UnidadePeriodo,
+        status: (r.status ?? "Disponível") as EquipStatus,
+        localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
+        responsavelAtual: r.responsavel_atual ?? undefined,
+        fotoUrl: r.foto_url ?? undefined,
+      })),
+      emprestimos: (emp.data ?? []).map((r: any) => ({
+        id: r.id, equipamentoId: r.equipamento_id ?? "",
+        destino: r.destino ?? "", responsavel: r.responsavel ?? "",
+        dataInicio: r.data_inicio ?? "",
+        dataDevolucaoPrevista: r.data_devolucao_prevista ?? r.data_prevista ?? "",
+        dataDevolucaoReal: r.data_devolucao_real ?? r.data_real ?? undefined,
+        custoPeriodo: Number(r.custo_periodo ?? 0) || 0,
+        unidade: (r.unidade ?? "dia") as UnidadePeriodo,
         observacoes: r.observacoes ?? undefined,
-        aberta: r.aberta ?? (status !== "Concluída"),
-      };
-    }),
-  };
-  emit();
+        custoTotal: Number(r.custo_total ?? 0) || 0, ativo: r.ativo ?? true,
+        respRetiradaNome: r.resp_retirada_nome ?? undefined,
+        respRetiradaCpf: r.resp_retirada_cpf ?? undefined,
+        respRetiradaCargo: r.resp_retirada_cargo ?? undefined,
+        respEntregaNome: r.resp_entrega_nome ?? undefined,
+        respEntregaCargo: r.resp_entrega_cargo ?? undefined,
+        condicaoDevolucao: r.condicao_devolucao ?? undefined,
+        observacoesDevolucao: r.observacoes_devolucao ?? undefined,
+        numeroTermoDevolucao: r.numero_termo_devolucao ?? undefined,
+      })),
+      manutencoes: (man.data ?? []).map((r: any) => {
+        const pecas = Number(r.custo_pecas ?? 0) || 0;
+        const mo = Number(r.custo_mao_obra ?? 0) || 0;
+        const total = Number(r.custo ?? pecas + mo) || 0;
+        const status = (r.status ?? (r.aberta === false ? "Concluída" : "Aberta")) as ManutencaoStatus;
+        return {
+          id: r.id,
+          equipamentoId: r.equipamento_id ?? "",
+          tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
+          data: r.data ?? "",
+          dataFim: r.data_fim ?? undefined,
+          descricao: r.descricao ?? "",
+          oficina: r.oficina ?? "",
+          custoPecas: pecas,
+          custoMaoObra: mo,
+          custo: total,
+          statusManut: status,
+          observacoes: r.observacoes ?? undefined,
+          aberta: r.aberta ?? (status !== "Concluída"),
+        };
+      }),
+    };
+    emit();
+  } catch (err) {
+    console.error("[equipamentos-store] fetchAll error:", err);
+    emit();
+  }
 }
 
 if (typeof window !== "undefined") void fetchAll();
