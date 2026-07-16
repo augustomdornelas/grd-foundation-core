@@ -101,11 +101,12 @@ export function custoAtivoTotal(s: State): number {
 }
 
 async function fetchAll() {
-  const [eq, emp, man] = await Promise.all([
-    supabase.from("equipamentos").select("*").order("created_at", { ascending: false }),
-    supabase.from("emprestimos").select("*").order("data_inicio", { ascending: false }),
-    supabase.from("manutencoes").select("*").order("data", { ascending: false }),
-  ]);
+  try {
+    const [eq, emp, man] = await Promise.all([
+      supabase.from("equipamentos").select("*").order("created_at", { ascending: false }),
+      supabase.from("emprestimos").select("*").order("data_inicio", { ascending: false }),
+      supabase.from("manutencoes").select("*").order("data", { ascending: false }),
+    ]);
   toastErr("Falha ao carregar equipamentos", eq.error);
   toastErr("Falha ao carregar empréstimos", emp.error);
   toastErr("Falha ao carregar manutenções", man.error);
