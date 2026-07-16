@@ -25,7 +25,26 @@ import {
   type EquipStatus, type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
 
-export const Route = createFileRoute("/app/equipamentos/")({ component: EquipamentosList });
+export const Route = createFileRoute("/app/equipamentos/")({
+  component: EquipamentosList,
+  errorComponent: ({ error, reset }: { error: Error; reset: () => void }) => {
+    console.error("[equipamentos] route error:", error);
+    return (
+      <div className="space-y-4 p-6 font-[Montserrat]">
+        <h1 className="text-2xl font-extrabold text-[#213368]">Equipamentos</h1>
+        <p className="text-sm text-muted-foreground">
+          Não foi possível carregar os dados agora. Tente novamente.
+        </p>
+        <button
+          onClick={() => reset()}
+          className="inline-flex items-center justify-center rounded-md bg-[#213368] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2a4185]"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  },
+});
 
 const STATUS: EquipStatus[] = ["Disponível", "Emprestado", "Manutenção"];
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
