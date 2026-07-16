@@ -685,8 +685,8 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <StatusBadge status={o.status} />
-          <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold">{o.estagio}</span>
           <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold">{o.tipo}</span>
+
         </div>
 
         <div className="mt-6 space-y-4">
