@@ -237,9 +237,9 @@ export const orcamentosActions = {
     })();
     return tempId;
   },
-  atualizar(id: string, patch: Partial<Orcamento>) {
+  async atualizar(id: string, patch: Partial<Orcamento>): Promise<{ error: { message?: string } | null }> {
     const atual = state.find(o => o.id === id);
-    if (!atual) return;
+    if (!atual) return { error: { message: "Orçamento não encontrado" } };
     const novoPatch: Partial<Orcamento> = { ...patch };
     if (patch.status && patch.status !== atual.status) {
       novoPatch.timeline = [
@@ -247,10 +247,25 @@ export const orcamentosActions = {
         { data: new Date().toISOString(), de: atual.status, para: patch.status, autor: patch.responsavel ?? atual.responsavel },
       ];
     }
+    const anterior = atual;
     state = state.map(o => o.id === id ? { ...o, ...novoPatch } : o);
     emit();
-    void supabase.from("orcamentos").update(toRow(novoPatch)).eq("id", id)
-      .then(({ error }) => toastErr("Falha ao atualizar orçamento", error));
+    const { data, error } = await supabase
+      .from("orcamentos")
+      .update(toRow(novoPatch))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) {
+      state = state.map(o => o.id === id ? anterior : o);
+      emit();
+      return { error };
+    }
+    if (data) {
+      state = state.map(o => o.id === id ? fromRow(data as OrcamentoRow) : o);
+      emit();
+    }
+    return { error: null };
   },
   duplicar(id: string) {
     const orig = state.find(o => o.id === id);
