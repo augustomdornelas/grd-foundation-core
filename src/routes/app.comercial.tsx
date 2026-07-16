@@ -28,10 +28,11 @@ import {
   PieChart, Pie, Cell, BarChart,
 } from "recharts";
 import {
-  useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, ESTAGIO_LIST, RESPONSAVEIS,
-  STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico, type EstagioFunil,
+  useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, RESPONSAVEIS,
+  STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico,
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
+
 import * as XLSX from "xlsx";
 
 
