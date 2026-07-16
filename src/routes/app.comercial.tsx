@@ -884,12 +884,7 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
                     </Select>
                   </td>
                   <td className="p-1">
-                    <Select value={r.estagio} onValueChange={v => setRow(i, { estagio: v as EstagioFunil })}>
-                      <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
-                      <SelectContent>{ESTAGIO_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1">
+
                     <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} aria-label="Remover linha">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
