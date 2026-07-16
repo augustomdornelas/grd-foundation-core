@@ -181,7 +181,28 @@ function Comercial() {
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 5);
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, topClientes };
+    // Acompanhamento por status — últimos 6 meses (independe do filtro)
+    const acompanhamento: { mes: string; Aprovado: number; "Em negociação": number; "Aguardando Retorno": number; total: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
+      const lst = orcamentos.filter(o => {
+        const od = new Date(o.data);
+        return od >= d && od < dNext;
+      });
+      const aprov = lst.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
+      const neg = lst.filter(o => o.status === "Em negociação").reduce((a, o) => a + o.valor, 0);
+      const ag = lst.filter(o => o.status === "Aguardando Retorno").reduce((a, o) => a + o.valor, 0);
+      acompanhamento.push({
+        mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
+        Aprovado: aprov,
+        "Em negociação": neg,
+        "Aguardando Retorno": ag,
+        total: aprov + neg + ag,
+      });
+    }
+
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, topClientes, acompanhamento };
 
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
