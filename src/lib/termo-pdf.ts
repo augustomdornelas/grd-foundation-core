@@ -61,11 +61,15 @@ export interface TermoData {
   };
   destino?: string;
   responsavel?: string;
+  responsavelCpf?: string;
+  responsavelRg?: string;
+  responsavelCargo?: string;
   dataInicio?: string;
   dataDevolucaoPrevista?: string;
   custoPeriodo?: number;
   unidade?: string;
   custoTotalPrevisto?: number;
+  valorEquipamento?: number;
   dataDevolucaoReal?: string;
   periodoEfetivo?: number;
   custoTotalFinal?: number;
