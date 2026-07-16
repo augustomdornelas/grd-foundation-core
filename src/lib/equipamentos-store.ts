@@ -127,6 +127,9 @@ async function fetchAll() {
       emprestimos: (emp.data ?? []).map((r: any) => ({
         id: r.id, equipamentoId: r.equipamento_id ?? "",
         destino: r.destino ?? "", responsavel: r.responsavel ?? "",
+        responsavelCpf: r.responsavel_cpf ?? undefined,
+        responsavelRg: r.responsavel_rg ?? undefined,
+        responsavelCargo: r.responsavel_cargo ?? undefined,
         dataInicio: r.data_inicio ?? "",
         dataDevolucaoPrevista: r.data_devolucao_prevista ?? r.data_prevista ?? "",
         dataDevolucaoReal: r.data_devolucao_real ?? r.data_real ?? undefined,
