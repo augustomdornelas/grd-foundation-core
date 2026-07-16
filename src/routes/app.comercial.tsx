@@ -759,7 +759,7 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
 
           <div>
             <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Alterar status</div>
-            <Select value={o.status} onValueChange={(v) => { orcamentosActions.atualizar(o.id, { status: v as OrcStatus }); toast.success("Status atualizado."); }}>
+            <Select value={o.status} onValueChange={async (v) => { const { error } = await orcamentosActions.atualizar(o.id, { status: v as OrcStatus }); if (error) toast.error(`Erro ao atualizar status: ${error.message ?? ""}`); else toast.success("Status atualizado."); }}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
