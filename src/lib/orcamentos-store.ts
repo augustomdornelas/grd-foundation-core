@@ -155,7 +155,7 @@ function toRow(o: Partial<Orcamento>) {
     if (o.data !== undefined) row.data_emissao = o.data;
     if (o.validade !== undefined) row.prazo_validade = o.validade;
     if (o.status !== undefined) row.status = o.status;
-    if (o.estagio !== undefined) row.estagio = o.estagio;
+
     if (o.probabilidade !== undefined) row.probabilidade = o.probabilidade;
     if (o.observacoes !== undefined) row.observacoes = o.observacoes;
     if (o.anexo !== undefined) row.anexo = o.anexo;
