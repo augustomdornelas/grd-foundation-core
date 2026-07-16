@@ -256,13 +256,13 @@ export const orcamentosActions = {
     const orig = state.find(o => o.id === id);
     if (!orig) return;
     const numero = proximoNumero();
-    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "Em an\u00e1lise", autor: orig.responsavel }];
+    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "Levantamento", autor: orig.responsavel }];
     const input = {
       ...orig,
       data: new Date().toISOString().slice(0, 10),
-      status: "Em an\u00e1lise" as OrcStatus,
-      estagio: "Proposta enviada" as EstagioFunil,
+      status: "Levantamento" as OrcStatus,
     };
+
     const tempId = uid();
     state = [{ ...input, id: tempId, numero, timeline, notas: [] }, ...state];
     emit();
