@@ -25,7 +25,26 @@ import {
   type EquipStatus, type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
 
-export const Route = createFileRoute("/app/equipamentos/")({ component: EquipamentosList });
+export const Route = createFileRoute("/app/equipamentos/")({
+  component: EquipamentosList,
+  errorComponent: ({ error, reset }: { error: Error; reset: () => void }) => {
+    console.error("[equipamentos] route error:", error);
+    return (
+      <div className="space-y-4 p-6 font-[Montserrat]">
+        <h1 className="text-2xl font-extrabold text-[#213368]">Equipamentos</h1>
+        <p className="text-sm text-muted-foreground">
+          Não foi possível carregar os dados agora. Tente novamente.
+        </p>
+        <button
+          onClick={() => reset()}
+          className="inline-flex items-center justify-center rounded-md bg-[#213368] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2a4185]"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  },
+});
 
 const STATUS: EquipStatus[] = ["Disponível", "Emprestado", "Manutenção"];
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
@@ -90,18 +109,22 @@ function EquipamentosList() {
 
   useEffect(() => {
     (async () => {
-      const [gRes, lRes] = await Promise.all([
-        supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
-        supabase.from("locais_equipamentos").select("id, nome, tipo").order("nome", { ascending: true }),
-      ]);
-      if (gRes.error) console.error(gRes.error);
-      else {
-        const lista = (gRes.data ?? []) as Grupo[];
-        setGrupos(lista);
-        setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+      try {
+        const [gRes, lRes] = await Promise.all([
+          supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
+          supabase.from("locais_equipamentos").select("id, nome, tipo").order("nome", { ascending: true }),
+        ]);
+        if (gRes.error) console.error(gRes.error);
+        else {
+          const lista = (gRes.data ?? []) as Grupo[];
+          setGrupos(lista);
+          setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+        }
+        if (lRes.error) console.error(lRes.error);
+        else setLocais((lRes.data ?? []) as Local[]);
+      } catch (err) {
+        console.error("[equipamentos] load grupos/locais error:", err);
       }
-      if (lRes.error) console.error(lRes.error);
-      else setLocais((lRes.data ?? []) as Local[]);
     })();
   }, []);
 
