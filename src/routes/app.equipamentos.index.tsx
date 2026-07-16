@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   Plus, Search, MapPin, User, ArrowRight, Package, Wrench, Zap, Truck, Hammer,
   Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FolderPlus,
-  MapPinned, Trash2, Pencil,
+  MapPinned, Trash2, Pencil, DollarSign,
 } from "lucide-react";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -433,11 +433,12 @@ function EquipamentosList() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-7">
+      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
         <KpiCard label="Total" value={String(kpis.total)} color="#213368" />
         <KpiCard label="Em uso" value={String(kpis.emUso)} color="#213368" />
         <KpiCard label="Disponíveis" value={String(kpis.disp)} color="#16a34a" />
         <KpiCard label="Em manutenção" value={String(kpis.manut)} color="#d97706" />
+        <KpiCard label="Valor total da frota" value={brl(kpis.valorFrota)} color="#213368" icon={DollarSign} />
         <KpiCard label="Receita total" value={brl(kpis.receita)} color="#F37032" />
         <KpiCard label="Custo manutenções" value={brl(kpis.custoManut)} color="#dc2626" />
         <KpiCard
