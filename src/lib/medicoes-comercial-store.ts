@@ -43,24 +43,36 @@ function emit() { listeners.forEach(l => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 
 async function fetchAll() {
-  const { data } = await supabase
-    .from("medicoes")
-    .select("*")
-    .order("data", { ascending: false });
-  state = (data ?? []).map((r: any) => ({
-    id: r.id,
-    orcamentoId: r.orcamento_id ?? "",
-    numero: r.numero ?? "",
-    data: r.data ?? "",
-    descricao: r.descricao ?? "",
-    valor: r.valor ?? 0,
-    percentualFisico: r.percentual_fisico ?? 0,
-    dataRecebimento: r.data_recebimento ?? "",
-    previsaoRecebimento: r.data_recebimento ?? "",
-    status: (r.status ?? "Lançada") as MedStatus,
-    observacoes: r.observacoes ?? "",
-  }));
-  emit();
+  try {
+    const { data, error } = await supabase
+      .from("medicoes")
+      .select("*")
+      .order("data", { ascending: false });
+    if (error) {
+      toastErr("Falha ao carregar medições", error);
+      state = [];
+      emit();
+      return;
+    }
+    state = (data ?? []).map((r: any) => ({
+      id: r?.id ?? "",
+      orcamentoId: r?.orcamento_id ?? "",
+      numero: r?.numero ?? "",
+      data: r?.data ?? "",
+      descricao: r?.descricao ?? "",
+      valor: Number(r?.valor ?? 0) || 0,
+      percentualFisico: Number(r?.percentual_fisico ?? 0) || 0,
+      dataRecebimento: r?.data_recebimento ?? "",
+      previsaoRecebimento: r?.data_recebimento ?? "",
+      status: (r?.status ?? "Lançada") as MedStatus,
+      observacoes: r?.observacoes ?? "",
+    }));
+    emit();
+  } catch (err) {
+    console.error("[medicoes-store] fetchAll error:", err);
+    state = [];
+    emit();
+  }
 }
 
 if (typeof window !== "undefined") void fetchAll();

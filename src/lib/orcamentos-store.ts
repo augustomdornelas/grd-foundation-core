@@ -138,17 +138,17 @@ function fromRow(r: OrcamentoRow): Orcamento {
           tipo: (r.tipo_servico as TipoServico) ?? TIPOS_SERVICO[0],
           obra: r.obra ?? "",
           descricao: r.descricao ?? "",
-          valor: r.valor ?? 0,
+          valor: Number(r.valor ?? 0) || 0,
           responsavel: r.responsavel ?? "",
           data: r.data_emissao ?? "",
           validade: r.prazo_validade ?? "",
           status: (r.status as OrcStatus) ?? "Em an\u00e1lise",
           estagio: (r.estagio as EstagioFunil) ?? "Levantamento",
-          probabilidade: r.probabilidade ?? 0,
+          probabilidade: Number(r.probabilidade ?? 0) || 0,
           observacoes: r.observacoes ?? "",
           anexo: r.anexo ?? undefined,
-          timeline: r.timeline ?? [],
-          notas: r.notas ?? [],
+          timeline: Array.isArray(r.timeline) ? r.timeline : [],
+          notas: Array.isArray(r.notas) ? r.notas : [],
     };
 }
 
@@ -190,13 +190,19 @@ const getSnapshot = () => state;
 const getServerSnapshot = () => SSR_EMPTY;
 
 async function fetchAll() {
-  const { data, error } = await supabase
-    .from("orcamentos")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) { toastErr("Falha ao carregar orçamentos", error); return; }
-  state = (data as OrcamentoRow[] ?? []).map(fromRow);
-  emit();
+  try {
+    const { data, error } = await supabase
+      .from("orcamentos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) { toastErr("Falha ao carregar orçamentos", error); state = []; emit(); return; }
+    state = (data as OrcamentoRow[] ?? []).map(fromRow);
+    emit();
+  } catch (err) {
+    console.error("[orcamentos-store] fetchAll error:", err);
+    state = [];
+    emit();
+  }
 }
 
 if (typeof window !== "undefined") {

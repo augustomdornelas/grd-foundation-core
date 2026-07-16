@@ -59,31 +59,41 @@ export function PrevisaoEntrada() {
   );
 
   const kpis = useMemo(() => {
-    const prevista = resumos.reduce((a, r) => a + r.orcamento.valor, 0);
-    const faturado = resumos.reduce((a, r) => a + r.faturado, 0);
-    const saldo = Math.max(0, prevista - faturado);
-    const pct = prevista > 0 ? (faturado / prevista) * 100 : 0;
-    return { prevista, faturado, saldo, pct };
+    try {
+      const prevista = resumos.reduce((a, r) => a + (r.orcamento?.valor ?? 0), 0);
+      const faturado = resumos.reduce((a, r) => a + (r.faturado ?? 0), 0);
+      const saldo = Math.max(0, prevista - faturado);
+      const pct = prevista > 0 ? (faturado / prevista) * 100 : 0;
+      return { prevista, faturado, saldo, pct };
+    } catch (err) {
+      console.error("[previsao] kpis error:", err);
+      return { prevista: 0, faturado: 0, saldo: 0, pct: 0 };
+    }
   }, [resumos]);
 
   // Fluxo mensal: últimos 6 + próximos 3
   const fluxo = useMemo(() => {
-    const hoje = new Date();
-    const arr: { mes: string; previsto: number; faturado: number; acumulado: number }[] = [];
-    let acc = 0;
-    for (let i = -5; i <= 3; i++) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-      const dNext = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, 1);
-      const previsto = medicoes
-        .filter(m => { const md = new Date(m.previsaoRecebimento); return md >= d && md < dNext; })
-        .reduce((a, m) => a + m.valor, 0);
-      const faturado = medicoes
-        .filter(m => { const md = new Date(m.data); return md >= d && md < dNext && m.status === "Recebida"; })
-        .reduce((a, m) => a + m.valor, 0);
-      acc += faturado;
-      arr.push({ mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, previsto, faturado, acumulado: acc });
+    try {
+      const hoje = new Date();
+      const arr: { mes: string; previsto: number; faturado: number; acumulado: number }[] = [];
+      let acc = 0;
+      for (let i = -5; i <= 3; i++) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+        const dNext = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, 1);
+        const previsto = medicoes
+          .filter(m => { const md = new Date(m.previsaoRecebimento || m.data || 0); return md >= d && md < dNext; })
+          .reduce((a, m) => a + (m.valor ?? 0), 0);
+        const faturado = medicoes
+          .filter(m => { const md = new Date(m.data || 0); return md >= d && md < dNext && m.status === "Recebida"; })
+          .reduce((a, m) => a + (m.valor ?? 0), 0);
+        acc += faturado;
+        arr.push({ mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, previsto, faturado, acumulado: acc });
+      }
+      return arr;
+    } catch (err) {
+      console.error("[previsao] fluxo error:", err);
+      return [];
     }
-    return arr;
   }, [medicoes]);
 
   const donut = [
