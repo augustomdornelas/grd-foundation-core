@@ -90,6 +90,7 @@ function EquipamentosList() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormEq>(novoForm());
   const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [empEquipId, setEmpEquipId] = useState<string | null>(null);
 
   const [busca, setBusca] = useState("");
   const [statusF, setStatusF] = useState("todos");
