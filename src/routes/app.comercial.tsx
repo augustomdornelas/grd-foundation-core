@@ -769,7 +769,6 @@ type LoteRow = {
   valor: string;
   data: string; // ISO
   status: OrcStatus;
-  estagio: EstagioFunil;
 };
 
 function novaLinha(numero: string): LoteRow {
@@ -779,10 +778,10 @@ function novaLinha(numero: string): LoteRow {
     obra: "",
     valor: "",
     data: new Date().toISOString().slice(0, 10),
-    status: "Em análise",
-    estagio: "Proposta enviada",
+    status: "Levantamento",
   };
 }
+
 
 // Próximo número sequencial baseado em um número base já usado (ex.: "ORC-003" + n)
 function proximoNumeroApos(numeros: string[]): string {
