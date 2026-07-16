@@ -390,29 +390,8 @@ function Comercial() {
       </div>
 
 
-      {/* Gráficos linha 3 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Funil comercial</div>
-          <div className="mt-4 space-y-2">
-            {metricas.funil.map((f, i) => {
-              const max = Math.max(...metricas.funil.map(x => x.valor), 1);
-              const pct = (f.valor / max) * 100;
-              const inset = i * 8;
-              return (
-                <div key={f.estagio}>
-                  <div className="flex justify-between text-xs">
-                    <span className="font-semibold text-[#213368]">{f.estagio}</span>
-                    <span className="text-muted-foreground">{f.qtd} · {brl(f.valor)}</span>
-                  </div>
-                  <div className="mt-1 h-6 rounded-md bg-[#213368]/5" style={{ marginLeft: inset, marginRight: inset }}>
-                    <div className="h-full rounded-md bg-gradient-to-r from-[#213368] to-[#F37032] transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+      {/* Top clientes */}
+      <div className="grid gap-6">
         <Card className="p-6">
           <div className="text-sm font-semibold text-[#213368]">Top 5 clientes — orçamentos aprovados</div>
           <div className="mt-4 h-72">
@@ -430,6 +409,7 @@ function Comercial() {
           </div>
         </Card>
       </div>
+
 
       {/* Tabela */}
       <Card className="p-6">
