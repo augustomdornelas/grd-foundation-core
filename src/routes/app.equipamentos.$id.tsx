@@ -850,6 +850,42 @@ function EquipDetalhe() {
 
       {/* Editar */}
       <EditarDialog open={openEdit} onOpenChange={setOpenEdit} equipamentoId={eq.id} />
+
+      {/* Excluir */}
+      <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#213368]">Excluir equipamento</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja excluir este equipamento? Esta ação não pode ser desfeita.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setOpenDelete(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  equipActions.excluirEquipamento(eq.id);
+                  toast.success("Equipamento excluído com sucesso");
+                  setOpenDelete(false);
+                  navigate({ to: "/app/equipamentos" });
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : "erro desconhecido";
+                  toast.error(`Erro ao excluir equipamento: ${msg}`);
+                  setDeleting(false);
+                }
+              }}
+            >
+              <Trash2 className="mr-1 h-4 w-4" /> Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
