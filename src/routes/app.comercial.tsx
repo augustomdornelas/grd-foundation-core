@@ -223,7 +223,7 @@ function Comercial() {
   }
 
   function exportCSV() {
-    const header = ["Nº", "Cliente", "Obra", "Valor (R$)", "Data", "Status", "Estágio", "Responsável Comercial", "Técnico Responsável", "Probabilidade"];
+    const header = ["Nº", "Cliente", "Obra", "Valor (R$)", "Data", "Status", "Responsável Comercial", "Técnico Responsável", "Probabilidade"];
     const fmtData = (iso: string) => {
       if (!iso) return "";
       const [y, m, d] = iso.slice(0, 10).split("-");
@@ -236,7 +236,6 @@ function Comercial() {
       Number(o.valor || 0),
       fmtData(o.data),
       o.status,
-      o.estagio,
       o.responsavel,
       o.cnpj,
       (o.probabilidade || 0) / 100,
@@ -244,7 +243,8 @@ function Comercial() {
     const totalValor = filtered.reduce((s, o) => s + (o.valor || 0), 0);
     const qtd = filtered.length;
     const ticket = qtd > 0 ? totalValor / qtd : 0;
-    const totalsRow = ["TOTAIS", `${qtd} orçamentos`, "", Number(totalValor.toFixed(2)), "", "", "", "", `Ticket médio: ${Number(ticket.toFixed(2))}`, ""];
+    const totalsRow = ["TOTAIS", `${qtd} orçamentos`, "", Number(totalValor.toFixed(2)), "", "", "", `Ticket médio: ${Number(ticket.toFixed(2))}`, ""];
+
 
     const aoa: (string | number)[][] = [header, ...dataRows, [], totalsRow];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
