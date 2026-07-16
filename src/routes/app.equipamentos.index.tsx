@@ -24,6 +24,7 @@ import {
   useEquipStore, equipActions,
   type EquipStatus, type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
+import { EmprestimoDialog } from "@/components/equipamentos/EmprestimoDialog";
 
 export const Route = createFileRoute("/app/equipamentos/")({
   component: EquipamentosList,
