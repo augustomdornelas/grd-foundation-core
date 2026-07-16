@@ -90,18 +90,22 @@ function EquipamentosList() {
 
   useEffect(() => {
     (async () => {
-      const [gRes, lRes] = await Promise.all([
-        supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
-        supabase.from("locais_equipamentos").select("id, nome, tipo").order("nome", { ascending: true }),
-      ]);
-      if (gRes.error) console.error(gRes.error);
-      else {
-        const lista = (gRes.data ?? []) as Grupo[];
-        setGrupos(lista);
-        setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+      try {
+        const [gRes, lRes] = await Promise.all([
+          supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
+          supabase.from("locais_equipamentos").select("id, nome, tipo").order("nome", { ascending: true }),
+        ]);
+        if (gRes.error) console.error(gRes.error);
+        else {
+          const lista = (gRes.data ?? []) as Grupo[];
+          setGrupos(lista);
+          setCollapsed(Object.fromEntries([...lista.map(g => g.nome), "Sem grupo"].map(n => [n, true])));
+        }
+        if (lRes.error) console.error(lRes.error);
+        else setLocais((lRes.data ?? []) as Local[]);
+      } catch (err) {
+        console.error("[equipamentos] load grupos/locais error:", err);
       }
-      if (lRes.error) console.error(lRes.error);
-      else setLocais((lRes.data ?? []) as Local[]);
     })();
   }, []);
 
