@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   ChevronLeft, Pencil, PackageOpen, Wrench, PackageCheck, MapPin, User,
-  ArrowUpRight, ArrowDownRight, Activity, Package, RotateCcw,
+  ArrowUpRight, ArrowDownRight, Activity, Package, RotateCcw, Trash2,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -97,6 +97,8 @@ function EquipDetalhe() {
   const [openMn, setOpenMn] = useState(false);
   const [openEmp, setOpenEmp] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
+  const [openDelete, setOpenDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
 
 
@@ -315,6 +317,13 @@ function EquipDetalhe() {
           </Button>
           <Button onClick={() => setOpenMn(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Wrench className="mr-1 h-4 w-4" /> Registrar manutenção
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setOpenDelete(true)}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            <Trash2 className="mr-1 h-4 w-4" /> Excluir equipamento
           </Button>
         </div>
       </div>
