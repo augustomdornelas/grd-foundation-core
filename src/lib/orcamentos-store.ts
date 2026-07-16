@@ -132,8 +132,8 @@ function fromRow(r: OrcamentoRow): Orcamento {
           responsavel: r.responsavel ?? "",
           data: r.data_emissao ?? "",
           validade: r.prazo_validade ?? "",
-          status: (r.status as OrcStatus) ?? "Em an\u00e1lise",
-          estagio: (r.estagio as EstagioFunil) ?? "Levantamento",
+          status: (r.status as OrcStatus) ?? "Levantamento",
+
           probabilidade: Number(r.probabilidade ?? 0) || 0,
           observacoes: r.observacoes ?? "",
           anexo: r.anexo ?? undefined,
