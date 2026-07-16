@@ -217,7 +217,7 @@ function proximoNumero(): string {
 
 export const orcamentosActions = {
   proximoNumero,
-  criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas"> & { numero?: string }) {
+  async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas"> & { numero?: string }): Promise<{ id: string | null; error: { message?: string } | null }> {
     const numero = input.numero || proximoNumero();
     const timeline: TimelineEvento[] = [
       { data: new Date().toISOString(), de: "\u2014", para: input.status, autor: input.responsavel },
@@ -225,17 +225,19 @@ export const orcamentosActions = {
     const tempId = uid();
     state = [{ ...input, id: tempId, numero, timeline, notas: [] }, ...state];
     emit();
-    void (async () => {
-      const { data, error } = await supabase
-        .from("orcamentos")
-        .insert(toRow({ ...input, numero, timeline, notas: [] }))
-        .select()
-        .single();
-      if (error) { toastErr("Falha ao criar orçamento", error); state = state.filter(o => o.id !== tempId); emit(); return; }
-      state = state.map(o => o.id === tempId ? fromRow(data as OrcamentoRow) : o);
+    const { data, error } = await supabase
+      .from("orcamentos")
+      .insert(toRow({ ...input, numero, timeline, notas: [] }))
+      .select()
+      .single();
+    if (error) {
+      state = state.filter(o => o.id !== tempId);
       emit();
-    })();
-    return tempId;
+      return { id: null, error };
+    }
+    state = state.map(o => o.id === tempId ? fromRow(data as OrcamentoRow) : o);
+    emit();
+    return { id: (data as OrcamentoRow).id, error: null };
   },
   async atualizar(id: string, patch: Partial<Orcamento>): Promise<{ error: { message?: string } | null }> {
     const atual = state.find(o => o.id === id);

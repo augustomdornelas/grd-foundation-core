@@ -641,10 +641,15 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
         return;
       }
       toast.success("Orçamento atualizado.");
-    } else {
-      orcamentosActions.criar(payload);
-      toast.success("Orçamento criado.");
+      onOpenChange(false);
+      return;
     }
+    const { error } = await orcamentosActions.criar(payload);
+    if (error) {
+      toast.error(`Erro ao criar orçamento: ${error.message ?? "erro desconhecido"}`);
+      return;
+    }
+    toast.success("Orçamento criado.");
     onOpenChange(false);
   }
 
