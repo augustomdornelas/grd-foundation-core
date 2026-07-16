@@ -865,7 +865,7 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
                 <th className="p-2 font-semibold">Valor *</th>
                 <th className="p-2 font-semibold">Data *</th>
                 <th className="p-2 font-semibold">Status *</th>
-                <th className="p-2 font-semibold">Estágio</th>
+
                 <th className="p-2" />
               </tr>
             </thead>
