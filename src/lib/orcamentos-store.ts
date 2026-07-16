@@ -13,11 +13,12 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
 }
 
 export type OrcStatus =
-    | "Aprovado"
-  | "Em an\u00e1lise"
-  | "Aguardando retorno"
-  | "Recusado"
-  | "Cancelado";
+  | "Levantamento"
+  | "Aguardando Retorno"
+  | "Em negociação"
+  | "Não aprovado"
+  | "Cancelado"
+  | "Aprovado";
 
 export type TipoServico =
     | "Engenharia e Constru\u00e7\u00e3o"
@@ -25,12 +26,6 @@ export type TipoServico =
   | "Reformas Industriais"
   | "Sistemas de Esgoto"
   | "Frezamento";
-
-export type EstagioFunil =
-    | "Levantamento"
-  | "Proposta enviada"
-  | "Em negocia\u00e7\u00e3o"
-  | "Aprovado";
 
 export type TimelineEvento = {
     data: string;
@@ -59,7 +54,6 @@ export type Orcamento = {
     data: string;
     validade: string;
     status: OrcStatus;
-    estagio: EstagioFunil;
     probabilidade: number;
     observacoes: string;
     anexo?: string;
@@ -76,17 +70,11 @@ export const TIPOS_SERVICO: TipoServico[] = [
   ];
 
 export const STATUS_LIST: OrcStatus[] = [
-    "Aprovado",
-    "Em an\u00e1lise",
-    "Aguardando retorno",
-    "Recusado",
-    "Cancelado",
-  ];
-
-export const ESTAGIO_LIST: EstagioFunil[] = [
     "Levantamento",
-    "Proposta enviada",
-    "Em negocia\u00e7\u00e3o",
+    "Aguardando Retorno",
+    "Em negociação",
+    "Não aprovado",
+    "Cancelado",
     "Aprovado",
   ];
 
@@ -98,12 +86,14 @@ export const RESPONSAVEIS = [
   ];
 
 export const STATUS_COLORS: Record<OrcStatus, string> = {
+    "Levantamento": "#94A3B8",
+    "Aguardando Retorno": "#F59E0B",
+    "Em negociação": "#3B82F6",
+    "Não aprovado": "#DC2626",
+    "Cancelado": "#475569",
     "Aprovado": "#16A34A",
-    "Em an\u00e1lise": "#213368",
-    "Aguardando retorno": "#F59E0B",
-    "Recusado": "#DC2626",
-    "Cancelado": "#94A3B8",
 };
+
 
 // -----------------------------------------------------------
 // Mapeamento linha do banco <-> tipo Orcamento
