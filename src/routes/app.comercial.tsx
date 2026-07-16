@@ -577,10 +577,10 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       data: form.data,
       validade: form.validade,
       status: form.status as OrcStatus,
-      estagio: form.estagio as EstagioFunil,
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
     };
+
 
     if (editing && orcamento) {
       orcamentosActions.atualizar(orcamento.id, payload);
