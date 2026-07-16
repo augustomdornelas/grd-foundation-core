@@ -649,8 +649,8 @@ function defaults(o?: Orcamento) {
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
-    status: (o?.status ?? "Em análise") as string,
-    estagio: (o?.estagio ?? "Proposta enviada") as string,
+    status: (o?.status ?? "Levantamento") as string,
+
     probabilidade: o?.probabilidade ?? 50,
     observacoes: o?.observacoes ?? "",
   };
