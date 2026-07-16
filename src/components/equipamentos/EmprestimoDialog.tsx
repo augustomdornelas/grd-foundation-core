@@ -136,8 +136,7 @@ export function EmprestimoDialog({
             <DialogTitle className="text-[#213368]">Registrar empréstimo — {eq.nome}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
-            <div><Label>Destino / Obra *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
-            <div><Label>Responsável (curto)</Label><Input value={responsavel} onChange={e => setResponsavel(e.target.value)} placeholder="Nome curto para o card" /></div>
+            <div className="md:col-span-2"><Label>Destino / Obra *</Label><Input value={destino} onChange={e => setDestino(e.target.value)} /></div>
             <div><Label>Data de início *</Label><Input type="date" value={inicio} onChange={e => setInicio(e.target.value)} /></div>
             <div><Label>Devolução prevista *</Label><Input type="date" value={fim} onChange={e => setFim(e.target.value)} /></div>
             <div><Label>Custo por período (R$) *</Label><Input inputMode="decimal" value={custo} onChange={e => setCusto(e.target.value)} /></div>
