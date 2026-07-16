@@ -610,7 +610,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
 
   useMemo(() => { if (open) { setForm(defaults(orcamento)); setErro(""); } }, [open, orcamento?.id]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     const valorNum = parseValorBR(form.valor);
     if (!form.cliente.trim() || !form.obra.trim() || valorNum <= 0) {
@@ -635,7 +635,11 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
 
 
     if (editing && orcamento) {
-      orcamentosActions.atualizar(orcamento.id, payload);
+      const { error } = await orcamentosActions.atualizar(orcamento.id, payload);
+      if (error) {
+        toast.error(`Erro ao salvar orçamento: ${error.message ?? "erro desconhecido"}`);
+        return;
+      }
       toast.success("Orçamento atualizado.");
     } else {
       orcamentosActions.criar(payload);
