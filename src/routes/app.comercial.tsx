@@ -618,12 +618,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
               <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </Campo>
-          <Campo label="Estágio">
-            <Select value={form.estagio} onValueChange={v => setForm({ ...form, estagio: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{ESTAGIO_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </Campo>
+
           <Campo label={`Probabilidade de fechamento — ${form.probabilidade}%`} className="md:col-span-2">
             <Slider value={[form.probabilidade]} min={0} max={100} step={5} onValueChange={([v]) => setForm({ ...form, probabilidade: v })} />
           </Campo>
