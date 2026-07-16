@@ -54,6 +54,9 @@ export type Database = {
           resp_retirada_cpf: string | null
           resp_retirada_nome: string | null
           responsavel: string
+          responsavel_cargo: string | null
+          responsavel_cpf: string | null
+          responsavel_rg: string | null
           unidade: string
         }
         Insert: {
@@ -77,6 +80,9 @@ export type Database = {
           resp_retirada_cpf?: string | null
           resp_retirada_nome?: string | null
           responsavel?: string
+          responsavel_cargo?: string | null
+          responsavel_cpf?: string | null
+          responsavel_rg?: string | null
           unidade?: string
         }
         Update: {
@@ -100,6 +106,9 @@ export type Database = {
           resp_retirada_cpf?: string | null
           resp_retirada_nome?: string | null
           responsavel?: string
+          responsavel_cargo?: string | null
+          responsavel_cpf?: string | null
+          responsavel_rg?: string | null
           unidade?: string
         }
         Relationships: [
