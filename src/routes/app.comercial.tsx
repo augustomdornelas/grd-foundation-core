@@ -136,7 +136,7 @@ function Comercial() {
     const ticket = qtd ? total / qtd : 0;
     const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
-    const abertos = noPer.filter(o => o.status === "Em análise" || o.status === "Aguardando retorno");
+    const abertos = noPer.filter(o => o.status === "Levantamento" || o.status === "Aguardando Retorno" || o.status === "Em negociação");
     const abertoValor = abertos.reduce((a, o) => a + o.valor, 0);
 
     const hoje = new Date();
