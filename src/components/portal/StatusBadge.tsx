@@ -1,9 +1,14 @@
 const map: Record<string, string> = {
+  // Comercial — status de orçamentos
+  "Levantamento": "bg-gray-100 text-gray-700 border-gray-200",
+  "Aguardando Retorno": "bg-yellow-100 text-yellow-800 border-yellow-200",
+  "Em negociação": "bg-blue-100 text-blue-700 border-blue-200",
+  "Não aprovado": "bg-red-100 text-red-700 border-red-200",
+  "Cancelado": "bg-slate-700 text-white border-slate-700",
   "Aprovado": "bg-green-100 text-green-700 border-green-200",
-  "Em análise": "bg-amber-100 text-amber-800 border-amber-200",
+
+  // Compatibilidade / outros módulos
   "Enviado": "bg-blue-100 text-blue-700 border-blue-200",
-  "Recusado": "bg-red-100 text-red-700 border-red-200",
-  // "Em andamento" defined below with maintenance statuses
   "Planejamento": "bg-amber-100 text-amber-800 border-amber-200",
   "Concluído": "bg-green-100 text-green-700 border-green-200",
   "Disponível": "bg-green-100 text-green-700 border-green-200",
@@ -17,10 +22,9 @@ const map: Record<string, string> = {
   "Paralisado": "bg-yellow-100 text-yellow-800 border-yellow-200",
   "Pago": "bg-green-100 text-green-700 border-green-200",
   "Pendente": "bg-amber-100 text-amber-800 border-amber-200",
-  "Cancelado": "bg-red-100 text-red-700 border-red-200",
   "Aprovada": "bg-green-100 text-green-700 border-green-200",
   "Enviada": "bg-blue-100 text-blue-700 border-blue-200",
-  "Aguardando retorno": "bg-yellow-100 text-yellow-800 border-yellow-200",
+  "Em análise": "bg-amber-100 text-amber-800 border-amber-200",
   "Aberta": "bg-amber-100 text-amber-800 border-amber-200",
   "Em andamento": "bg-blue-100 text-blue-700 border-blue-200",
   "Concluída": "bg-green-100 text-green-700 border-green-200",
