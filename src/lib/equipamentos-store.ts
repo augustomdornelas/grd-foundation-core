@@ -33,6 +33,9 @@ export type Emprestimo = {
   equipamentoId: string;
   destino: string;
   responsavel: string;
+  responsavelCpf?: string;
+  responsavelRg?: string;
+  responsavelCargo?: string;
   dataInicio: string;
   dataDevolucaoPrevista: string;
   dataDevolucaoReal?: string;
