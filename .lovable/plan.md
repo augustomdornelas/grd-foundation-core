@@ -1,20 +1,34 @@
-## Objetivo
-Aumentar o logo do Grupo GRD em todos os pontos onde ele aparece, mantendo proporção e boa aparência.
+## Problema
 
-## Mudança
-Aumentar o tamanho padrão do componente `Logo` (`src/components/brand/Logo.tsx`) de `size=44` para `size=64` (aprox. +45%). Como praticamente todos os call sites (`Header`, `Footer`, `PortalLayout` desktop e mobile, `LoginPage`) usam `<Logo />` sem prop `size`, todos herdam o novo tamanho de uma vez.
+O módulo Equipamentos falha ao carregar porque o Postgres nega acesso às tabelas antes mesmo da RLS ser avaliada. Os logs de rede mostram:
 
-Ajustes pontuais para acomodar sem quebrar o layout:
-- **PortalLayout**: aumentar altura da faixa do logo na sidebar (`h-16` → `h-20`) e do drawer mobile idem, para o logo maior respirar.
-- **Header (site)**: aumentar `h-16` → `h-20` para o novo logo caber com folga.
-- **Ponto/Webmail**: já usam `size={80}` explicitamente — aumentar para `size={112}` para manter proporção visual coerente com o novo padrão.
-- **LogoMark**: manter default `40` (usado como favicon-like, não é o logo cheio).
+```
+GET /rest/v1/equipamentos → 401
+"permission denied for table equipamentos"
+hint: "Grant the required privileges to the current role with: GRANT SELECT ON public.equipamentos TO anon;"
+```
 
-## Arquivos afetados
-- `src/components/brand/Logo.tsx` — novo default de `size`
-- `src/components/portal/PortalLayout.tsx` — altura da faixa do logo (desktop + mobile drawer)
-- `src/components/site/Header.tsx` — altura do header
-- `src/routes/app.webmail.tsx`, `src/routes/app.ponto.tsx` — aumentar `size` do logo grande
+O mesmo ocorre em `emprestimos` e `manutencoes`. Uma consulta ao catálogo confirma que **nenhuma das cinco tabelas do módulo tem GRANT algum** para `anon`, `authenticated` ou `service_role`.
 
-## Validação
-Rodar a preview em `/`, `/login`, `/app`, `/app/webmail` — o logo deve aparecer visivelmente maior e alinhado, sem cortar nem empurrar itens da topbar/sidebar.
+## Correção
+
+Criar uma migration única que concede os privilégios necessários (as políticas de RLS já existentes continuam controlando o acesso linha a linha):
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.equipamentos           TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.emprestimos            TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.manutencoes            TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.categorias_equipamentos TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.locais_equipamentos     TO authenticated;
+
+GRANT ALL ON public.equipamentos, public.emprestimos, public.manutencoes,
+             public.categorias_equipamentos, public.locais_equipamentos
+        TO service_role;
+```
+
+Sem grant para `anon` — o módulo é área logada.
+
+## Verificação
+
+- Recarregar `/app/equipamentos` e confirmar que as três requisições (`equipamentos`, `emprestimos`, `manutencoes`) voltam com status 200.
+- Nenhuma outra alteração de código; store e componentes já estão corretos.
