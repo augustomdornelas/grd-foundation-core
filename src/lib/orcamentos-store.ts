@@ -111,7 +111,7 @@ type OrcamentoRow = {
     data_emissao: string | null;
     prazo_validade: string | null;
     status: string | null;
-    estagio: string | null;
+
     probabilidade: number | null;
     observacoes: string | null;
     anexo: string | null;
