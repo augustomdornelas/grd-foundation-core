@@ -316,7 +316,6 @@ export type Database = {
           created_at: string
           data_emissao: string | null
           descricao: string
-          estagio: string
           id: string
           notas: Json
           numero: string
@@ -338,7 +337,6 @@ export type Database = {
           created_at?: string
           data_emissao?: string | null
           descricao?: string
-          estagio?: string
           id?: string
           notas?: Json
           numero?: string
@@ -360,7 +358,6 @@ export type Database = {
           created_at?: string
           data_emissao?: string | null
           descricao?: string
-          estagio?: string
           id?: string
           notas?: Json
           numero?: string

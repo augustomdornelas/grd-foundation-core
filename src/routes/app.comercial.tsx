@@ -28,10 +28,11 @@ import {
   PieChart, Pie, Cell, BarChart,
 } from "recharts";
 import {
-  useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, ESTAGIO_LIST, RESPONSAVEIS,
-  STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico, type EstagioFunil,
+  useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, RESPONSAVEIS,
+  STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico,
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
+
 import * as XLSX from "xlsx";
 
 
@@ -135,7 +136,7 @@ function Comercial() {
     const ticket = qtd ? total / qtd : 0;
     const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
-    const abertos = noPer.filter(o => o.status === "Em análise" || o.status === "Aguardando retorno");
+    const abertos = noPer.filter(o => o.status === "Levantamento" || o.status === "Aguardando Retorno" || o.status === "Em negociação");
     const abertoValor = abertos.reduce((a, o) => a + o.valor, 0);
 
     const hoje = new Date();
@@ -170,12 +171,6 @@ function Comercial() {
       return { responsavel: r.split(" ")[0], valor: lst.reduce((a, o) => a + o.valor, 0), qtd: lst.length };
     });
 
-    const funil = ESTAGIO_LIST.map(e => ({
-      estagio: e,
-      qtd: noPer.filter(o => o.estagio === e).length,
-      valor: noPer.filter(o => o.estagio === e).reduce((a, o) => a + o.valor, 0),
-    }));
-
     const clientesMap = new Map<string, number>();
     for (const o of noPer.filter(o => o.status === "Aprovado")) {
       const nome = (o.cliente || "").trim() || "—";
@@ -186,7 +181,8 @@ function Comercial() {
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 5);
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, funil, topClientes };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, topClientes };
+
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
   // ---------- Tabela filtrada ----------
@@ -227,7 +223,7 @@ function Comercial() {
   }
 
   function exportCSV() {
-    const header = ["Nº", "Cliente", "Obra", "Valor (R$)", "Data", "Status", "Estágio", "Responsável Comercial", "Técnico Responsável", "Probabilidade"];
+    const header = ["Nº", "Cliente", "Obra", "Valor (R$)", "Data", "Status", "Responsável Comercial", "Técnico Responsável", "Probabilidade"];
     const fmtData = (iso: string) => {
       if (!iso) return "";
       const [y, m, d] = iso.slice(0, 10).split("-");
@@ -240,7 +236,6 @@ function Comercial() {
       Number(o.valor || 0),
       fmtData(o.data),
       o.status,
-      o.estagio,
       o.responsavel,
       o.cnpj,
       (o.probabilidade || 0) / 100,
@@ -248,7 +243,8 @@ function Comercial() {
     const totalValor = filtered.reduce((s, o) => s + (o.valor || 0), 0);
     const qtd = filtered.length;
     const ticket = qtd > 0 ? totalValor / qtd : 0;
-    const totalsRow = ["TOTAIS", `${qtd} orçamentos`, "", Number(totalValor.toFixed(2)), "", "", "", "", `Ticket médio: ${Number(ticket.toFixed(2))}`, ""];
+    const totalsRow = ["TOTAIS", `${qtd} orçamentos`, "", Number(totalValor.toFixed(2)), "", "", "", `Ticket médio: ${Number(ticket.toFixed(2))}`, ""];
+
 
     const aoa: (string | number)[][] = [header, ...dataRows, [], totalsRow];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -394,29 +390,8 @@ function Comercial() {
       </div>
 
 
-      {/* Gráficos linha 3 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Funil comercial</div>
-          <div className="mt-4 space-y-2">
-            {metricas.funil.map((f, i) => {
-              const max = Math.max(...metricas.funil.map(x => x.valor), 1);
-              const pct = (f.valor / max) * 100;
-              const inset = i * 8;
-              return (
-                <div key={f.estagio}>
-                  <div className="flex justify-between text-xs">
-                    <span className="font-semibold text-[#213368]">{f.estagio}</span>
-                    <span className="text-muted-foreground">{f.qtd} · {brl(f.valor)}</span>
-                  </div>
-                  <div className="mt-1 h-6 rounded-md bg-[#213368]/5" style={{ marginLeft: inset, marginRight: inset }}>
-                    <div className="h-full rounded-md bg-gradient-to-r from-[#213368] to-[#F37032] transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+      {/* Top clientes */}
+      <div className="grid gap-6">
         <Card className="p-6">
           <div className="text-sm font-semibold text-[#213368]">Top 5 clientes — orçamentos aprovados</div>
           <div className="mt-4 h-72">
@@ -434,6 +409,7 @@ function Comercial() {
           </div>
         </Card>
       </div>
+
 
       {/* Tabela */}
       <Card className="p-6">
@@ -601,10 +577,10 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       data: form.data,
       validade: form.validade,
       status: form.status as OrcStatus,
-      estagio: form.estagio as EstagioFunil,
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
     };
+
 
     if (editing && orcamento) {
       orcamentosActions.atualizar(orcamento.id, payload);
@@ -642,12 +618,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
               <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </Campo>
-          <Campo label="Estágio">
-            <Select value={form.estagio} onValueChange={v => setForm({ ...form, estagio: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{ESTAGIO_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
-          </Campo>
+
           <Campo label={`Probabilidade de fechamento — ${form.probabilidade}%`} className="md:col-span-2">
             <Slider value={[form.probabilidade]} min={0} max={100} step={5} onValueChange={([v]) => setForm({ ...form, probabilidade: v })} />
           </Campo>
@@ -678,8 +649,8 @@ function defaults(o?: Orcamento) {
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
-    status: (o?.status ?? "Em análise") as string,
-    estagio: (o?.estagio ?? "Proposta enviada") as string,
+    status: (o?.status ?? "Levantamento") as string,
+
     probabilidade: o?.probabilidade ?? 50,
     observacoes: o?.observacoes ?? "",
   };
@@ -714,8 +685,8 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <StatusBadge status={o.status} />
-          <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold">{o.estagio}</span>
           <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold">{o.tipo}</span>
+
         </div>
 
         <div className="mt-6 space-y-4">
@@ -798,7 +769,6 @@ type LoteRow = {
   valor: string;
   data: string; // ISO
   status: OrcStatus;
-  estagio: EstagioFunil;
 };
 
 function novaLinha(numero: string): LoteRow {
@@ -808,10 +778,10 @@ function novaLinha(numero: string): LoteRow {
     obra: "",
     valor: "",
     data: new Date().toISOString().slice(0, 10),
-    status: "Em análise",
-    estagio: "Proposta enviada",
+    status: "Levantamento",
   };
 }
+
 
 // Próximo número sequencial baseado em um número base já usado (ex.: "ORC-003" + n)
 function proximoNumeroApos(numeros: string[]): string {
@@ -871,8 +841,8 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
         data: r.data,
         validade: r.data,
         status: r.status,
-        estagio: r.estagio,
         probabilidade: 50,
+
         observacoes: "",
       });
       criados++;
@@ -895,7 +865,7 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
                 <th className="p-2 font-semibold">Valor *</th>
                 <th className="p-2 font-semibold">Data *</th>
                 <th className="p-2 font-semibold">Status *</th>
-                <th className="p-2 font-semibold">Estágio</th>
+
                 <th className="p-2" />
               </tr>
             </thead>
@@ -914,12 +884,7 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
                     </Select>
                   </td>
                   <td className="p-1">
-                    <Select value={r.estagio} onValueChange={v => setRow(i, { estagio: v as EstagioFunil })}>
-                      <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
-                      <SelectContent>{ESTAGIO_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1">
+
                     <Button type="button" size="icon" variant="ghost" onClick={() => removeRow(i)} aria-label="Remover linha">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>

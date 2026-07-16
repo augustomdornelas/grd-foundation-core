@@ -13,11 +13,12 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
 }
 
 export type OrcStatus =
-    | "Aprovado"
-  | "Em an\u00e1lise"
-  | "Aguardando retorno"
-  | "Recusado"
-  | "Cancelado";
+  | "Levantamento"
+  | "Aguardando Retorno"
+  | "Em negociação"
+  | "Não aprovado"
+  | "Cancelado"
+  | "Aprovado";
 
 export type TipoServico =
     | "Engenharia e Constru\u00e7\u00e3o"
@@ -25,12 +26,6 @@ export type TipoServico =
   | "Reformas Industriais"
   | "Sistemas de Esgoto"
   | "Frezamento";
-
-export type EstagioFunil =
-    | "Levantamento"
-  | "Proposta enviada"
-  | "Em negocia\u00e7\u00e3o"
-  | "Aprovado";
 
 export type TimelineEvento = {
     data: string;
@@ -59,7 +54,6 @@ export type Orcamento = {
     data: string;
     validade: string;
     status: OrcStatus;
-    estagio: EstagioFunil;
     probabilidade: number;
     observacoes: string;
     anexo?: string;
@@ -76,17 +70,11 @@ export const TIPOS_SERVICO: TipoServico[] = [
   ];
 
 export const STATUS_LIST: OrcStatus[] = [
-    "Aprovado",
-    "Em an\u00e1lise",
-    "Aguardando retorno",
-    "Recusado",
-    "Cancelado",
-  ];
-
-export const ESTAGIO_LIST: EstagioFunil[] = [
     "Levantamento",
-    "Proposta enviada",
-    "Em negocia\u00e7\u00e3o",
+    "Aguardando Retorno",
+    "Em negociação",
+    "Não aprovado",
+    "Cancelado",
     "Aprovado",
   ];
 
@@ -98,12 +86,14 @@ export const RESPONSAVEIS = [
   ];
 
 export const STATUS_COLORS: Record<OrcStatus, string> = {
+    "Levantamento": "#94A3B8",
+    "Aguardando Retorno": "#F59E0B",
+    "Em negociação": "#3B82F6",
+    "Não aprovado": "#DC2626",
+    "Cancelado": "#475569",
     "Aprovado": "#16A34A",
-    "Em an\u00e1lise": "#213368",
-    "Aguardando retorno": "#F59E0B",
-    "Recusado": "#DC2626",
-    "Cancelado": "#94A3B8",
 };
+
 
 // -----------------------------------------------------------
 // Mapeamento linha do banco <-> tipo Orcamento
@@ -121,7 +111,7 @@ type OrcamentoRow = {
     data_emissao: string | null;
     prazo_validade: string | null;
     status: string | null;
-    estagio: string | null;
+
     probabilidade: number | null;
     observacoes: string | null;
     anexo: string | null;
@@ -142,8 +132,8 @@ function fromRow(r: OrcamentoRow): Orcamento {
           responsavel: r.responsavel ?? "",
           data: r.data_emissao ?? "",
           validade: r.prazo_validade ?? "",
-          status: (r.status as OrcStatus) ?? "Em an\u00e1lise",
-          estagio: (r.estagio as EstagioFunil) ?? "Levantamento",
+          status: (r.status as OrcStatus) ?? "Levantamento",
+
           probabilidade: Number(r.probabilidade ?? 0) || 0,
           observacoes: r.observacoes ?? "",
           anexo: r.anexo ?? undefined,
@@ -165,7 +155,7 @@ function toRow(o: Partial<Orcamento>) {
     if (o.data !== undefined) row.data_emissao = o.data;
     if (o.validade !== undefined) row.prazo_validade = o.validade;
     if (o.status !== undefined) row.status = o.status;
-    if (o.estagio !== undefined) row.estagio = o.estagio;
+
     if (o.probabilidade !== undefined) row.probabilidade = o.probabilidade;
     if (o.observacoes !== undefined) row.observacoes = o.observacoes;
     if (o.anexo !== undefined) row.anexo = o.anexo;
@@ -266,13 +256,13 @@ export const orcamentosActions = {
     const orig = state.find(o => o.id === id);
     if (!orig) return;
     const numero = proximoNumero();
-    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "Em an\u00e1lise", autor: orig.responsavel }];
+    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "Levantamento", autor: orig.responsavel }];
     const input = {
       ...orig,
       data: new Date().toISOString().slice(0, 10),
-      status: "Em an\u00e1lise" as OrcStatus,
-      estagio: "Proposta enviada" as EstagioFunil,
+      status: "Levantamento" as OrcStatus,
     };
+
     const tempId = uid();
     state = [{ ...input, id: tempId, numero, timeline, notas: [] }, ...state];
     emit();
