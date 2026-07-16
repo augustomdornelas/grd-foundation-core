@@ -1,619 +1,762 @@
 // ============================================================
-// Previsão de Entrada — página completa
+// Previsão de Entrada — módulo Comercial
 // ------------------------------------------------------------
-// Consome os orçamentos aprovados do Comercial (orcamentos-store)
-// e as medições (medicoes-comercial-store). Todos os KPIs, gráficos
-// e tabela derivam desses dados — sem valores estáticos.
+// Cada orçamento aprovado vira uma linha de receita prevista.
+// Medições são lançadas por cima para registrar o faturado.
 // ============================================================
-import { useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { StatusBadge } from "@/components/portal/StatusBadge";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-  ChevronDown, ChevronRight, Plus, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  DollarSign, Wallet, TrendingUp, PieChart as PieIcon, Search, Circle,
-} from "lucide-react";
-import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  PieChart, Pie, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, Legend, PieChart, Pie, Cell,
 } from "recharts";
-import { useOrcamentos, type Orcamento } from "@/lib/orcamentos-store";
 import {
-  useMedicoes, medicoesActions, proximoNumeroMedicao, resumoDoOrcamento,
-  type Medicao, type MedStatus, type ResumoOrcamento,
-} from "@/lib/medicoes-comercial-store";
+  ChevronDown, ChevronRight, Plus, Pencil, Trash2, Search,
+  ArrowUpDown, TrendingUp,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from "@/components/ui/select";
 
-const NOMES_MES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const MED_STATUS: MedStatus[] = ["Lançada", "Em aprovação", "Recebida", "Prevista"];
+// -------------------- tipos --------------------
+type Orcamento = {
+  id: string;
+  numero: string;
+  cliente: string;
+  obra: string;
+  valor: number;
+  data_emissao: string | null;
+  status: string;
+};
 
-function brl(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
+type MedStatus = "Lançada" | "Em aprovação" | "Recebida";
 
-function fmtData(iso: string) {
+type Medicao = {
+  id: string;
+  orcamento_id: string;
+  numero: string;
+  data: string;
+  descricao: string;
+  valor: number;
+  data_recebimento: string | null;
+  status: MedStatus;
+  observacoes: string;
+};
+
+// -------------------- helpers --------------------
+const AZUL = "#213368";
+const LARANJA = "#F37032";
+
+const brl = (v: number) =>
+  (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+function mesLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null;
   const d = new Date(iso);
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (isNaN(d.getTime())) return null;
+  return `${MESES[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`;
 }
 
-function progressColor(pct: number) {
-  if (pct > 90) return "#213368";
-  if (pct >= 50) return "#F37032";
-  return "#16A34A";
+function statusExecucao(pct: number): { label: string; color: string } {
+  if (pct >= 100) return { label: "Concluído", color: "#16A34A" };
+  if (pct > 0) return { label: "Em execução", color: LARANJA };
+  return { label: "Aguardando início", color: "#94A3B8" };
 }
 
-type SortCol = "cliente" | "valor" | "faturado" | "saldo" | "pct" | "proximaMedicao";
+function corBarra(pct: number): string {
+  if (pct <= 50) return "#16A34A";
+  if (pct <= 90) return LARANJA;
+  return AZUL;
+}
 
+// ============================================================
+// COMPONENTE
+// ============================================================
 export function PrevisaoEntrada() {
-  const orcamentosAprovados = useOrcamentos(s => s.filter(o => o.status === "Aprovado"));
-  const medicoes = useMedicoes(s => s);
-
-  const resumos = useMemo(
-    () => orcamentosAprovados.map(o => resumoDoOrcamento(o, medicoes)),
-    [orcamentosAprovados, medicoes],
-  );
-
-  const kpis = useMemo(() => {
-    try {
-      const prevista = resumos.reduce((a, r) => a + (r.orcamento?.valor ?? 0), 0);
-      const faturado = resumos.reduce((a, r) => a + (r.faturado ?? 0), 0);
-      const saldo = Math.max(0, prevista - faturado);
-      const pct = prevista > 0 ? (faturado / prevista) * 100 : 0;
-      return { prevista, faturado, saldo, pct };
-    } catch (err) {
-      console.error("[previsao] kpis error:", err);
-      return { prevista: 0, faturado: 0, saldo: 0, pct: 0 };
-    }
-  }, [resumos]);
-
-  // Fluxo mensal: últimos 6 + próximos 3
-  const fluxo = useMemo(() => {
-    try {
-      const hoje = new Date();
-      const arr: { mes: string; previsto: number; faturado: number; acumulado: number }[] = [];
-      let acc = 0;
-      for (let i = -5; i <= 3; i++) {
-        const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-        const dNext = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, 1);
-        const previsto = medicoes
-          .filter(m => { const md = new Date(m.previsaoRecebimento || m.data || 0); return md >= d && md < dNext; })
-          .reduce((a, m) => a + (m.valor ?? 0), 0);
-        const faturado = medicoes
-          .filter(m => { const md = new Date(m.data || 0); return md >= d && md < dNext && m.status === "Recebida"; })
-          .reduce((a, m) => a + (m.valor ?? 0), 0);
-        acc += faturado;
-        arr.push({ mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, previsto, faturado, acumulado: acc });
-      }
-      return arr;
-    } catch (err) {
-      console.error("[previsao] fluxo error:", err);
-      return [];
-    }
-  }, [medicoes]);
-
-  const donut = [
-    { name: "Já faturado", value: kpis.faturado, color: "#F37032" },
-    { name: "Saldo a faturar", value: kpis.saldo, color: "#213368" },
-  ].filter(x => x.value > 0);
-
-  // Filtros da tabela
-  const [q, setQ] = useState("");
-  const [fStatus, setFStatus] = useState("todos");
-  const [sortBy, setSortBy] = useState<SortCol>("saldo");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
+  const [medicoes, setMedicoes] = useState<Medicao[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
-  const [novaMed, setNovaMed] = useState<{ open: boolean; orcamentoId?: string }>({ open: false });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<Orcamento | null>(null);
   const [editMed, setEditMed] = useState<Medicao | null>(null);
+  const [busca, setBusca] = useState("");
+  const [sortKey, setSortKey] = useState<"cliente" | "obra" | "valor" | "faturado" | "saldo" | "pct">("cliente");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const filtrados = useMemo(() => {
-    const qLower = q.toLowerCase();
-    let list = resumos;
-    if (q) list = list.filter(r =>
-      r.orcamento.cliente.toLowerCase().includes(qLower) ||
-      r.orcamento.obra.toLowerCase().includes(qLower) ||
-      r.orcamento.numero.toLowerCase().includes(qLower));
-    if (fStatus !== "todos") list = list.filter(r => r.statusExec === fStatus);
-    list = [...list].sort((a, b) => {
-      const get = (r: ResumoOrcamento): string | number => {
-        switch (sortBy) {
-          case "cliente": return r.orcamento.cliente;
-          case "valor": return r.orcamento.valor;
-          case "faturado": return r.faturado;
-          case "saldo": return r.saldo;
-          case "pct": return r.pct;
-          case "proximaMedicao": return r.proximaMedicao ?? "";
-        }
-      };
-      const va = get(a), vb = get(b);
-      const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
-      return sortDir === "asc" ? cmp : -cmp;
+  useEffect(() => {
+    async function carregar() {
+      try {
+        const [{ data: orcs }, { data: meds }] = await Promise.all([
+          supabase.from("orcamentos").select("*").eq("status", "Aprovado"),
+          supabase.from("medicoes").select("*"),
+        ]);
+        setOrcamentos((orcs ?? []) as Orcamento[]);
+        setMedicoes((meds ?? []) as Medicao[]);
+      } catch (err) {
+        console.error("[previsao] carregar:", err);
+        setOrcamentos([]);
+        setMedicoes([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void carregar();
+  }, []);
+
+  // -------------------- cálculos --------------------
+  const resumo = useMemo(() => {
+    const list = orcamentos ?? [];
+    const meds = medicoes ?? [];
+    const receita = list.reduce((a, o) => a + (o.valor ?? 0), 0);
+    const faturado = meds.reduce((a, m) => a + (m.valor ?? 0), 0);
+    const saldo = Math.max(0, receita - faturado);
+    const pct = receita > 0 ? Math.min(100, (faturado / receita) * 100) : 0;
+    return { receita, faturado, saldo, pct };
+  }, [orcamentos, medicoes]);
+
+  const fluxoMensal = useMemo(() => {
+    const map = new Map<string, { mes: string; previsto: number; faturado: number; ord: string }>();
+    (orcamentos ?? []).forEach(o => {
+      const m = mesLabel(o.data_emissao);
+      if (!m) return;
+      const ord = (o.data_emissao ?? "").slice(0, 7);
+      const cur = map.get(m) ?? { mes: m, previsto: 0, faturado: 0, ord };
+      cur.previsto += o.valor ?? 0;
+      map.set(m, cur);
     });
-    return list;
-  }, [resumos, q, fStatus, sortBy, sortDir]);
+    (medicoes ?? []).forEach(md => {
+      const m = mesLabel(md.data);
+      if (!m) return;
+      const ord = (md.data ?? "").slice(0, 7);
+      const cur = map.get(m) ?? { mes: m, previsto: 0, faturado: 0, ord };
+      cur.faturado += md.valor ?? 0;
+      map.set(m, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => a.ord.localeCompare(b.ord));
+  }, [orcamentos, medicoes]);
 
-  function toggleSort(col: SortCol) {
-    if (sortBy === col) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortBy(col); setSortDir("desc"); }
+  const donutData = useMemo(() => ([
+    { name: "Faturado", value: resumo.faturado, color: LARANJA },
+    { name: "Saldo", value: resumo.saldo, color: AZUL },
+  ]), [resumo]);
+
+  const linhas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const base = (orcamentos ?? [])
+      .filter(o =>
+        !q || (o.cliente ?? "").toLowerCase().includes(q) ||
+        (o.obra ?? "").toLowerCase().includes(q)
+      )
+      .map(o => {
+        const meds = (medicoes ?? []).filter(m => m.orcamento_id === o.id);
+        const faturado = meds.reduce((a, m) => a + (m.valor ?? 0), 0);
+        const saldo = Math.max(0, (o.valor ?? 0) - faturado);
+        const pct = (o.valor ?? 0) > 0 ? Math.min(100, (faturado / o.valor) * 100) : 0;
+        return { orc: o, meds, faturado, saldo, pct };
+      });
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    base.sort((a, b) => {
+      let x: string | number = 0, y: string | number = 0;
+      switch (sortKey) {
+        case "cliente": x = a.orc.cliente ?? ""; y = b.orc.cliente ?? ""; break;
+        case "obra":    x = a.orc.obra ?? "";    y = b.orc.obra ?? "";    break;
+        case "valor":   x = a.orc.valor ?? 0;    y = b.orc.valor ?? 0;    break;
+        case "faturado":x = a.faturado;          y = b.faturado;          break;
+        case "saldo":   x = a.saldo;             y = b.saldo;             break;
+        case "pct":     x = a.pct;               y = b.pct;               break;
+      }
+      if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
+      return String(x).localeCompare(String(y)) * dir;
+    });
+    return base;
+  }, [orcamentos, medicoes, busca, sortKey, sortDir]);
+
+  function toggleSort(k: typeof sortKey) {
+    if (k === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(k); setSortDir("asc"); }
+  }
+
+  function proximoNumeroMed(orcamentoId: string): string {
+    const n = (medicoes ?? []).filter(m => m.orcamento_id === orcamentoId).length + 1;
+    return `MED-${String(n).padStart(3, "0")}`;
+  }
+
+  function abrirNovaMed(orc: Orcamento) {
+    setOrcamentoSelecionado(orc);
+    setEditMed(null);
+    setModalOpen(true);
+  }
+  function abrirEditar(orc: Orcamento, med: Medicao) {
+    setOrcamentoSelecionado(orc);
+    setEditMed(med);
+    setModalOpen(true);
+  }
+
+  async function excluirMed(id: string) {
+    if (!confirm("Excluir esta medição?")) return;
+    const anterior = medicoes;
+    setMedicoes(m => m.filter(x => x.id !== id));
+    const { error } = await supabase.from("medicoes").delete().eq("id", id);
+    if (error) {
+      setMedicoes(anterior);
+      toast.error("Erro ao excluir medição");
+    } else {
+      toast.success("Medição excluída");
+    }
+  }
+
+  async function salvarMed(payload: Omit<Medicao, "id"> & { id?: string }) {
+    if (editMed) {
+      const { error } = await supabase.from("medicoes").update({
+        numero: payload.numero,
+        data: payload.data,
+        descricao: payload.descricao,
+        valor: payload.valor,
+        data_recebimento: payload.data_recebimento,
+        status: payload.status,
+        observacoes: payload.observacoes,
+      }).eq("id", editMed.id);
+      if (error) { toast.error("Erro ao salvar medição"); return; }
+      setMedicoes(list => list.map(m => m.id === editMed.id ? { ...m, ...payload, id: editMed.id } : m));
+      toast.success("Medição atualizada");
+    } else {
+      const id = `MED-${Date.now().toString(36).toUpperCase()}`;
+      const nova: Medicao = { ...payload, id };
+      setMedicoes(list => [nova, ...list]);
+      const { error } = await supabase.from("medicoes").insert({
+        id,
+        orcamento_id: payload.orcamento_id,
+        numero: payload.numero,
+        data: payload.data,
+        descricao: payload.descricao,
+        valor: payload.valor,
+        data_recebimento: payload.data_recebimento,
+        status: payload.status,
+        observacoes: payload.observacoes,
+      });
+      if (error) {
+        setMedicoes(list => list.filter(m => m.id !== id));
+        toast.error("Erro ao lançar medição");
+        return;
+      }
+      toast.success("Medição lançada com sucesso");
+    }
+    setModalOpen(false);
+  }
+
+  // -------------------- render --------------------
+  if (loading) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">Carregando previsão de entrada...</div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
+    <div className="space-y-6 font-[Montserrat]">
       <div>
-        <h1 className="text-2xl font-extrabold text-[#213368]">Previsão de Entrada</h1>
-        <p className="text-xs text-muted-foreground">Acompanhamento de receita por orçamento aprovado</p>
+        <h1 className="text-2xl font-extrabold" style={{ color: AZUL }}>Previsão de Entrada</h1>
+        <p className="text-xs text-muted-foreground">
+          Receita prevista com base em orçamentos aprovados e medições faturadas.
+        </p>
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Receita prevista" value={brl(kpis.prevista)} icon={DollarSign} tone="azul" />
-        <KpiCard label="Já faturado" value={brl(kpis.faturado)} icon={TrendingUp} tone="azul" />
-        <KpiCard label="Saldo a faturar" value={brl(kpis.saldo)} icon={Wallet} tone="laranja" />
-        <Card className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#213368] text-white">
-              <PieIcon className="h-4 w-4" />
-            </div>
-            <span className="text-xs font-semibold text-green-600">{kpis.pct.toFixed(0)}%</span>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <KpiCard titulo="Receita prevista total" valor={brl(resumo.receita)} cor={AZUL} />
+        <KpiCard titulo="Já faturado" valor={brl(resumo.faturado)} cor={LARANJA} />
+        <KpiCard titulo="Saldo a faturar" valor={brl(resumo.saldo)} cor={AZUL} />
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">% Executado</p>
+          <p className="mt-1 text-2xl font-extrabold" style={{ color: AZUL }}>
+            {resumo.pct.toFixed(1)}%
+          </p>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${resumo.pct}%`, background: corBarra(resumo.pct) }}
+            />
           </div>
-          <div className="mt-3 text-xl font-extrabold text-[#213368]">Executado</div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#213368]/10">
-            <div className="h-full bg-green-600 transition-all" style={{ width: `${kpis.pct}%` }} />
-          </div>
-        </Card>
+        </div>
       </div>
 
       {/* Gráficos */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Fluxo de entrada mensal</div>
-          <div className="mt-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={fluxo}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v / 1_000_000).toFixed(1)}M`} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: AZUL }}>Fluxo de entrada mensal</h2>
+          {fluxoMensal.length === 0 ? (
+            <EmptyChart />
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={fluxoMensal}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="mes" fontSize={11} />
+                <YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v: number) => brl(v)} />
                 <Legend />
-                <Bar dataKey="previsto" name="Previsto" fill="#213368" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="faturado" name="Faturado" fill="#F37032" radius={[4, 4, 0, 0]} />
-                <Line type="monotone" dataKey="acumulado" name="Acumulado" stroke="#16A34A" strokeWidth={2} strokeDasharray="6 4" dot={{ r: 3 }} />
-              </ComposedChart>
+                <Bar dataKey="previsto" name="Previsto" fill={AZUL} radius={[6, 6, 0, 0]} />
+                <Bar dataKey="faturado" name="Faturado" fill={LARANJA} radius={[6, 6, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-[#213368]">Execução financeira</div>
-          <div className="mt-4 h-72 relative">
-            {donut.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={donut} dataKey="value" nameKey="name" innerRadius={70} outerRadius={105} paddingAngle={3}>
-                      {donut.map((d, i) => <Cell key={i} fill={d.color} />)}
-                    </Pie>
-                    <Legend />
-                    <Tooltip formatter={(v: number) => brl(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center" style={{ marginTop: -20 }}>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total previsto</div>
-                  <div className="text-lg font-extrabold text-[#213368]">{brl(kpis.prevista)}</div>
-                </div>
-              </>
-            ) : (
-              <div className="grid h-full place-items-center text-sm text-muted-foreground">Nenhum orçamento aprovado.</div>
-            )}
-          </div>
-        </Card>
+          )}
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: AZUL }}>Execução financeira</h2>
+          {resumo.receita === 0 ? (
+            <EmptyChart />
+          ) : (
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={donutData}
+                    dataKey="value"
+                    innerRadius={70}
+                    outerRadius={110}
+                    paddingAngle={2}
+                  >
+                    {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => brl(v)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-8">
+                <span className="text-[10px] font-semibold uppercase text-muted-foreground">Previsto</span>
+                <span className="text-base font-extrabold" style={{ color: AZUL }}>{brl(resumo.receita)}</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabela */}
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-bold text-[#213368]">Orçamentos aprovados</h3>
-            <p className="text-xs text-muted-foreground">{filtrados.length} orçamento(s).</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar cliente ou obra..." className="pl-9 w-64" />
-            </div>
-            <Select value={fStatus} onValueChange={setFStatus}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                <SelectItem value="Aguardando início">Aguardando início</SelectItem>
-                <SelectItem value="Em execução">Em execução</SelectItem>
-                <SelectItem value="Concluído">Concluído</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={() => setNovaMed({ open: true })} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-              <Plus className="mr-1 h-4 w-4" /> Lançar medição
-            </Button>
+      <div className="rounded-xl border bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+          <h2 className="text-sm font-bold" style={{ color: AZUL }}>Orçamentos aprovados</h2>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar cliente ou obra..."
+              className="h-9 w-72 pl-8"
+            />
           </div>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                <Th label="Cliente" col="cliente" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <TableHead>Descrição</TableHead>
-                <Th label="Valor aprovado" col="valor" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <Th label="Faturado" col="faturado" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <Th label="Saldo" col="saldo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <Th label="% Executado" col="pct" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <Th label="Próx. medição" col="proximaMedicao" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtrados.length === 0 ? (
-                <TableRow><TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">Nenhum orçamento aprovado encontrado.</TableCell></TableRow>
-              ) : filtrados.map(r => (
-                <LinhaOrc
-                  key={r.orcamento.id}
-                  resumo={r}
-                  expandido={expandido === r.orcamento.id}
-                  onToggle={() => setExpandido(x => x === r.orcamento.id ? null : r.orcamento.id)}
-                  onLancar={() => setNovaMed({ open: true, orcamentoId: r.orcamento.id })}
-                  onEditMed={m => setEditMed(m)}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
-
-      {/* Modais */}
-      <MedicaoForm
-        key={novaMed.open ? `nova-${novaMed.orcamentoId ?? "vazio"}` : "nova-closed"}
-        open={novaMed.open}
-        onOpenChange={o => !o && setNovaMed({ open: false })}
-        orcamentoIdInicial={novaMed.orcamentoId}
-        orcamentosAprovados={orcamentosAprovados}
-      />
-      <MedicaoForm
-        key={editMed?.id ?? "edit-closed"}
-        open={!!editMed}
-        onOpenChange={o => !o && setEditMed(null)}
-        medicao={editMed ?? undefined}
-        orcamentosAprovados={orcamentosAprovados}
-      />
-    </div>
-  );
-}
-
-// ------------------------------------------------------------
-function KpiCard({ label, value, icon: Icon, tone }: {
-  label: string; value: string; icon: React.ElementType; tone: "azul" | "laranja";
-}) {
-  const cor = tone === "laranja" ? "text-[#F37032]" : "text-[#213368]";
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#213368] text-white">
-          <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      <div className={`mt-3 text-xl font-extrabold ${cor}`}>{value}</div>
-      <div className="mt-1 text-[11px] font-medium text-muted-foreground">{label}</div>
-    </Card>
-  );
-}
-
-function Th({ label, col, sortBy, sortDir, onClick }: {
-  label: string; col: SortCol; sortBy: SortCol; sortDir: "asc" | "desc"; onClick: (c: SortCol) => void;
-}) {
-  const Icon = sortBy !== col ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
-  return (
-    <TableHead>
-      <button onClick={() => onClick(col)} className="inline-flex items-center gap-1 font-semibold hover:text-[#F37032]">
-        {label} <Icon className="h-3 w-3" />
-      </button>
-    </TableHead>
-  );
-}
-
-// ------------------------------------------------------------
-function LinhaOrc({ resumo: r, expandido, onToggle, onLancar, onEditMed }: {
-  resumo: ResumoOrcamento; expandido: boolean; onToggle: () => void;
-  onLancar: () => void; onEditMed: (m: Medicao) => void;
-}) {
-  const medicoes = useMedicoes(s =>
-    s.filter(m => m.orcamentoId === r.orcamento.id).sort((a, b) => a.data.localeCompare(b.data))
-  );
-  const cor = progressColor(r.pct);
-  const statusMap: Record<string, string> = {
-    "Concluído": "Concluído",
-    "Em execução": "Em andamento",
-    "Aguardando início": "Planejamento",
-  };
-
-  return (
-    <>
-      <TableRow className="cursor-pointer hover:bg-muted/50" onClick={onToggle}>
-        <TableCell>
-          {expandido ? <ChevronDown className="h-4 w-4 text-[#213368]" /> : <ChevronRight className="h-4 w-4 text-[#213368]" />}
-        </TableCell>
-        <TableCell className="font-semibold">{r.orcamento.cliente}</TableCell>
-        <TableCell className="max-w-xs truncate text-xs">{r.orcamento.obra}</TableCell>
-        <TableCell className="font-semibold">{brl(r.orcamento.valor)}</TableCell>
-        <TableCell className="text-[#F37032] font-semibold">{brl(r.faturado)}</TableCell>
-        <TableCell className="font-semibold">{brl(r.saldo)}</TableCell>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-24 overflow-hidden rounded-full bg-[#213368]/10">
-              <div className="h-full transition-all" style={{ width: `${r.pct}%`, background: cor }} />
-            </div>
-            <span className="text-xs font-semibold text-[#213368]">{r.pct}%</span>
-          </div>
-        </TableCell>
-        <TableCell className="text-xs">{r.proximaMedicao ? fmtData(r.proximaMedicao) : "—"}</TableCell>
-        <TableCell><StatusBadge status={statusMap[r.statusExec] ?? r.statusExec} /></TableCell>
-        <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-          <div className="flex justify-end gap-1">
-            <Button size="sm" variant="ghost" onClick={onToggle} className="text-xs h-8">Ver medições</Button>
-            <Button size="sm" onClick={onLancar} className="bg-[#F37032] text-white hover:bg-[#ff8850] text-xs h-8">
-              <Plus className="mr-1 h-3 w-3" /> Lançar
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-      {expandido && (
-        <TableRow>
-          <TableCell colSpan={10} className="bg-muted/30 p-6">
-            <AccordionMedicoes resumo={r} medicoes={medicoes} onLancar={onLancar} onEditMed={onEditMed} />
-          </TableCell>
-        </TableRow>
-      )}
-    </>
-  );
-}
-
-// ------------------------------------------------------------
-function AccordionMedicoes({ resumo: r, medicoes, onLancar, onEditMed }: {
-  resumo: ResumoOrcamento; medicoes: Medicao[]; onLancar: () => void; onEditMed: (m: Medicao) => void;
-}) {
-  const medStatusBadgeCor: Record<MedStatus, string> = {
-    "Recebida": "#16A34A",
-    "Lançada": "#F37032",
-    "Em aprovação": "#213368",
-    "Prevista": "#94A3B8",
-  };
-
-  return (
-    <div className="space-y-5">
-      {/* Mini-timeline */}
-      <div>
-        <div className="text-xs font-semibold text-[#213368] mb-3">Linha do tempo</div>
-        {medicoes.length === 0 ? (
-          <div className="text-xs text-muted-foreground">Nenhuma medição lançada.</div>
-        ) : (
-          <div className="relative flex items-center overflow-x-auto pb-2">
-            <div className="absolute left-0 right-0 top-3 h-0.5 bg-[#213368]/20" />
-            {medicoes.map((m, idx) => (
-              <div key={m.id} className="relative flex flex-col items-center min-w-[110px] px-2">
-                <div
-                  className="z-10 h-6 w-6 rounded-full border-2 border-white shadow flex items-center justify-center"
-                  style={{ background: medStatusBadgeCor[m.status] }}
-                >
-                  <Circle className="h-2 w-2 fill-white text-white" />
-                </div>
-                <div className="mt-2 text-[10px] font-bold text-[#213368]">{m.numero}</div>
-                <div className="text-[10px] text-muted-foreground">{fmtData(m.data)}</div>
-                <div className="text-[10px] font-semibold text-[#F37032]">{brl(m.valor)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tabela de medições */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xs font-semibold text-[#213368]">Medições — {r.orcamento.numero}</div>
-          <Button size="sm" onClick={onLancar} className="bg-[#F37032] text-white hover:bg-[#ff8850] h-8 text-xs">
-            <Plus className="mr-1 h-3 w-3" /> Lançar nova medição
-          </Button>
-        </div>
-        {medicoes.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
-            Sem medições registradas para este orçamento.
+        {linhas.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Nenhum orçamento aprovado até o momento.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nº</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Previsão receb.</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {medicoes.map(m => (
-                  <TableRow key={m.id}>
-                    <TableCell className="font-bold text-[#213368]">{m.numero}</TableCell>
-                    <TableCell className="text-xs">{fmtData(m.data)}</TableCell>
-                    <TableCell className="text-xs">{m.descricao || "—"}</TableCell>
-                    <TableCell className="font-semibold text-[#F37032]">{brl(m.valor)}</TableCell>
-                    <TableCell className="text-xs">{fmtData(m.previsaoRecebimento)}</TableCell>
-                    <TableCell>
-                      <span
-                        className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
-                        style={{ background: medStatusBadgeCor[m.status] }}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-slate-50 text-left text-xs uppercase text-muted-foreground">
+                  <th className="w-8 px-3 py-2"></th>
+                  <ThSort label="Cliente"       k="cliente"  sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                  <ThSort label="Obra"          k="obra"     sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                  <ThSort label="Valor aprovado" k="valor"   sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} className="text-right" />
+                  <ThSort label="Faturado"      k="faturado" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} className="text-right" />
+                  <ThSort label="Saldo"         k="saldo"    sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} className="text-right" />
+                  <ThSort label="% Executado"   k="pct"      sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linhas.map(({ orc, meds, faturado, saldo, pct }) => {
+                  const aberto = expandido === orc.id;
+                  const st = statusExecucao(pct);
+                  return (
+                    <>
+                      <tr
+                        key={orc.id}
+                        className="cursor-pointer border-b hover:bg-slate-50"
+                        onClick={() => setExpandido(aberto ? null : orc.id)}
                       >
-                        {m.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => onEditMed(m)}>
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            if (confirm(`Excluir medição ${m.numero}?`)) {
-                              medicoesActions.excluir(m.id);
-                              toast.success("Medição excluída.");
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        <td className="px-3 py-3">
+                          {aberto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </td>
+                        <td className="px-3 py-3 font-semibold" style={{ color: AZUL }}>{orc.cliente || "—"}</td>
+                        <td className="px-3 py-3">{orc.obra || "—"}</td>
+                        <td className="px-3 py-3 text-right">{brl(orc.valor)}</td>
+                        <td className="px-3 py-3 text-right">{brl(faturado)}</td>
+                        <td className="px-3 py-3 text-right">{brl(saldo)}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
+                              <div className="h-full" style={{ width: `${pct}%`, background: corBarra(pct) }} />
+                            </div>
+                            <span className="text-xs font-semibold">{pct.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white"
+                            style={{ background: st.color }}
+                          >
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            className="h-8"
+                            style={{ background: LARANJA, color: "white" }}
+                            onClick={() => abrirNovaMed(orc)}
+                          >
+                            <Plus className="mr-1 h-3.5 w-3.5" /> Medição
+                          </Button>
+                        </td>
+                      </tr>
+                      {aberto && (
+                        <tr key={`${orc.id}-exp`} className="border-b bg-slate-50/60">
+                          <td colSpan={9} className="p-4">
+                            <AccordionMedicoes
+                              orc={orc}
+                              meds={meds}
+                              pct={pct}
+                              onEditar={(m) => abrirEditar(orc, m)}
+                              onExcluir={excluirMed}
+                              onNova={() => abrirNovaMed(orc)}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      {orcamentoSelecionado && (
+        <MedicaoModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          orcamento={orcamentoSelecionado}
+          jaFaturado={
+            (medicoes ?? [])
+              .filter(m => m.orcamento_id === orcamentoSelecionado.id && (!editMed || m.id !== editMed.id))
+              .reduce((a, m) => a + (m.valor ?? 0), 0)
+          }
+          proximoNumero={editMed ? editMed.numero : proximoNumeroMed(orcamentoSelecionado.id)}
+          existente={editMed}
+          onSalvar={salvarMed}
+        />
+      )}
     </div>
   );
 }
 
-// ------------------------------------------------------------
-function MedicaoForm({ open, onOpenChange, orcamentoIdInicial, medicao, orcamentosAprovados }: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  orcamentoIdInicial?: string;
-  medicao?: Medicao;
-  orcamentosAprovados: Orcamento[];
+// ============================================================
+// Sub-componentes
+// ============================================================
+
+function KpiCard({ titulo, valor, cor }: { titulo: string; valor: string; cor: string }) {
+  return (
+    <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{titulo}</p>
+      <p className="mt-1 text-2xl font-extrabold" style={{ color: cor }}>{valor}</p>
+    </div>
+  );
+}
+
+function EmptyChart() {
+  return (
+    <div className="flex h-[280px] flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+      <TrendingUp className="h-8 w-8 opacity-40" />
+      Sem dados suficientes para exibir.
+    </div>
+  );
+}
+
+function ThSort({
+  label, k, sortKey, sortDir, onClick, className = "",
+}: {
+  label: string;
+  k: "cliente" | "obra" | "valor" | "faturado" | "saldo" | "pct";
+  sortKey: string;
+  sortDir: "asc" | "desc";
+  onClick: (k: any) => void;
+  className?: string;
 }) {
-  const medicoes = useMedicoes(s => s);
-  const isEdit = !!medicao;
-
-  const [orcamentoId, setOrcamentoId] = useState<string>(
-    medicao?.orcamentoId ?? orcamentoIdInicial ?? orcamentosAprovados[0]?.id ?? "",
+  const active = sortKey === k;
+  return (
+    <th className={`px-3 py-2 ${className}`}>
+      <button
+        type="button"
+        onClick={() => onClick(k)}
+        className={`inline-flex items-center gap-1 ${active ? "text-slate-900" : ""}`}
+      >
+        {label}
+        <ArrowUpDown className={`h-3 w-3 ${active ? "opacity-100" : "opacity-40"}`} />
+        {active && <span className="text-[10px]">{sortDir === "asc" ? "↑" : "↓"}</span>}
+      </button>
+    </th>
   );
-  const [data, setData] = useState(medicao?.data ?? new Date().toISOString().slice(0, 10));
-  const [valor, setValor] = useState<number>(medicao?.valor ?? 0);
-  const [descricao, setDescricao] = useState(medicao?.descricao ?? "");
-  const [previsao, setPrevisao] = useState(medicao?.previsaoRecebimento ?? new Date().toISOString().slice(0, 10));
-  const [status, setStatus] = useState<MedStatus>(medicao?.status ?? "Lançada");
-  const [obs, setObs] = useState(medicao?.observacoes ?? "");
+}
 
-  const orc = orcamentosAprovados.find(o => o.id === orcamentoId);
-  const numero = useMemo(
-    () => medicao?.numero ?? (orcamentoId ? proximoNumeroMedicao(orcamentoId) : "MED-001"),
-    [orcamentoId, medicao],
+function AccordionMedicoes({
+  orc, meds, pct, onEditar, onExcluir, onNova,
+}: {
+  orc: Orcamento;
+  meds: Medicao[];
+  pct: number;
+  onEditar: (m: Medicao) => void;
+  onExcluir: (id: string) => void;
+  onNova: () => void;
+}) {
+  const total = orc.valor ?? 0;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1">
+          <div className="mb-1 flex items-center justify-between text-xs">
+            <span className="font-semibold" style={{ color: AZUL }}>
+              Execução do orçamento
+            </span>
+            <span className="font-semibold">{pct.toFixed(1)}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full transition-all" style={{ width: `${pct}%`, background: corBarra(pct) }} />
+          </div>
+        </div>
+        <Button
+          size="sm"
+          style={{ background: LARANJA, color: "white" }}
+          onClick={onNova}
+        >
+          <Plus className="mr-1 h-4 w-4" /> Lançar nova medição
+        </Button>
+      </div>
+
+      {meds.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+          Nenhuma medição lançada para este orçamento.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-white">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-left uppercase text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Nº</th>
+                <th className="px-3 py-2">Data</th>
+                <th className="px-3 py-2">Descrição</th>
+                <th className="px-3 py-2 text-right">Valor</th>
+                <th className="px-3 py-2 text-right">% do total</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {meds.map(m => (
+                <tr key={m.id} className="border-t">
+                  <td className="px-3 py-2 font-semibold">{m.numero}</td>
+                  <td className="px-3 py-2">{m.data ? new Date(m.data).toLocaleDateString("pt-BR") : "—"}</td>
+                  <td className="px-3 py-2">{m.descricao || "—"}</td>
+                  <td className="px-3 py-2 text-right">{brl(m.valor)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {total > 0 ? ((m.valor / total) * 100).toFixed(1) : "0"}%
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold">
+                      {m.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEditar(m)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-600" onClick={() => onExcluir(m.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
+}
 
-  const outrasMeds = medicoes.filter(m => m.orcamentoId === orcamentoId && m.id !== medicao?.id);
-  const jaFaturadoOutros = outrasMeds.reduce((a, m) => a + m.valor, 0);
-  const saldoAntes = orc ? Math.max(0, orc.valor - jaFaturadoOutros) : 0;
-  const pctSaldo = saldoAntes > 0 ? Math.min(100, (valor / saldoAntes) * 100) : 0;
+// ============================================================
+// Modal de medição
+// ============================================================
+function MedicaoModal({
+  open, onClose, orcamento, jaFaturado, proximoNumero, existente, onSalvar,
+}: {
+  open: boolean;
+  onClose: () => void;
+  orcamento: Orcamento;
+  jaFaturado: number;
+  proximoNumero: string;
+  existente: Medicao | null;
+  onSalvar: (m: Omit<Medicao, "id"> & { id?: string }) => Promise<void>;
+}) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [numero, setNumero] = useState(proximoNumero);
+  const [data, setData] = useState(hoje);
+  const [valor, setValor] = useState<number>(0);
+  const [descricao, setDescricao] = useState("");
+  const [dataRecebimento, setDataRecebimento] = useState<string>("");
+  const [status, setStatus] = useState<MedStatus>("Lançada");
+  const [observacoes, setObservacoes] = useState("");
+  const [salvando, setSalvando] = useState(false);
 
-  function salvar() {
-    if (!orcamentoId) return toast.error("Selecione um orçamento.");
-    if (valor <= 0) return toast.error("Valor deve ser maior que zero.");
-    if (isEdit && medicao) {
-      medicoesActions.atualizar(medicao.id, {
-        orcamentoId, data, valor, descricao, previsaoRecebimento: previsao, status, observacoes: obs,
-      });
-      toast.success("Medição atualizada.");
+  useEffect(() => {
+    if (existente) {
+      setNumero(existente.numero);
+      setData(existente.data ?? hoje);
+      setValor(existente.valor ?? 0);
+      setDescricao(existente.descricao ?? "");
+      setDataRecebimento(existente.data_recebimento ?? "");
+      setStatus(existente.status);
+      setObservacoes(existente.observacoes ?? "");
     } else {
-      medicoesActions.criar({
-        orcamentoId, numero, data, valor, descricao, previsaoRecebimento: previsao, status, observacoes: obs,
-      });
-      toast.success(`Medição ${numero} lançada.`);
+      setNumero(proximoNumero);
+      setData(hoje);
+      setValor(0);
+      setDescricao("");
+      setDataRecebimento("");
+      setStatus("Lançada");
+      setObservacoes("");
     }
-    onOpenChange(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existente, proximoNumero, open]);
+
+  const saldoRestante = Math.max(0, (orcamento.valor ?? 0) - jaFaturado);
+  const pctDoSaldo = saldoRestante > 0 ? Math.min(100, (valor / saldoRestante) * 100) : 0;
+
+  async function submit() {
+    if (valor <= 0) { toast.error("Informe um valor válido"); return; }
+    setSalvando(true);
+    try {
+      await onSalvar({
+        orcamento_id: orcamento.id,
+        numero,
+        data,
+        descricao,
+        valor,
+        data_recebimento: dataRecebimento || null,
+        status,
+        observacoes,
+      });
+    } finally {
+      setSalvando(false);
+    }
   }
 
-  const corBarra = pctSaldo > 90 ? "#DC2626" : pctSaldo >= 50 ? "#F37032" : "#16A34A";
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-[#213368]">{isEdit ? "Editar medição" : "Lançar nova medição"}</DialogTitle>
+          <DialogTitle style={{ color: AZUL }}>
+            {existente ? "Editar medição" : "Lançar medição"}
+          </DialogTitle>
         </DialogHeader>
+
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[#213368]">Orçamento vinculado</label>
-            <Select value={orcamentoId} onValueChange={setOrcamentoId} disabled={isEdit}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {orcamentosAprovados.map(o => (
-                  <SelectItem key={o.id} value={o.id}>{o.numero} — {o.cliente}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Orçamento vinculado</Label>
+            <div className="rounded-md border bg-slate-50 px-3 py-2 text-sm">
+              <span className="font-semibold" style={{ color: AZUL }}>{orcamento.cliente || "—"}</span>
+              {orcamento.obra ? ` · ${orcamento.obra}` : ""} · {brl(orcamento.valor)}
+            </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[#213368]">Nº medição</label>
-              <Input value={numero} disabled />
+              <Label className="text-xs">Nº da medição</Label>
+              <Input value={numero} onChange={(e) => setNumero(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#213368]">Data</label>
-              <Input type="date" value={data} onChange={e => setData(e.target.value)} />
+              <Label className="text-xs">Data</Label>
+              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </div>
           </div>
+
           <div>
-            <label className="text-xs font-semibold text-[#213368]">Valor (R$)</label>
+            <Label className="text-xs">Valor (R$)</Label>
             <Input
-              type="number" min={0} step={1000} value={valor}
-              onChange={e => setValor(Number(e.target.value) || 0)}
+              type="number"
+              min={0}
+              step="0.01"
+              value={valor}
+              onChange={(e) => setValor(Number(e.target.value) || 0)}
             />
-            {orc && (
-              <div className="mt-1 space-y-1">
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>{pctSaldo.toFixed(1)}% do saldo restante</span>
-                  <span>Saldo antes: {brl(saldoAntes)}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-[#213368]/10">
-                  <div className="h-full transition-all" style={{ width: `${pctSaldo}%`, background: corBarra }} />
-                </div>
-              </div>
-            )}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Saldo restante: <span className="font-semibold">{brl(saldoRestante)}</span> · Esta medição representa{" "}
+              <span className="font-semibold" style={{ color: LARANJA }}>{pctDoSaldo.toFixed(1)}%</span> do saldo.
+            </p>
           </div>
+
           <div>
-            <label className="text-xs font-semibold text-[#213368]">Descrição</label>
-            <Input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Ex: Fundações, estrutura..." />
+            <Label className="text-xs">Descrição</Label>
+            <Textarea
+              rows={2}
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+            />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[#213368]">Previsão recebimento</label>
-              <Input type="date" value={previsao} onChange={e => setPrevisao(e.target.value)} />
+              <Label className="text-xs">Prev. recebimento</Label>
+              <Input type="date" value={dataRecebimento} onChange={(e) => setDataRecebimento(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[#213368]">Status</label>
-              <Select value={status} onValueChange={v => setStatus(v as MedStatus)}>
+              <Label className="text-xs">Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as MedStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {MED_STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  <SelectItem value="Lançada">Lançada</SelectItem>
+                  <SelectItem value="Em aprovação">Em aprovação</SelectItem>
+                  <SelectItem value="Recebida">Recebida</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
           <div>
-            <label className="text-xs font-semibold text-[#213368]">Observações</label>
-            <Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} />
+            <Label className="text-xs">Observações</Label>
+            <Textarea
+              rows={2}
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+            />
           </div>
         </div>
+
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={salvar} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-            {isEdit ? "Salvar alterações" : "Lançar medição"}
+          <Button variant="ghost" onClick={onClose} disabled={salvando}>Cancelar</Button>
+          <Button
+            style={{ background: LARANJA, color: "white" }}
+            onClick={submit}
+            disabled={salvando}
+          >
+            {salvando ? "Salvando..." : (existente ? "Salvar alterações" : "Lançar medição")}
           </Button>
         </DialogFooter>
       </DialogContent>

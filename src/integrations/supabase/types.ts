@@ -249,6 +249,125 @@ export type Database = {
           },
         ]
       }
+      medicoes: {
+        Row: {
+          created_at: string
+          data: string
+          data_recebimento: string | null
+          descricao: string
+          id: string
+          numero: string
+          observacoes: string
+          orcamento_id: string
+          percentual_fisico: number
+          status: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          data_recebimento?: string | null
+          descricao?: string
+          id: string
+          numero?: string
+          observacoes?: string
+          orcamento_id: string
+          percentual_fisico?: number
+          status?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          data_recebimento?: string | null
+          descricao?: string
+          id?: string
+          numero?: string
+          observacoes?: string
+          orcamento_id?: string
+          percentual_fisico?: number
+          status?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicoes_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamentos: {
+        Row: {
+          anexo: string | null
+          cliente: string
+          cnpj: string
+          created_at: string
+          data_emissao: string | null
+          descricao: string
+          estagio: string
+          id: string
+          notas: Json
+          numero: string
+          obra: string
+          observacoes: string
+          prazo_validade: string | null
+          probabilidade: number
+          responsavel: string
+          status: string
+          timeline: Json
+          tipo_servico: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          anexo?: string | null
+          cliente?: string
+          cnpj?: string
+          created_at?: string
+          data_emissao?: string | null
+          descricao?: string
+          estagio?: string
+          id?: string
+          notas?: Json
+          numero?: string
+          obra?: string
+          observacoes?: string
+          prazo_validade?: string | null
+          probabilidade?: number
+          responsavel?: string
+          status?: string
+          timeline?: Json
+          tipo_servico?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          anexo?: string | null
+          cliente?: string
+          cnpj?: string
+          created_at?: string
+          data_emissao?: string | null
+          descricao?: string
+          estagio?: string
+          id?: string
+          notas?: Json
+          numero?: string
+          obra?: string
+          observacoes?: string
+          prazo_validade?: string | null
+          probabilidade?: number
+          responsavel?: string
+          status?: string
+          timeline?: Json
+          tipo_servico?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
