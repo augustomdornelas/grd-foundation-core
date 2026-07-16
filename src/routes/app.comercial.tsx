@@ -70,6 +70,15 @@ function brToISO(br: string): string {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(br.trim());
   return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
 }
+function toISODate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.includes("/")) {
+    const [d, m, y] = value.split("/");
+    if (!d || !m || !y) return null;
+    return `${y}-${m}-${d}`;
+  }
+  return value;
+}
 function maskBRDate(v: string): string {
   const d = v.replace(/\D/g, "").slice(0, 8);
   if (d.length <= 2) return d;
@@ -626,8 +635,8 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
       descricao: form.descricao.trim(),
       valor: valorNum,
       responsavel: form.responsavel.trim(),
-      data: form.data,
-      validade: form.validade,
+      data: toISODate(form.data) as unknown as string,
+      validade: toISODate(form.validade) as unknown as string,
       status: form.status as OrcStatus,
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
