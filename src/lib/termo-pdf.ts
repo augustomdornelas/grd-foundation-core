@@ -1,5 +1,4 @@
 import { jsPDF } from "jspdf";
-import logoAsset from "@/assets/logo_grd.jpeg.asset.json";
 
 const NAVY: [number, number, number] = [33, 51, 104];
 const ORANGE: [number, number, number] = [243, 112, 50];
@@ -15,7 +14,7 @@ let logoDims: { w: number; h: number } | null = null;
 async function getLogoDataUrl(): Promise<{ url: string; w: number; h: number } | null> {
   if (logoDataUrl && logoDims) return { url: logoDataUrl, ...logoDims };
   try {
-    const res = await fetch(logoAsset.url, { cache: "force-cache" });
+    const res = await fetch("https://grupogrdbrasil.com.br/logo_grd.jpeg", { cache: "force-cache" });
     if (!res.ok) throw new Error("bad status");
     const blob = await res.blob();
     const url = await new Promise<string>((resolve, reject) => {
