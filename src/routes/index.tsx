@@ -100,7 +100,30 @@ function Home() {
         </div>
       </section>
 
+      {/* CTA Catálogo */}
+      <section className="bg-[#213368] py-10 text-white">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 sm:px-6 md:flex-row md:justify-between">
+          <div className="flex items-start gap-4 md:items-center">
+            <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#F37032] md:flex">
+              <PackageSearch className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-extrabold md:text-2xl">Precisa de equipamentos para sua obra?</h3>
+              <p className="mt-1 text-sm text-white/80 md:text-base">
+                Consulte nosso catálogo de equipamentos disponíveis para locação e entre em contato.
+              </p>
+            </div>
+          </div>
+          <Button asChild size="lg" className="bg-[#F37032] text-white shadow-lg transition hover:bg-[#ff8850] hover:-translate-y-0.5">
+            <Link to="/catalogo">
+              Ver catálogo de equipamentos <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
+      </section>
+
       {/* Indicadores */}
+
       <section className="bg-[#213368] py-14 text-white">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 sm:px-6 md:grid-cols-4">
           {[
