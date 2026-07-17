@@ -222,7 +222,7 @@ function uid(prefix: string) {
 
 export const equipActions = {
   criarEquipamento(input: Omit<Equipamento, "id">) {
-    const id = uid("E");
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("E");
     state = { ...state, equipamentos: [...state.equipamentos, { ...input, id }] };
     emit();
     void supabase.from("equipamentos").insert({
@@ -275,7 +275,7 @@ export const equipActions = {
     void supabase.from("equipamentos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   async registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">): Promise<string | null> {
-    const id = uid("EM");
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
     const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
     const emprestimoPayload = {
@@ -405,7 +405,7 @@ export const equipActions = {
     }
   },
   registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
-    const id = uid("MAN");
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("MAN");
     const custo = (input.custoPecas || 0) + (input.custoMaoObra || 0);
     const aberta = input.statusManut !== "Concluída";
     const novo: Manutencao = { ...input, id, custo, aberta };
