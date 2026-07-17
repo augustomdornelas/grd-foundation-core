@@ -29,5 +29,6 @@ function AppLayout() {
   let title = titles[pathname] ?? "Portal";
   if (pathname.startsWith("/app/projetos/") && pathname !== "/app/projetos") title = "Detalhe do Projeto";
   if (pathname.startsWith("/app/equipamentos/") && pathname !== "/app/equipamentos") title = "Detalhe do Equipamento";
+  if (pathname.startsWith("/app/clientes/") && pathname !== "/app/clientes") title = "Detalhe do Cliente";
   return <PortalLayout title={title} />;
 }
