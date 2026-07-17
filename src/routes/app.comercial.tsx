@@ -6,7 +6,7 @@
 // - Fonte única: orcamentos-store (compartilhada com /app).
 // ============================================================
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
