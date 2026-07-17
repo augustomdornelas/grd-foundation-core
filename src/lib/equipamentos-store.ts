@@ -283,6 +283,7 @@ export const equipActions = {
     const emprestimoPayload = {
       id,
       equipamento_id: input.equipamentoId,
+      cliente_id: input.clienteId ?? null,
       destino: input.destino,
       responsavel: input.responsavel,
       responsavel_cpf: input.responsavelCpf ?? null,
