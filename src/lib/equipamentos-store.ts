@@ -222,7 +222,7 @@ function uid(prefix: string) {
 
 export const equipActions = {
   criarEquipamento(input: Omit<Equipamento, "id">) {
-    const id = uid("E");
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("E");
     state = { ...state, equipamentos: [...state.equipamentos, { ...input, id }] };
     emit();
     void supabase.from("equipamentos").insert({
