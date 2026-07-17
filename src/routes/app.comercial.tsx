@@ -21,7 +21,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Eye, Pencil, Copy, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  DollarSign, FileText, TrendingUp, CheckCircle2, Clock,
+  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, HandshakeIcon,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -175,6 +175,7 @@ function Comercial() {
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
     const abertos = noPer.filter(o => o.status === "Levantamento" || o.status === "Aguardando Retorno" || o.status === "Em negociação");
     const abertoValor = abertos.reduce((a, o) => a + num(o.valor), 0);
+    const emNegociacaoValor = noPer.filter(o => o.status === "Em negociação").reduce((a, o) => a + num(o.valor), 0);
 
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
@@ -243,7 +244,7 @@ function Comercial() {
       });
     }
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, topClientes, acompanhamento };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, emNegociacaoValor, meses, porStatus, porTipo, porResp, topClientes, acompanhamento };
 
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
@@ -398,12 +399,13 @@ function Comercial() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Valor total" value={brl(metricas.total)} icon={DollarSign} />
         <Kpi label="Nº de orçamentos" value={String(metricas.qtd)} icon={FileText} />
         <Kpi label="Ticket médio" value={brl(metricas.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${metricas.conv.toFixed(0)}%`} icon={CheckCircle2} />
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
+        <Kpi label="Em negociação" value={brl(metricas.emNegociacaoValor)} icon={HandshakeIcon} />
       </div>
 
       {/* Gráficos linha 1 */}
