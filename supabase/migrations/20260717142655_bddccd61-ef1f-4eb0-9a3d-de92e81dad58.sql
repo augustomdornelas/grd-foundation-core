@@ -1,0 +1,2 @@
+alter table public.emprestimos add column if not exists cliente_id uuid references public.clientes(id) on delete set null;
+create index if not exists idx_emprestimos_cliente_id on public.emprestimos(cliente_id);
