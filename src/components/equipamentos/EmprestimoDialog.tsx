@@ -293,27 +293,23 @@ export function EmprestimoDialog({
             </DialogTitle>
           </DialogHeader>
           {preview && (
-            <div className="flex flex-col" style={{ height: "80vh" }}>
-              <div className="flex-1 bg-[#f0f0f2]">
-                <PDFViewer style={{ width: "100%", height: "100%", border: 0 }} showToolbar={false}>
-                  <TermoEmprestimoDocument t={preview} />
-                </PDFViewer>
-              </div>
-              <div className="flex items-center justify-end gap-2 border-t bg-white px-6 py-3">
-                <Button variant="outline" onClick={() => setPreview(null)}>Fechar</Button>
-                <PDFDownloadLink
-                  document={<TermoEmprestimoDocument t={preview} />}
-                  fileName={termoFileName(preview)}
-                >
-                  {({ loading }) => (
-                    <Button className="bg-[#F37032] text-white hover:bg-[#d95d24]">
-                      <Download className="mr-2 h-4 w-4" />
-                      {loading ? "Preparando…" : "Baixar PDF"}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
-              </div>
-            </div>
+            <ClientOnly
+              fallback={
+                <div className="flex h-[80vh] items-center justify-center text-sm text-muted-foreground">
+                  Gerando PDF…
+                </div>
+              }
+            >
+              <Suspense
+                fallback={
+                  <div className="flex h-[80vh] items-center justify-center text-sm text-muted-foreground">
+                    Gerando PDF…
+                  </div>
+                }
+              >
+                <TermoPreview t={preview} onClose={() => setPreview(null)} />
+              </Suspense>
+            </ClientOnly>
           )}
         </DialogContent>
       </Dialog>
