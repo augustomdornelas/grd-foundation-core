@@ -175,6 +175,7 @@ function Comercial() {
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
     const abertos = noPer.filter(o => o.status === "Levantamento" || o.status === "Aguardando Retorno" || o.status === "Em negociação");
     const abertoValor = abertos.reduce((a, o) => a + num(o.valor), 0);
+    const emNegociacaoValor = noPer.filter(o => o.status === "Em negociação").reduce((a, o) => a + num(o.valor), 0);
 
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
