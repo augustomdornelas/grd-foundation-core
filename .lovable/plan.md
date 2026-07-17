@@ -1,41 +1,35 @@
+
 ## Diagnóstico
 
-Após a atualização do modal de "Registrar empréstimo" o módulo começou a usar `@react-pdf/renderer` (via `PDFViewer` / `PDFDownloadLink` e `TermoEmprestimoDocument`) importado **no topo** de `src/components/equipamentos/EmprestimoDialog.tsx`. Esse componente é importado diretamente pelas rotas:
+Não consigo reproduzir o erro no navegador porque a sessão do sandbox está deslogada. Do lado do servidor:
 
-- `src/routes/app.equipamentos.index.tsx`
-- `src/routes/app.equipamentos.$id.tsx`
+- Tabela `orcamentos` tem 0 registros mas está com todas as colunas corretas e permissões OK.
+- A rota `/app/comercial` **não define `errorComponent`** — se qualquer coisa lançar exceção dentro do componente, a UI cai no boundary genérico do TanStack mostrando "erro de carregamento" sem mensagem detalhada.
+- No cálculo dos KPIs (`useMemo`), há divisões que quebram quando o dataset está vazio (`ticket = total/qtd`, `conv = aprovados/total`) e conversões numéricas sem coerção defensiva (`a + o.valor` com `valor` possivelmente `null` vindo do banco).
 
-`@react-pdf/renderer` é uma biblioteca browser-only e muito pesada. Importada no grafo síncrono de uma rota que também roda em SSR (TanStack Start), ela quebra a renderização/hydration do módulo Equipamentos assim que qualquer rota do módulo é aberta em produção — sintoma exato de "o site parou de funcionar depois da atualização em Registrar Empréstimo".
+Ou seja, tem duas coisas a resolver: **(a)** mostrar a mensagem real do erro ao invés de tela de "erro de carregamento" e **(b)** blindar os cálculos para não estourarem com base vazia ou valores nulos.
 
-Confirmado nesta investigação:
-- SSR do `/app/equipamentos` retorna 200, mas o HTML volta praticamente vazio (~4 KB, só o shell) — a árvore da rota não hidrata.
-- Nenhum outro arquivo foi tocado após a introdução do PDF que justifique a quebra.
-- O restante do projeto (equipamentos GET, dashboard etc.) continua respondendo normal — o problema é escopado ao bundle que carrega o dialog.
+## Plano
 
-## Correção proposta (somente frontend, sem tocar em dados)
+### 1. Adicionar `errorComponent` em `/app/comercial`
+- Editar `src/routes/app.comercial.tsx` e passar `errorComponent` no `createFileRoute`, exibindo `error.message` + botão "Tentar novamente" que chama `router.invalidate()` + `reset()`.
+- Assim, mesmo que a causa raiz seja outra, o usuário (e nós) vemos o erro exato no lugar do "erro de carregamento".
 
-1. **Isolar `@react-pdf/renderer` do grafo de módulos das rotas**
-   - Remover os imports de `PDFViewer`, `PDFDownloadLink`, `TermoEmprestimoDocument` e `termoFileName` do topo de `EmprestimoDialog.tsx`.
-   - Criar `src/components/equipamentos/TermoPreview.tsx` contendo toda a UI do modal de prévia do PDF (viewer + botão de download). Esse componente concentra 100% dos imports de `@react-pdf/renderer` e do `termo-emprestimo-pdf`.
-   - Em `EmprestimoDialog.tsx` carregar `TermoPreview` via `React.lazy(() => import('./TermoPreview'))` dentro de `<ClientOnly>` + `<Suspense fallback={...}>`, montado apenas quando `previewOpen === true`.
-   - Resultado: SSR e o bundle inicial das rotas de Equipamentos deixam de puxar `@react-pdf/renderer`; ele só é baixado quando o usuário salva um empréstimo.
+### 2. Blindar os cálculos do dashboard
+Em `src/routes/app.comercial.tsx`, dentro do `useMemo` de métricas:
+- Trocar todos os `a + o.valor` por `a + Number(o.valor ?? 0)`.
+- Guardar divisões: `ticket = qtd ? total / qtd : 0`, `conv = total ? valorAprovado / total : 0`.
+- No filtro por data (`dentro(o.data, range)` e `new Date(o.data)`), tratar `o.data` vazio/`null` sem lançar (`if (!o.data) return false`).
 
-2. **Fallback de download seguro**
-   - Enquanto a prévia (`PDFViewer`) está carregando, exibir estado "Gerando PDF…" com botão desabilitado. `PDFDownloadLink` também fica dentro do `TermoPreview`, então não precisa de nenhum shim adicional.
+### 3. Blindar o `fromRow` da store
+Em `src/lib/orcamentos-store.ts`, garantir que `valor`, `probabilidade` são sempre `number` finito (`Number.isFinite(x) ? x : 0`) — já quase está, só reforçar contra `NaN`.
 
-3. **Validação**
-   - `curl` em `/app/equipamentos` e `/app/equipamentos/:id` deve devolver HTML SSR com conteúdo real da página (não só o shell).
-   - Abrir a rota via Playwright autenticado (quando o usuário reabrir logado) e conferir: (a) página monta, (b) botão "Registrar empréstimo" abre o modal, (c) após salvar, a prévia do PDF aparece e o download funciona.
-   - Nenhum erro `window is not defined` / `iframe is not defined` no log do dev-server nem no console do preview.
+### 4. Verificar depois do fix
+Rodar Playwright já autenticado (se possível) ou pedir print do console ao usuário. Se após o `errorComponent` a página seguir mostrando erro, veremos a mensagem real e trato na sequência.
 
-## Fora de escopo (não vou mexer)
+### Observação
+Se o que você vê literalmente é uma tela em branco (não a mensagem "erro de carregamento") ou o texto do erro é diferente, me passe: **(a)** print da tela e **(b)** mensagem do console (F12 → Console). Com o `errorComponent` novo isso vai aparecer explicitamente na própria página.
 
-- Schema do Supabase, RLS, colunas de `emprestimos`, políticas.
-- Fluxo de negócio do empréstimo (validações, cálculo de custo, campos do formulário).
-- Layout/estilo do PDF (`termo-emprestimo-pdf.tsx` fica igual — só muda quem o importa).
-- Autenticação do preview (o redirecionamento para `/login` observado agora é apenas porque a sessão de teste está `signed_out`, não é o bug reportado).
+---
 
-## Arquivos afetados
-
-- `src/components/equipamentos/EmprestimoDialog.tsx` — remover imports pesados, montar prévia via `lazy` + `ClientOnly`.
-- `src/components/equipamentos/TermoPreview.tsx` — **novo**, encapsula `PDFViewer`, `PDFDownloadLink` e o documento.
+Se aprovar, aplico as 3 alterações acima em um único passo.

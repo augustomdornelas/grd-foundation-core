@@ -31,7 +31,6 @@ export type Equipamento = {
 export type Emprestimo = {
   id: string;
   equipamentoId: string;
-  clienteId?: string;
   destino: string;
   responsavel: string;
   responsavelCpf?: string;
@@ -127,7 +126,6 @@ async function fetchAll() {
       })),
       emprestimos: (emp.data ?? []).map((r: any) => ({
         id: r.id, equipamentoId: r.equipamento_id ?? "",
-        clienteId: r.cliente_id ?? undefined,
         destino: r.destino ?? "", responsavel: r.responsavel ?? "",
         responsavelCpf: r.responsavel_cpf ?? undefined,
         responsavelRg: r.responsavel_rg ?? undefined,
@@ -283,7 +281,6 @@ export const equipActions = {
     const emprestimoPayload = {
       id,
       equipamento_id: input.equipamentoId,
-      cliente_id: input.clienteId ?? null,
       destino: input.destino,
       responsavel: input.responsavel,
       responsavel_cpf: input.responsavelCpf ?? null,

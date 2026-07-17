@@ -86,7 +86,6 @@ export type Database = {
       emprestimos: {
         Row: {
           ativo: boolean
-          cliente_id: string | null
           condicao_devolucao: string | null
           created_at: string
           custo_periodo: number
@@ -113,7 +112,6 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
-          cliente_id?: string | null
           condicao_devolucao?: string | null
           created_at?: string
           custo_periodo?: number
@@ -140,7 +138,6 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
-          cliente_id?: string | null
           condicao_devolucao?: string | null
           created_at?: string
           custo_periodo?: number
@@ -166,13 +163,6 @@ export type Database = {
           unidade?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "emprestimos_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "emprestimos_equipamento_id_fkey"
             columns: ["equipamento_id"]
