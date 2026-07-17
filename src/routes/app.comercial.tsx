@@ -399,12 +399,13 @@ function Comercial() {
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Valor total" value={brl(metricas.total)} icon={DollarSign} />
         <Kpi label="Nº de orçamentos" value={String(metricas.qtd)} icon={FileText} />
         <Kpi label="Ticket médio" value={brl(metricas.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${metricas.conv.toFixed(0)}%`} icon={CheckCircle2} />
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
+        <Kpi label="Em negociação" value={brl(metricas.emNegociacaoValor)} icon={HandshakeIcon} />
       </div>
 
       {/* Gráficos linha 1 */}
