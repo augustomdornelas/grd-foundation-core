@@ -1,35 +1,35 @@
 
 ## Diagnóstico
 
-Abri `/catalogo` num navegador headless e a página renderiza normalmente (header, hero azul, filtros, seção CTA, footer). Ela mostra **"Nenhum equipamento encontrado"** porque a tabela `equipamentos` no banco está com **0 registros** — confirmei via consulta direta. Não há erro de JavaScript nem tela branca no servidor; os 401 que aparecem no log são de `emprestimos`/`manutencoes` consultados por outras rotas (não afetam `/catalogo`).
+Não consigo reproduzir o erro no navegador porque a sessão do sandbox está deslogada. Do lado do servidor:
 
-Ou seja, o "não está funcionando" é: **a página abre mas não lista nada, porque não há equipamentos cadastrados no sistema.**
+- Tabela `orcamentos` tem 0 registros mas está com todas as colunas corretas e permissões OK.
+- A rota `/app/comercial` **não define `errorComponent`** — se qualquer coisa lançar exceção dentro do componente, a UI cai no boundary genérico do TanStack mostrando "erro de carregamento" sem mensagem detalhada.
+- No cálculo dos KPIs (`useMemo`), há divisões que quebram quando o dataset está vazio (`ticket = total/qtd`, `conv = aprovados/total`) e conversões numéricas sem coerção defensiva (`a + o.valor` com `valor` possivelmente `null` vindo do banco).
 
-## Possíveis causas do que você viu
+Ou seja, tem duas coisas a resolver: **(a)** mostrar a mensagem real do erro ao invés de tela de "erro de carregamento" e **(b)** blindar os cálculos para não estourarem com base vazia ou valores nulos.
 
-1. **Cache do navegador** exibindo um estado antigo — um Ctrl+F5 já resolve visualmente.
-2. **Falta de dados** — nenhum equipamento foi cadastrado ainda em `/app/equipamentos`, então o catálogo público não tem o que exibir.
-3. Você esperava ver equipamentos que existiam antes e sumiram (as tabelas foram recriadas em migrações anteriores, o que apagou os dados).
+## Plano
 
-## Plano de ação
+### 1. Adicionar `errorComponent` em `/app/comercial`
+- Editar `src/routes/app.comercial.tsx` e passar `errorComponent` no `createFileRoute`, exibindo `error.message` + botão "Tentar novamente" que chama `router.invalidate()` + `reset()`.
+- Assim, mesmo que a causa raiz seja outra, o usuário (e nós) vemos o erro exato no lugar do "erro de carregamento".
 
-Escolha um dos caminhos abaixo (posso executar assim que aprovar):
+### 2. Blindar os cálculos do dashboard
+Em `src/routes/app.comercial.tsx`, dentro do `useMemo` de métricas:
+- Trocar todos os `a + o.valor` por `a + Number(o.valor ?? 0)`.
+- Guardar divisões: `ticket = qtd ? total / qtd : 0`, `conv = total ? valorAprovado / total : 0`.
+- No filtro por data (`dentro(o.data, range)` e `new Date(o.data)`), tratar `o.data` vazio/`null` sem lançar (`if (!o.data) return false`).
 
-### Opção A — Popular com equipamentos de demonstração (recomendado para validar rapidamente)
-- Rodar uma migração que insere ~6 equipamentos de exemplo (categorias diferentes, com `custo_periodo`, `unidade_periodo`, `status = 'Disponível'`, foto placeholder) direto na tabela `equipamentos`.
-- Assim `/catalogo` passa a exibir cards agrupados por categoria imediatamente, e você pode editar/excluir depois em `/app/equipamentos`.
+### 3. Blindar o `fromRow` da store
+Em `src/lib/orcamentos-store.ts`, garantir que `valor`, `probabilidade` são sempre `number` finito (`Number.isFinite(x) ? x : 0`) — já quase está, só reforçar contra `NaN`.
 
-### Opção B — Manter vazio e melhorar o estado sem dados
-- Deixar a tabela como está e melhorar visualmente o "empty state" do `/catalogo` (ilustração + CTA de WhatsApp), para quando ainda não houver equipamentos cadastrados.
-- Você cadastra os reais depois via `/app/equipamentos`.
+### 4. Verificar depois do fix
+Rodar Playwright já autenticado (se possível) ou pedir print do console ao usuário. Se após o `errorComponent` a página seguir mostrando erro, veremos a mensagem real e trato na sequência.
 
-### Opção C — Investigar mais fundo
-- Se o que você vê é literalmente uma **tela branca** (sem header/footer), preciso de: print da tela + mensagem do console do navegador (F12 → Console). Nesse caso reabro o diagnóstico com esses dados antes de qualquer alteração de código.
-
-## Observação técnica
-
-O código de `src/routes/catalogo.tsx` está correto: hooks antes de returns, query de `equipamentos` com colunas existentes, RLS pública para `anon` já concedida em migração anterior. Não há nada a corrigir no componente em si.
+### Observação
+Se o que você vê literalmente é uma tela em branco (não a mensagem "erro de carregamento") ou o texto do erro é diferente, me passe: **(a)** print da tela e **(b)** mensagem do console (F12 → Console). Com o `errorComponent` novo isso vai aparecer explicitamente na própria página.
 
 ---
 
-**Qual opção seguir?** Se não responder, sigo com a **Opção A** (seed de 6 equipamentos de demonstração) por ser a que resolve o sintoma imediato com menor risco.
+Se aprovar, aplico as 3 alterações acima em um único passo.
