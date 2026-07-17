@@ -32,7 +32,7 @@ import {
   STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico,
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
-
+import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from "xlsx";
 
 
@@ -709,7 +709,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
         <form className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
           <Campo label="Nº do orçamento"><Input value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} /></Campo>
           <Campo label="Data de emissão"><DateBRInput value={form.data} onChange={iso => setForm({ ...form, data: iso })} /></Campo>
-         <Campo label="Cliente *">
+          <Campo label="Cliente *" className="relative">
             <Input value={buscaCliente || form.cliente} onChange={e => { setBuscaCliente(e.target.value); setForm({ ...form, cliente: e.target.value }); }} placeholder="Buscar ou digitar cliente..." />
             {buscaCliente && clientes.filter(c => c.nome.toLowerCase().includes(buscaCliente.toLowerCase())).length > 0 && (
               <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-white shadow-lg">
