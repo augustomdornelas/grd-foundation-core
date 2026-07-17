@@ -244,7 +244,7 @@ function Comercial() {
       });
     }
 
-    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, meses, porStatus, porTipo, porResp, topClientes, acompanhamento };
+    return { total, qtd, ticket, conv, abertoNum: abertos.length, abertoValor, emNegociacaoValor, meses, porStatus, porTipo, porResp, topClientes, acompanhamento };
 
   }, [orcamentos, periodo.tipo, periodo.ini, periodo.fim]);
 
