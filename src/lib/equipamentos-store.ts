@@ -31,6 +31,7 @@ export type Equipamento = {
 export type Emprestimo = {
   id: string;
   equipamentoId: string;
+  clienteId?: string;
   destino: string;
   responsavel: string;
   responsavelCpf?: string;
