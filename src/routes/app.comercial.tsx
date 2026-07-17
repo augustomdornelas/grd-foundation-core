@@ -167,14 +167,14 @@ function Comercial() {
     const noPer = orcamentos.filter(o => dentro(o.data, range));
     const noAnt = orcamentos.filter(o => dentro(o.data, rangeAnt));
 
-    const total = noPer.reduce((a, o) => a + o.valor, 0);
-    const totalAnt = noAnt.reduce((a, o) => a + o.valor, 0);
+    const total = noPer.reduce((a, o) => a + num(o.valor), 0);
+    const totalAnt = noAnt.reduce((a, o) => a + num(o.valor), 0);
     const qtd = noPer.length;
     const ticket = qtd ? total / qtd : 0;
-    const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
+    const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + num(o.valor), 0);
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
     const abertos = noPer.filter(o => o.status === "Levantamento" || o.status === "Aguardando Retorno" || o.status === "Em negociação");
-    const abertoValor = abertos.reduce((a, o) => a + o.valor, 0);
+    const abertoValor = abertos.reduce((a, o) => a + num(o.valor), 0);
 
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
@@ -183,13 +183,15 @@ function Comercial() {
       const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
       const inRange = d >= range.ini || dNext > range.ini;
       const lst = orcamentos.filter(o => {
+        if (!o.data) return false;
         const od = new Date(o.data);
+        if (isNaN(od.getTime())) return false;
         return od >= d && od < dNext && od >= range.ini && od <= range.fim;
       });
       if (!inRange && !lst.length) continue;
       meses.push({
         mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
-        valor: lst.reduce((a, o) => a + o.valor, 0),
+        valor: lst.reduce((a, o) => a + num(o.valor), 0),
         qtd: lst.length,
       });
     }
@@ -200,18 +202,18 @@ function Comercial() {
 
     const porTipo = TIPOS_SERVICO.map(t => {
       const lst = noPer.filter(o => o.tipo === t);
-      return { tipo: t, valor: lst.reduce((a, o) => a + o.valor, 0), qtd: lst.length };
+      return { tipo: t, valor: lst.reduce((a, o) => a + num(o.valor), 0), qtd: lst.length };
     }).sort((a, b) => b.valor - a.valor);
 
     const porResp = RESPONSAVEIS.map(r => {
       const lst = noPer.filter(o => o.responsavel === r);
-      return { responsavel: r.split(" ")[0], valor: lst.reduce((a, o) => a + o.valor, 0), qtd: lst.length };
+      return { responsavel: r.split(" ")[0], valor: lst.reduce((a, o) => a + num(o.valor), 0), qtd: lst.length };
     });
 
     const clientesMap = new Map<string, number>();
     for (const o of noPer.filter(o => o.status === "Aprovado")) {
       const nome = (o.cliente || "").trim() || "—";
-      clientesMap.set(nome, (clientesMap.get(nome) ?? 0) + o.valor);
+      clientesMap.set(nome, (clientesMap.get(nome) ?? 0) + num(o.valor));
     }
     const topClientes = Array.from(clientesMap.entries())
       .map(([cliente, valor]) => ({ cliente, valor }))
@@ -224,12 +226,14 @@ function Comercial() {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
       const lst = orcamentos.filter(o => {
+        if (!o.data) return false;
         const od = new Date(o.data);
+        if (isNaN(od.getTime())) return false;
         return od >= d && od < dNext;
       });
-      const aprov = lst.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
-      const neg = lst.filter(o => o.status === "Em negociação").reduce((a, o) => a + o.valor, 0);
-      const ag = lst.filter(o => o.status === "Aguardando Retorno").reduce((a, o) => a + o.valor, 0);
+      const aprov = lst.filter(o => o.status === "Aprovado").reduce((a, o) => a + num(o.valor), 0);
+      const neg = lst.filter(o => o.status === "Em negociação").reduce((a, o) => a + num(o.valor), 0);
+      const ag = lst.filter(o => o.status === "Aguardando Retorno").reduce((a, o) => a + num(o.valor), 0);
       acompanhamento.push({
         mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
         Aprovado: aprov,
