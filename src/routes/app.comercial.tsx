@@ -36,7 +36,35 @@ import {
 import * as XLSX from "xlsx";
 
 
-export const Route = createFileRoute("/app/comercial")({ component: Comercial });
+function ComercialError({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div className="mx-auto max-w-2xl p-8">
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+        <h2 className="text-lg font-bold text-red-700">Erro ao carregar o Comercial</h2>
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm text-red-800">
+          {error?.message ?? String(error)}
+        </p>
+        <button
+          onClick={() => { reset(); }}
+          className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export const Route = createFileRoute("/app/comercial")({
+  component: Comercial,
+  errorComponent: ComercialError,
+});
+
+// Coerção defensiva para somas (valor pode vir null/undefined do banco)
+function num(v: unknown): number {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
 const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
