@@ -405,7 +405,7 @@ export const equipActions = {
     }
   },
   registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
-    const id = uid("MAN");
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("MAN");
     const custo = (input.custoPecas || 0) + (input.custoMaoObra || 0);
     const aberta = input.statusManut !== "Concluída";
     const novo: Manutencao = { ...input, id, custo, aberta };
