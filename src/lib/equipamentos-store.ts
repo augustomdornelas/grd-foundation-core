@@ -278,9 +278,8 @@ export const equipActions = {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
     const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
-    const emprestimoPayload = {
-      id,
-      equipamento_id: input.equipamentoId,
+   const emprestimoPayload = {
+  equipamento_id: input.equipamentoId,
       destino: input.destino,
       responsavel: input.responsavel,
       responsavel_cpf: input.responsavelCpf ?? null,
@@ -325,7 +324,7 @@ export const equipActions = {
       }
 
       await fetchAll();
-      return id;
+      return insertResult.data?.id ?? id;
     } catch (err) {
       const message = err instanceof Error ? err.message : "erro desconhecido";
       toast.error(`Erro ao registrar empréstimo: ${message}`);
