@@ -275,7 +275,7 @@ export const equipActions = {
     void supabase.from("equipamentos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   async registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">): Promise<string | null> {
-    const id = uid("EM");
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
     const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
     const emprestimoPayload = {
