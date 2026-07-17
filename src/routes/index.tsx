@@ -101,20 +101,22 @@ function Home() {
       </section>
 
       {/* CTA Catálogo */}
-      <section className="bg-[#213368] py-10 text-white">
+      <section className="py-10" style={{ backgroundColor: "#213368", color: "#FFFFFF" }}>
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 sm:px-6 md:flex-row md:justify-between">
           <div className="flex items-start gap-4 md:items-center">
-            <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#F37032] md:flex">
-              <PackageSearch className="h-7 w-7 text-white" />
+            <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-xl md:flex" style={{ backgroundColor: "#F37032" }}>
+              <PackageSearch className="h-7 w-7" style={{ color: "#FFFFFF" }} />
             </div>
             <div>
-              <h3 className="text-xl font-extrabold md:text-2xl">Precisa de equipamentos para sua obra?</h3>
-              <p className="mt-1 text-sm text-white/80 md:text-base">
+              <h3 className="text-xl font-extrabold md:text-2xl" style={{ color: "#FFFFFF" }}>
+                Precisa de equipamentos para sua obra?
+              </h3>
+              <p className="mt-1 text-sm md:text-base" style={{ color: "rgba(255,255,255,0.8)" }}>
                 Consulte nosso catálogo de equipamentos disponíveis para locação e entre em contato.
               </p>
             </div>
           </div>
-          <Button asChild size="lg" className="bg-[#F37032] text-white shadow-lg transition hover:bg-[#ff8850] hover:-translate-y-0.5">
+          <Button asChild size="lg" className="shadow-lg transition hover:-translate-y-0.5" style={{ backgroundColor: "#F37032", color: "#FFFFFF" }}>
             <Link to="/catalogo">
               Ver catálogo de equipamentos <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
