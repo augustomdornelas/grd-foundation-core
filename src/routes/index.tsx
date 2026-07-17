@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight, Building2, HardHat, Wrench, Cog, Droplets,
-  Shield, Clock, Award, Sparkles, MapPin, Mail, Phone, CheckCircle2, Snowflake, Layers,
+  Shield, Clock, Award, Sparkles, MapPin, Mail, Phone, CheckCircle2, Snowflake, Layers, PackageSearch,
 } from "lucide-react";
 import { useState } from "react";
 import { z } from "zod";
