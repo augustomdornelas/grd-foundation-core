@@ -1,28 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, MessageCircle, Package, Search } from "lucide-react";
-import { Header } from "@/components/site/Header";
-import { Footer } from "@/components/site/Footer";
-import { WhatsAppFab } from "@/components/site/WhatsAppFab";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { brl } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/catalogo")({
   head: () => ({
     meta: [
       { title: "Catálogo de Equipamentos — GRD" },
       { name: "description", content: "Equipamentos disponíveis para locação. Consulte nosso catálogo e entre em contato." },
-      { property: "og:title", content: "Catálogo de Equipamentos — GRD" },
-      { property: "og:description", content: "Equipamentos disponíveis para locação. Consulte nosso catálogo e entre em contato." },
     ],
   }),
-  component: CatalogoPage,
+  component: CatalogPage,
 });
 
-type EquipRow = {
+type Equip = {
   id: string;
   nome: string;
   codigo: string;
@@ -33,209 +23,173 @@ type EquipRow = {
   foto_url: string | null;
 };
 
-const WHATS = "5514997562761";
-const whatsLink = (nome: string) =>
-  `https://wa.me/${WHATS}?text=${encodeURIComponent(
-    `Olá! Vi o catálogo de equipamentos da GRD e gostaria de solicitar informações sobre ${nome}.`,
-  )}`;
-
-function statusStyle(s: string) {
-  if (s === "Disponível") return "bg-emerald-100 text-emerald-700 border-emerald-200";
-  if (s === "Emprestado") return "bg-blue-100 text-blue-700 border-blue-200";
-  return "bg-amber-100 text-amber-800 border-amber-200";
-}
-
-function CatalogoPage() {
-  const [items, setItems] = useState<EquipRow[]>([]);
+function CatalogPage() {
+  const [items, setItems] = useState<Equip[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
-  const [statusFiltro, setStatusFiltro] = useState<"Todos" | "Disponível" | "Emprestado">("Todos");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [filtro, setFiltro] = useState<string>("todos");
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("equipamentos")
-          .select("id,nome,codigo,categoria,status,custo_periodo,unidade_periodo,foto_url")
-          .order("categoria", { ascending: true })
-          .order("nome", { ascending: true });
-        if (error) throw error;
-        setItems((data ?? []) as EquipRow[]);
-      } catch (e) {
-        setErr((e as Error).message);
-      } finally {
+    supabase
+      .from("equipamentos")
+      .select("id, nome, codigo, categoria, status, custo_periodo, unidade_periodo, foto_url")
+      .order("categoria")
+      .order("nome")
+      .then(({ data }) => {
+        setItems((data ?? []) as Equip[]);
         setLoading(false);
-      }
-    })();
+      });
   }, []);
 
-  const filtrados = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    return items.filter((e) => {
-      if (statusFiltro !== "Todos" && e.status !== statusFiltro) return false;
-      if (!q) return true;
-      return e.nome.toLowerCase().includes(q) || (e.codigo ?? "").toLowerCase().includes(q);
-    });
-  }, [items, busca, statusFiltro]);
+  const filtrados = items.filter((e) => {
+    const q = busca.toLowerCase();
+    const matchBusca =
+      !busca ||
+      e.nome?.toLowerCase().includes(q) ||
+      e.codigo?.toLowerCase().includes(q);
+    const matchStatus = filtro === "todos" || e.status === filtro;
+    return matchBusca && matchStatus;
+  });
 
-  const grupos = useMemo(() => {
-    const map = new Map<string, EquipRow[]>();
-    for (const e of filtrados) {
-      const cat = e.categoria || "Sem categoria";
-      if (!map.has(cat)) map.set(cat, []);
-      map.get(cat)!.push(e);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtrados]);
+  const grupos = filtrados.reduce<Record<string, Equip[]>>((acc, e) => {
+    const cat = e.categoria || "Outros";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(e);
+    return acc;
+  }, {});
 
-  const toggle = (cat: string) => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }));
+  const statusColor: Record<string, string> = {
+    Disponível: "bg-green-100 text-green-700",
+    Emprestado: "bg-blue-100 text-blue-700",
+    Manutenção: "bg-yellow-100 text-yellow-700",
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F4F4]">
+        <p className="text-[#213368] font-semibold">Carregando catálogo...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white font-[Montserrat,system-ui,sans-serif]">
-      <Header />
+    <div className="min-h-screen bg-[#F4F4F4] font-[Montserrat,system-ui,sans-serif]">
+      {/* Header */}
+      <div className="bg-white border-b px-6 py-4">
+        <Link to="/" className="text-sm text-[#213368] font-semibold hover:underline">
+          ← Voltar ao site
+        </Link>
+      </div>
 
-      <section className="bg-[#213368] py-14 text-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h1 className="text-3xl font-extrabold md:text-4xl">Catálogo de Equipamentos</h1>
-          <p className="mt-3 max-w-2xl text-white/80">
+      {/* Hero */}
+      <div className="bg-[#213368] text-white px-6 py-12">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-extrabold">Catálogo de Equipamentos</h1>
+          <p className="mt-2 text-white/80">
             Equipamentos disponíveis para locação. Entre em contato para solicitar.
           </p>
         </div>
-      </section>
+      </div>
 
-      <section className="border-b bg-[#F4F4F4] py-6">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 sm:px-6 md:flex-row md:items-center md:justify-between">
-          <div className="relative w-full md:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Buscar por nome ou código..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(["Todos", "Disponível", "Emprestado"] as const).map((s) => (
-              <Button
-                key={s}
-                variant={statusFiltro === s ? "default" : "outline"}
-                className={
-                  statusFiltro === s
-                    ? "bg-[#213368] text-white hover:bg-[#2b447f]"
-                    : "border-[#213368]/20 text-[#213368] hover:bg-[#213368]/5"
-                }
-                onClick={() => setStatusFiltro(s)}
-              >
-                {s}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          {loading && <p className="text-muted-foreground">Carregando equipamentos...</p>}
-          {err && <p className="text-red-600">Erro ao carregar: {err}</p>}
-          {!loading && !err && grupos.length === 0 && (
-            <p className="text-muted-foreground">Nenhum equipamento encontrado.</p>
-          )}
-
-          <div className="space-y-4">
-            {grupos.map(([cat, lista]) => {
-              const isCollapsed = collapsed[cat];
-              return (
-                <Card key={cat} className="overflow-hidden border">
-                  <button
-                    onClick={() => toggle(cat)}
-                    className="flex w-full items-center justify-between bg-[#213368] px-5 py-4 text-left text-white transition hover:bg-[#2b447f]"
-                  >
-                    <div className="flex items-center gap-3">
-                      {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      <span className="text-lg font-bold">{cat}</span>
-                      <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">{lista.length}</span>
-                    </div>
-                  </button>
-                  {!isCollapsed && (
-                    <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-                      {lista.map((e) => (
-                        <div
-                          key={e.id}
-                          className="group flex flex-col overflow-hidden rounded-xl border bg-white transition hover:-translate-y-0.5 hover:shadow-lg"
-                        >
-                          <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F4F4F4]">
-                            {e.foto_url ? (
-                              <img
-                                src={e.foto_url}
-                                alt={e.nome}
-                                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[#213368]/30">
-                                <Package className="h-16 w-16" />
-                              </div>
-                            )}
-                            <span
-                              className={`absolute right-2 top-2 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusStyle(e.status)}`}
-                            >
-                              {e.status}
-                            </span>
-                          </div>
-                          <div className="flex flex-1 flex-col p-4">
-                            <h3 className="text-base font-bold text-[#213368]">{e.nome}</h3>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {e.codigo} · {e.categoria}
-                            </p>
-                            <div className="mt-3 text-sm">
-                              <span className="text-muted-foreground">A partir de </span>
-                              <span className="font-bold text-[#F37032]">
-                                {brl(Number(e.custo_periodo ?? 0))}
-                              </span>
-                              <span className="text-muted-foreground">/{e.unidade_periodo ?? "dia"}</span>
-                            </div>
-                            <Button
-                              asChild
-                              className="mt-4 bg-[#F37032] text-white hover:bg-[#ff8850]"
-                            >
-                              <a href={whatsLink(e.nome)} target="_blank" rel="noreferrer">
-                                <MessageCircle className="mr-2 h-4 w-4" /> Solicitar equipamento
-                              </a>
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#213368] py-14 text-white">
-        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6">
-          <h2 className="text-3xl font-extrabold">Precisa de algum equipamento específico?</h2>
-          <p className="mt-3 text-white/80">
-            Fale com nosso time pelo WhatsApp e receba um orçamento personalizado.
-          </p>
-          <Button asChild size="lg" className="mt-6 bg-[#F37032] text-white hover:bg-[#ff8850]">
-            <a
-              href={`https://wa.me/${WHATS}?text=${encodeURIComponent("Olá! Gostaria de solicitar um orçamento de locação de equipamentos.")}`}
-              target="_blank"
-              rel="noreferrer"
+      {/* Filtros */}
+      <div className="max-w-7xl mx-auto px-6 py-6 flex flex-wrap items-center gap-3">
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou código..."
+          className="border rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#213368]"
+        />
+        <div className="flex gap-2 flex-wrap">
+          {["todos", "Disponível", "Emprestado", "Manutenção"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFiltro(s)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                filtro === s
+                  ? "bg-[#213368] text-white border-[#213368]"
+                  : "bg-white text-[#213368] border-[#213368]/30 hover:bg-[#213368]/5"
+              }`}
             >
-              <MessageCircle className="mr-2 h-5 w-5" /> Solicitar equipamento
-            </a>
-          </Button>
+              {s === "todos" ? "Todos" : s}
+            </button>
+          ))}
         </div>
-      </section>
+        <span className="text-xs text-gray-500 ml-auto">{filtrados.length} equipamento(s)</span>
+      </div>
 
-      <Footer />
-      <WhatsAppFab />
+      {/* Grupos */}
+      <div className="max-w-7xl mx-auto px-6 pb-12 space-y-8">
+        {Object.keys(grupos).length === 0 ? (
+          <p className="text-center text-gray-500 py-12">Nenhum equipamento encontrado.</p>
+        ) : (
+          Object.entries(grupos).map(([cat, equips]) => (
+            <div key={cat}>
+              <h2 className="text-xl font-bold text-[#213368] mb-4 flex items-center gap-2">
+                <span className="w-1 h-6 bg-[#F37032] rounded" />
+                {cat} ({equips.length})
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {equips.map((e) => (
+                  <div
+                    key={e.id}
+                    className="bg-white rounded-xl border overflow-hidden hover:shadow-lg transition"
+                  >
+                    {e.foto_url ? (
+                      <img
+                        src={e.foto_url}
+                        alt={e.nome}
+                        className="w-full h-40 object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-40 bg-[#F4F4F4] flex items-center justify-center text-4xl">
+                        🔧
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-bold text-[#213368] text-sm">{e.nome}</h3>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
+                            statusColor[e.status] ?? "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {e.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Cód: {e.codigo}</p>
+                      {Number(e.custo_periodo ?? 0) > 0 && (
+                        <p className="text-sm font-bold text-[#F37032] mt-2">
+                          R${" "}
+                          {Number(e.custo_periodo).toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                          })}
+                          /{e.unidade_periodo ?? "dia"}
+                        </p>
+                      )}
+                      <a
+                        href={`https://wa.me/5514997562761?text=${encodeURIComponent(
+                          `Olá! Vi o catálogo da GRD e gostaria de informações sobre: ${e.nome}`,
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 block w-full text-center bg-[#F37032] text-white text-xs font-semibold py-2 rounded-lg hover:bg-[#ff8850] transition"
+                      >
+                        Solicitar equipamento
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Rodapé */}
+      <div className="bg-white border-t px-6 py-6 text-center text-xs text-gray-500">
+        © 2026 Grupo GRD · grupogrdbrasil.com.br · (14) 3261-4194
+      </div>
     </div>
   );
 }
