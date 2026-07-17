@@ -1,5 +1,6 @@
-// v3 — Modal completo de empréstimo + prévia de PDF (react-pdf)
-import { useEffect, useMemo, useState } from "react";
+// v4 — Modal completo de empréstimo + prévia de PDF (react-pdf via lazy)
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { ClientOnly } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { PackageOpen, FileText, Download } from "lucide-react";
+import { PackageOpen, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,11 +19,9 @@ import {
   useEquipStore, equipActions, periodos,
   type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
-import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer";
-import {
-  TermoEmprestimoDocument, termoFileName,
-  type TermoEmprestimoData,
-} from "@/lib/termo-emprestimo-pdf";
+import type { TermoEmprestimoData } from "@/lib/termo-emprestimo-pdf";
+
+const TermoPreview = lazy(() => import("./TermoPreview"));
 
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
 
@@ -294,27 +293,23 @@ export function EmprestimoDialog({
             </DialogTitle>
           </DialogHeader>
           {preview && (
-            <div className="flex flex-col" style={{ height: "80vh" }}>
-              <div className="flex-1 bg-[#f0f0f2]">
-                <PDFViewer style={{ width: "100%", height: "100%", border: 0 }} showToolbar={false}>
-                  <TermoEmprestimoDocument t={preview} />
-                </PDFViewer>
-              </div>
-              <div className="flex items-center justify-end gap-2 border-t bg-white px-6 py-3">
-                <Button variant="outline" onClick={() => setPreview(null)}>Fechar</Button>
-                <PDFDownloadLink
-                  document={<TermoEmprestimoDocument t={preview} />}
-                  fileName={termoFileName(preview)}
-                >
-                  {({ loading }) => (
-                    <Button className="bg-[#F37032] text-white hover:bg-[#d95d24]">
-                      <Download className="mr-2 h-4 w-4" />
-                      {loading ? "Preparando…" : "Baixar PDF"}
-                    </Button>
-                  )}
-                </PDFDownloadLink>
-              </div>
-            </div>
+            <ClientOnly
+              fallback={
+                <div className="flex h-[80vh] items-center justify-center text-sm text-muted-foreground">
+                  Gerando PDF…
+                </div>
+              }
+            >
+              <Suspense
+                fallback={
+                  <div className="flex h-[80vh] items-center justify-center text-sm text-muted-foreground">
+                    Gerando PDF…
+                  </div>
+                }
+              >
+                <TermoPreview t={preview} onClose={() => setPreview(null)} />
+              </Suspense>
+            </ClientOnly>
           )}
         </DialogContent>
       </Dialog>
