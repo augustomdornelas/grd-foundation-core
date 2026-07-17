@@ -1,0 +1,1 @@
+GRANT SELECT ON public.equipamentos TO anon;
