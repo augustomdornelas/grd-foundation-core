@@ -21,7 +21,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Eye, Pencil, Copy, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  DollarSign, FileText, TrendingUp, CheckCircle2, Clock,
+  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, HandshakeIcon,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
