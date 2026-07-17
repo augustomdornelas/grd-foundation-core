@@ -1,5 +1,6 @@
-// v3 — Modal completo de empréstimo + prévia de PDF (react-pdf)
-import { useEffect, useMemo, useState } from "react";
+// v4 — Modal completo de empréstimo + prévia de PDF (react-pdf via lazy)
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { ClientOnly } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { PackageOpen, FileText, Download } from "lucide-react";
+import { PackageOpen, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,11 +19,9 @@ import {
   useEquipStore, equipActions, periodos,
   type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
-import { PDFViewer, PDFDownloadLink } from "@react-pdf/renderer";
-import {
-  TermoEmprestimoDocument, termoFileName,
-  type TermoEmprestimoData,
-} from "@/lib/termo-emprestimo-pdf";
+import type { TermoEmprestimoData } from "@/lib/termo-emprestimo-pdf";
+
+const TermoPreview = lazy(() => import("./TermoPreview"));
 
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
 
