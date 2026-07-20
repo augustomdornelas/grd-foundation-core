@@ -161,10 +161,10 @@ export const projetosActions = {
     const id = uid("C");
     state = { ...state, custos: [...state.custos, { ...c, id }] };
     emit();
-    void supabase.from("custos").insert({
+    void supabase.from("custos").insert(upperizePayload({
       id, projeto_id: c.projetoId, data: c.data,
       descricao: c.descricao, categoria: c.categoria, valor: c.valor,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirCusto(id: string) {
     state = { ...state, custos: state.custos.filter(c => c.id !== id) };
