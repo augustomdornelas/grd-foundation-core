@@ -666,11 +666,12 @@ function SortableTh({ label, col, sortBy, sortDir, onClick }: {
 // ------------------------------------------------------------
 // Formulário (Novo / Editar)
 // ------------------------------------------------------------
-function OrcamentoForm({ open, onOpenChange, orcamento }: {
+function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
   open: boolean; onOpenChange: (o: boolean) => void; orcamento?: Orcamento;
+  preset?: { descricao?: string; valor?: number };
 }) {
   const editing = !!orcamento;
-  const [form, setForm] = useState(() => defaults(orcamento));
+  const [form, setForm] = useState(() => defaults(orcamento, preset));
   const [erro, setErro] = useState("");
   const [clientes, setClientes] = useState<{id:string;nome:string}[]>([]);
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -679,7 +680,8 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
     if (!open) return;
     supabase.from("clientes").select("id,nome").order("nome").then(({data}) => setClientes(data ?? []));
   }, [open]);
-  useMemo(() => { if (open) { setForm(defaults(orcamento)); setErro(""); } }, [open, orcamento?.id]);
+  useMemo(() => { if (open) { setForm(defaults(orcamento, preset)); setErro(""); } }, [open, orcamento?.id, preset?.descricao, preset?.valor]);
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
