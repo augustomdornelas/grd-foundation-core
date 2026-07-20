@@ -145,7 +145,7 @@ export const projetosActions = {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.progresso !== undefined) row.progresso = patch.progresso;
     if (patch.orcado !== undefined) row.orcado = patch.orcado;
-    void supabase.from("projetos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("projetos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirProjeto(id: string) {
     state = {
