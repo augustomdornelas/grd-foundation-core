@@ -226,14 +226,14 @@ export const equipActions = {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("E");
     state = { ...state, equipamentos: [...state.equipamentos, { ...input, id }] };
     emit();
-    void supabase.from("equipamentos").insert({
+    void supabase.from("equipamentos").insert(upperizePayload({
       id, nome: input.nome, codigo: input.codigo, categoria: input.categoria,
       descricao: input.descricao, valor: input.valor, custo_periodo: input.custoPeriodo,
       unidade_periodo: input.unidade, status: input.status,
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
       foto_url: input.fotoUrl ?? null,
-    } as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
+    }) as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
     return id;
   },
   atualizarEquipamento(id: string, patch: Partial<Equipamento>) {
