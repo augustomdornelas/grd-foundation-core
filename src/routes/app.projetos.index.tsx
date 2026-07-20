@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
 import { brl } from "@/lib/mock-data";
+import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList });
 
