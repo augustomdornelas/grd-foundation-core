@@ -944,6 +944,7 @@ function EquipDetalhe() {
         />
       </div>
     )}
+    </>
   );
 }
 
