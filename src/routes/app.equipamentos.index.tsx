@@ -403,7 +403,7 @@ function EquipamentosList() {
                 onClick={(ev) => { ev.stopPropagation(); setEmpEquipId(e.id); }}
                 className="mt-2 w-full bg-[#213368] text-white hover:bg-[#2a4185]"
               >
-                <PackageOpen className="mr-1 h-3.5 w-3.5" /> Registrar empréstimo
+                <PackageOpen className="mr-1 h-3.5 w-3.5" /> Registrar aluguel
               </Button>
             )}
           </div>
@@ -455,7 +455,7 @@ function EquipamentosList() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-extrabold text-[#213368]">Equipamentos</h2>
-          <p className="text-xs text-muted-foreground">Frota, empréstimos, manutenções e rentabilidade.</p>
+          <p className="text-xs text-muted-foreground">Frota, aluguéis, manutenções e rentabilidade.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setOpenGrupo(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
@@ -586,7 +586,7 @@ function EquipamentosList() {
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
-              {STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {STATUS.map(s => <SelectItem key={s} value={s}>{s === "Emprestado" ? "Alugado" : s}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={catF} onValueChange={setCatF}>
@@ -692,7 +692,7 @@ function EquipamentosList() {
               <Label>Status inicial</Label>
               <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as EquipStatus })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "Emprestado" ? "Alugado" : s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="md:col-span-2">
@@ -782,7 +782,7 @@ function EquipamentosList() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Empréstimo (compartilhado) */}
+      {/* Modal de Aluguel (compartilhado) */}
       {empEquipId && (
         <EmprestimoDialog
           open={!!empEquipId}

@@ -601,17 +601,17 @@ function SecaoEquipamentos({ periodo }: { periodo: Periodo }) {
   const eqNome = (id: string) => equipamentos.find(e => e.id === id)?.nome ?? id;
 
   return (
-    <Secao titulo="Equipamentos" subtitulo={`Frota, empréstimos e custos · ${PERIODO_LABEL[periodo]}`} icon={Wrench} modulo="equipamentos">
+    <Secao titulo="Equipamentos" subtitulo={`Frota, aluguéis e custos · ${PERIODO_LABEL[periodo]}`} icon={Wrench} modulo="equipamentos">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Em uso" value={String(dados.emUso)} icon={PackageX} />
         <Kpi label="Disponíveis" value={String(dados.disponiveis)} icon={PackageCheck} />
         <Kpi label="Em manutenção" value={String(dados.manutencao)} icon={Hammer} />
-        <Kpi label="Custo de empréstimos no período" value={brl(dados.custoPeriodoTotal)} icon={DollarSign} />
+        <Kpi label="Custo de aluguéis no período" value={brl(dados.custoPeriodoTotal)} icon={DollarSign} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
-          <div className="text-sm font-semibold text-muted-foreground">Custo de empréstimos por mês</div>
+          <div className="text-sm font-semibold text-muted-foreground">Custo de aluguéis por mês</div>
           <div className="mt-4 h-64">
             {dados.meses.some(m => m.custo > 0) ? (
               <ResponsiveContainer width="100%" height="100%">

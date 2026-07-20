@@ -112,7 +112,7 @@ async function fetchAll() {
       supabase.from("manutencoes").select("*").order("data", { ascending: false }),
     ]);
     toastErr("Falha ao carregar equipamentos", eq.error);
-    toastErr("Falha ao carregar empréstimos", emp.error);
+    toastErr("Falha ao carregar aluguéis", emp.error);
     toastErr("Falha ao carregar manutenções", man.error);
     state = {
       equipamentos: (eq.data ?? []).map((r: any) => ({
@@ -303,7 +303,7 @@ export const equipActions = {
         .single();
       console.log("Supabase emprestimos insert retorno:", insertResult);
       if (insertResult.error) {
-        toast.error(`Erro ao registrar empréstimo: ${insertResult.error.message}`);
+        toast.error(`Erro ao registrar aluguel: ${insertResult.error.message}`);
         return null;
       }
 
@@ -317,9 +317,9 @@ export const equipActions = {
         .eq("id", input.equipamentoId)
         .select("*")
         .single();
-      console.log("Supabase equipamentos update empréstimo retorno:", updateEquipResult);
+      console.log("Supabase equipamentos update aluguel retorno:", updateEquipResult);
       if (updateEquipResult.error) {
-        toast.error(`Empréstimo salvo, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
+        toast.error(`Aluguel salvo, mas falhou ao atualizar equipamento: ${updateEquipResult.error.message}`);
         await fetchAll();
         return null;
       }
@@ -328,7 +328,7 @@ export const equipActions = {
       return insertResult.data?.id ?? id;
     } catch (err) {
       const message = err instanceof Error ? err.message : "erro desconhecido";
-      toast.error(`Erro ao registrar empréstimo: ${message}`);
+      toast.error(`Erro ao registrar aluguel: ${message}`);
       return null;
     }
   },
@@ -344,7 +344,7 @@ export const equipActions = {
   }): Promise<boolean> {
     const emp = state.emprestimos.find(e => e.id === emprestimoId);
     if (!emp) {
-      toast.error("Empréstimo não encontrado para devolução");
+      toast.error("Aluguel não encontrado para devolução");
       return false;
     }
     const qtd = periodos(emp.dataInicio, dataReal, emp.unidade);

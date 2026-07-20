@@ -1,6 +1,6 @@
-// build-force-v2
+// build-force-v3
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/catalogo")({
@@ -16,24 +16,28 @@ export const Route = createFileRoute("/catalogo")({
 type Equip = {
   id: string;
   nome: string;
-  codigo: string;
   categoria: string;
   status: string;
-  custo_periodo: number | null;
-  unidade_periodo: string | null;
   foto_url: string | null;
+  descricao?: string | null;
 };
+
+const WHATSAPP = "5514996004194";
+
+function normalize(s: string) {
+  return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
 
 function CatalogPage() {
   const [items, setItems] = useState<Equip[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState<string>("todos");
 
   useEffect(() => {
     supabase
       .from("equipamentos")
-      .select("id, nome, codigo, categoria, status, custo_periodo, unidade_periodo, foto_url")
+      .select("id, nome, categoria, status, foto_url, descricao")
+      .eq("status", "Disponível")
       .order("categoria")
       .order("nome")
       .then(({ data }) => {
@@ -42,28 +46,30 @@ function CatalogPage() {
       });
   }, []);
 
-  const filtrados = items.filter((e) => {
-    const q = busca.toLowerCase();
-    const matchBusca =
-      !busca ||
-      e.nome?.toLowerCase().includes(q) ||
-      e.codigo?.toLowerCase().includes(q);
-    const matchStatus = filtro === "todos" || e.status === filtro;
-    return matchBusca && matchStatus;
-  });
+  const grupos = useMemo(() => {
+    const q = normalize(busca);
+    const map = new Map<string, Map<string, Equip>>(); // categoria -> (nomeNormalizado -> equip)
+    for (const e of items) {
+      const cat = (e.categoria || "Outros").trim();
+      if (normalize(cat) === "veiculo") continue; // remover VEÍCULO
+      if (q && !normalize(e.nome).includes(q) && !normalize(cat).includes(q)) continue;
+      if (!map.has(cat)) map.set(cat, new Map());
+      const inner = map.get(cat)!;
+      const key = normalize(e.nome);
+      if (!inner.has(key)) inner.set(key, e); // DISTINCT ON nome
+    }
+    return Array.from(map.entries())
+      .map(([cat, inner]) => ({ cat, equips: Array.from(inner.values()) }))
+      .filter(g => g.equips.length > 0)
+      .sort((a, b) => a.cat.localeCompare(b.cat, "pt-BR"));
+  }, [items, busca]);
 
-  const grupos = filtrados.reduce<Record<string, Equip[]>>((acc, e) => {
-    const cat = e.categoria || "Outros";
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(e);
-    return acc;
-  }, {});
+  const totalItens = grupos.reduce((a, g) => a + g.equips.length, 0);
 
-  const statusColor: Record<string, string> = {
-    Disponível: "bg-green-100 text-green-700",
-    Emprestado: "bg-blue-100 text-blue-700",
-    Manutenção: "bg-yellow-100 text-yellow-700",
-  };
+  const waLink = (cat: string) =>
+    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
+      `Olá! Tenho interesse em alugar equipamentos da categoria ${cat}.`,
+    )}`;
 
   if (loading) {
     return (
@@ -75,14 +81,12 @@ function CatalogPage() {
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] font-[Montserrat,system-ui,sans-serif]">
-      {/* Header */}
       <div className="bg-white border-b px-6 py-4">
         <Link to="/" className="text-sm text-[#213368] font-semibold hover:underline">
           ← Voltar ao site
         </Link>
       </div>
 
-      {/* Hero */}
       <div className="bg-[#213368] text-white px-6 py-12">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-extrabold">Catálogo de Equipamentos</h1>
@@ -92,49 +96,41 @@ function CatalogPage() {
         </div>
       </div>
 
-      {/* Filtros */}
       <div className="max-w-7xl mx-auto px-6 py-6 flex flex-wrap items-center gap-3">
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por nome ou código..."
-          className="border rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#213368]"
+          placeholder="Buscar por nome ou categoria..."
+          className="border rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-[#213368]"
         />
-        <div className="flex gap-2 flex-wrap">
-          {["todos", "Disponível", "Emprestado", "Manutenção"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFiltro(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                filtro === s
-                  ? "bg-[#213368] text-white border-[#213368]"
-                  : "bg-white text-[#213368] border-[#213368]/30 hover:bg-[#213368]/5"
-              }`}
-            >
-              {s === "todos" ? "Todos" : s}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-gray-500 ml-auto">{filtrados.length} equipamento(s)</span>
+        <span className="text-xs text-gray-500 ml-auto">
+          {grupos.length} categoria(s) · {totalItens} equipamento(s)
+        </span>
       </div>
 
-      {/* Grupos */}
-      <div className="max-w-7xl mx-auto px-6 pb-12 space-y-8">
-        {Object.keys(grupos).length === 0 ? (
-          <p className="text-center text-gray-500 py-12">Nenhum equipamento encontrado.</p>
+      <div className="max-w-7xl mx-auto px-6 pb-12 space-y-10">
+        {grupos.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">Nenhum equipamento disponível no momento.</p>
         ) : (
-          Object.entries(grupos).map(([cat, equips]) => (
-            <div key={cat}>
-              <h2 className="text-xl font-bold text-[#213368] mb-4 flex items-center gap-2">
-                <span className="w-1 h-6 bg-[#F37032] rounded" />
-                {cat} ({equips.length})
-              </h2>
+          grupos.map(({ cat, equips }) => (
+            <section key={cat}>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 className="text-xl font-bold text-[#213368] flex items-center gap-2">
+                  <span className="w-1 h-6 bg-[#F37032] rounded" />
+                  {cat} <span className="text-sm font-semibold text-gray-500">({equips.length})</span>
+                </h2>
+                <a
+                  href={waLink(cat)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-[#F37032] text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-[#ff8850] transition"
+                >
+                  Entrar em contato
+                </a>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {equips.map((e) => (
-                  <div
-                    key={e.id}
-                    className="bg-white rounded-xl border overflow-hidden hover:shadow-lg transition"
-                  >
+                  <div key={e.id} className="bg-white rounded-xl border overflow-hidden hover:shadow-lg transition">
                     {e.foto_url ? (
                       <img
                         src={e.foto_url}
@@ -148,48 +144,29 @@ function CatalogPage() {
                       </div>
                     )}
                     <div className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-[#213368] text-sm">{e.nome}</h3>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
-                            statusColor[e.status] ?? "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {e.status}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Cód: {e.codigo}</p>
-                      {Number(e.custo_periodo ?? 0) > 0 && (
-                        <p className="text-sm font-bold text-[#F37032] mt-2">
-                          R${" "}
-                          {Number(e.custo_periodo).toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                          })}
-                          /{e.unidade_periodo ?? "dia"}
-                        </p>
+                      <h3 className="font-bold text-[#213368] text-sm">{e.nome}</h3>
+                      {e.descricao && (
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-3">{e.descricao}</p>
                       )}
                       <a
-                        href={`https://wa.me/5514997562761?text=${encodeURIComponent(
-                          `Olá! Vi o catálogo da GRD e gostaria de informações sobre: ${e.nome}`,
-                        )}`}
+                        href={waLink(cat)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-3 block w-full text-center bg-[#F37032] text-white text-xs font-semibold py-2 rounded-lg hover:bg-[#ff8850] transition"
                       >
-                        Solicitar equipamento
+                        Entrar em contato
                       </a>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           ))
         )}
       </div>
 
-      {/* Rodapé */}
       <div className="bg-white border-t px-6 py-6 text-center text-xs text-gray-500">
-        © 2026 Grupo GRD · grupogrdbrasil.com.br · (14) 3261-4194
+        © 2026 Grupo GRD · grupogrdbrasil.com.br
       </div>
     </div>
   );

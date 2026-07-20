@@ -124,7 +124,7 @@ export async function gerarTermoPDF(t: TermoData) {
 
   // ============ Faixa de título ============
   const titulo = t.tipo === "emprestimo"
-    ? "TERMO DE EMPRÉSTIMO DE EQUIPAMENTO"
+    ? "TERMO DE ALUGUEL DE EQUIPAMENTO"
     : "TERMO DE DEVOLUÇÃO DE EQUIPAMENTO";
   const bandH = 11;
   const leftW = (W - 2 * M) * 0.66;
@@ -222,7 +222,7 @@ export async function gerarTermoPDF(t: TermoData) {
 
   // ============ Seção 2 — Empréstimo / Devolução ============
   if (t.tipo === "emprestimo") {
-    drawSectionTitle("2. Dados do empréstimo");
+    drawSectionTitle("2. Dados do aluguel");
     const grid: [string, string][] = [
       ["Destino / Obra", t.destino || "—"],
       ["Responsável pela retirada", t.responsavel || "—"],
@@ -241,7 +241,7 @@ export async function gerarTermoPDF(t: TermoData) {
     const rg = t.responsavelRg || "________________";
     const cargo = t.responsavelCargo || "________________";
     const texto =
-      `Eu, ${nome}, portador do CPF ${cpf} e RG ${rg}, cargo ${cargo}, declaro estar recebendo em regime de empréstimo o equipamento descrito acima, pertencente ao Grupo GRD, comprometendo-me a:\n` +
+      `Eu, ${nome}, portador do CPF ${cpf} e RG ${rg}, cargo ${cargo}, declaro estar recebendo em regime de aluguel o equipamento descrito acima, pertencente ao Grupo GRD, comprometendo-me a:\n` +
       `• Zelar pelo bom estado de conservação do equipamento;\n` +
       `• Utilizar exclusivamente para fins relacionados à obra/destino indicado;\n` +
       `• Devolver até a data prevista em perfeito estado de funcionamento;\n` +
