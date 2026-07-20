@@ -139,6 +139,7 @@ export const projetosActions = {
     const row: Record<string, unknown> = {};
     if (patch.nome !== undefined) row.nome = patch.nome;
     if (patch.cliente !== undefined) row.cliente = patch.cliente;
+    if (patch.clienteId !== undefined) row.cliente_id = patch.clienteId;
     if (patch.local !== undefined) row.local = patch.local;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.responsavel !== undefined) row.responsavel = patch.responsavel;
