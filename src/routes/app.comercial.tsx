@@ -145,6 +145,8 @@ function DateBRInput({ value, onChange, ...rest }: {
 
 function Comercial() {
   const orcamentos = useOrcamentos(s => s);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
 
   // ---------- Filtro de período ----------
   const [periodoTipo, setPeriodoTipo] = useState<PeriodoTipo>("ano");
@@ -161,10 +163,24 @@ function Comercial() {
 
   // ---------- Modais / drawer ----------
   const [novoOpen, setNovoOpen] = useState(false);
+  const [novoPreset, setNovoPreset] = useState<{ descricao?: string; valor?: number } | undefined>(undefined);
   const [editOpen, setEditOpen] = useState<Orcamento | null>(null);
   const [detalhe, setDetalhe] = useState<Orcamento | null>(null);
   const [excluir, setExcluir] = useState<Orcamento | null>(null);
   const [loteOpen, setLoteOpen] = useState(false);
+
+  useEffect(() => {
+    if (search.novoOrc === "1") {
+      const valorNum = search.valor ? Number(search.valor) : undefined;
+      setNovoPreset({
+        descricao: search.descricao,
+        valor: Number.isFinite(valorNum) ? valorNum : undefined,
+      });
+      setNovoOpen(true);
+      navigate({ search: {}, replace: true });
+    }
+  }, [search.novoOrc, search.descricao, search.valor, navigate]);
+
 
   // ---------- Métricas do período ----------
   const metricas = useMemo(() => {
