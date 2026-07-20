@@ -4,6 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { upperizePayload } from "@/lib/utils";
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
