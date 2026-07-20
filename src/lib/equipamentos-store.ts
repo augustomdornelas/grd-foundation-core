@@ -244,6 +244,7 @@ export const equipActions = {
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
       foto_url: input.fotoUrl ?? null,
+      exibir_catalogo: input.exibirCatalogo ?? false,
     }) as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
     return id;
   },
