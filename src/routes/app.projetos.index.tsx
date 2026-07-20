@@ -59,7 +59,7 @@ function ProjetosList() {
   const abrirEditar = (p: Projeto) => {
     setEditId(p.id);
     setForm({
-      nome: p.nome, cliente: p.cliente, local: p.local, descricao: p.descricao,
+      nome: p.nome, cliente: p.cliente, clienteId: p.clienteId, local: p.local, descricao: p.descricao,
       responsavel: p.responsavel, dataInicio: p.dataInicio, prazo: p.prazo,
       status: p.status, orcado: String(p.orcado), progresso: String(p.progresso),
     });
@@ -67,12 +67,14 @@ function ProjetosList() {
   };
 
   const submit = () => {
-    if (!form.nome.trim() || !form.cliente.trim()) return toast.error("Preencha nome e cliente");
+    if (!form.nome.trim()) return toast.error("Preencha o nome do projeto");
+    if (!form.clienteId) return toast.error("Selecione um cliente");
     if (!form.local.trim() || !form.prazo) return toast.error("Preencha local e prazo");
     const orcado = Number(String(form.orcado).replace(/\D/g, "")) || 0;
     const progresso = Math.max(0, Math.min(100, Number(form.progresso) || 0));
     const payload = {
-      nome: form.nome, cliente: form.cliente, local: form.local, descricao: form.descricao,
+      nome: form.nome, cliente: form.cliente, clienteId: form.clienteId,
+      local: form.local, descricao: form.descricao,
       responsavel: form.responsavel, dataInicio: form.dataInicio, prazo: form.prazo,
       status: form.status, orcado, progresso,
     };
