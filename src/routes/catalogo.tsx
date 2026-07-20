@@ -37,6 +37,21 @@ const DESCRICOES: Record<string, string> = {
   "SEGURANÇA": "EPIs, sinalização e equipamentos de segurança para obra",
 };
 
+const FOTOS: Record<string, string> = {
+  "ANDAIME": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
+  "COMPACTACAO": "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=600",
+  "CONTAINER": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600",
+  "CORTE E CONCRETO": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600",
+  "ELETRICO, AGUA E AR": "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=600",
+  "ESCORAS": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
+  "FERRAMENTAS A BATERIA": "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?w=600",
+  "FERRAMENTAS ELETRICAS": "https://images.unsplash.com/photo-1530124566582-a618bc2615dc?w=600",
+  "FURACAO E DEMOLICAO": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
+  "JARDINAGEM": "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600",
+  "LIMPEZA": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600",
+  "OUTROS": "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=600",
+};
+
 function normalize(s: string) {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 }
