@@ -133,7 +133,7 @@ function ClientesPage() {
     if (!form.nome.trim()) { toast.error("Nome é obrigatório"); return; }
     setSaving(true);
     try {
-      const payload = { ...form, cpf_cnpj: form.cpf_cnpj || null, email: form.email || null, telefone: form.telefone || null };
+      const payload = upperizePayload({ ...form, cpf_cnpj: form.cpf_cnpj || null, email: form.email || null, telefone: form.telefone || null });
       if (editing) {
         const { error } = await supabase.from("clientes").update(payload).eq("id", editing.id);
         if (error) throw error;
