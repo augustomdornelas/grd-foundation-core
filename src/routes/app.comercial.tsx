@@ -781,17 +781,22 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
   );
 }
 
-function defaults(o?: Orcamento) {
+function defaults(o?: Orcamento, preset?: { descricao?: string; valor?: number }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const val30 = new Date(); val30.setDate(val30.getDate() + 30);
+  const presetValor = preset?.valor;
   return {
     numero: o?.numero ?? orcamentosActions.proximoNumero(),
     cliente: o?.cliente ?? "",
     cnpj: o?.cnpj ?? "",
     tipo: (o?.tipo ?? "") as string,
     obra: o?.obra ?? "",
-    descricao: o?.descricao ?? "",
-    valor: o?.valor ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+    descricao: o?.descricao ?? preset?.descricao ?? "",
+    valor: o?.valor
+      ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : (typeof presetValor === "number" && Number.isFinite(presetValor)
+        ? presetValor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : ""),
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
@@ -801,6 +806,7 @@ function defaults(o?: Orcamento) {
     observacoes: o?.observacoes ?? "",
   };
 }
+
 
 function Campo({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
