@@ -105,6 +105,8 @@ function EquipDetalhe() {
   const [openDelete, setOpenDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [openEncerrarMn, setOpenEncerrarMn] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
 
 
 
