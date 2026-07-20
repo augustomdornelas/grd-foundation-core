@@ -16,6 +16,7 @@ export type Projeto = {
   id: string;
   nome: string;
   cliente: string;
+  clienteId: string | null;
   local: string;
   descricao: string;
   responsavel: string;
@@ -84,6 +85,7 @@ async function fetchAll() {
   state = {
     projetos: (p.data ?? []).map((r: any) => ({
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
+      clienteId: r.cliente_id ?? null,
       local: r.local ?? "", descricao: r.descricao ?? "",
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
       prazo: r.prazo ?? "", status: r.status ?? "Planejamento",
@@ -124,8 +126,8 @@ export const projetosActions = {
     state = { ...state, projetos: [...state.projetos, { ...input, id }] };
     emit();
     void supabase.from("projetos").insert(upperizePayload({
-      id, nome: input.nome, cliente: input.cliente, local: input.local,
-      descricao: input.descricao, responsavel: input.responsavel,
+      id, nome: input.nome, cliente: input.cliente, cliente_id: input.clienteId ?? null,
+      local: input.local, descricao: input.descricao, responsavel: input.responsavel,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
@@ -137,6 +139,7 @@ export const projetosActions = {
     const row: Record<string, unknown> = {};
     if (patch.nome !== undefined) row.nome = patch.nome;
     if (patch.cliente !== undefined) row.cliente = patch.cliente;
+    if (patch.clienteId !== undefined) row.cliente_id = patch.clienteId;
     if (patch.local !== undefined) row.local = patch.local;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.responsavel !== undefined) row.responsavel = patch.responsavel;

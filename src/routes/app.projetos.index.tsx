@@ -13,17 +13,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
 import { brl } from "@/lib/mock-data";
+import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList });
 
 const STATUS_OPTIONS: ProjetoStatus[] = ["Planejamento", "Em andamento", "Paralisado", "Concluído"];
 
 type FormState = {
-  nome: string; cliente: string; local: string; descricao: string; responsavel: string;
+  nome: string; cliente: string; clienteId: string | null; local: string; descricao: string; responsavel: string;
   dataInicio: string; prazo: string; status: ProjetoStatus; orcado: string; progresso: string;
 };
 const emptyForm = (): FormState => ({
-  nome: "", cliente: "", local: "", descricao: "", responsavel: "",
+  nome: "", cliente: "", clienteId: null, local: "", descricao: "", responsavel: "",
   dataInicio: new Date().toISOString().slice(0, 10), prazo: "",
   status: "Planejamento", orcado: "", progresso: "0",
 });
@@ -58,7 +59,7 @@ function ProjetosList() {
   const abrirEditar = (p: Projeto) => {
     setEditId(p.id);
     setForm({
-      nome: p.nome, cliente: p.cliente, local: p.local, descricao: p.descricao,
+      nome: p.nome, cliente: p.cliente, clienteId: p.clienteId, local: p.local, descricao: p.descricao,
       responsavel: p.responsavel, dataInicio: p.dataInicio, prazo: p.prazo,
       status: p.status, orcado: String(p.orcado), progresso: String(p.progresso),
     });
@@ -66,12 +67,14 @@ function ProjetosList() {
   };
 
   const submit = () => {
-    if (!form.nome.trim() || !form.cliente.trim()) return toast.error("Preencha nome e cliente");
+    if (!form.nome.trim()) return toast.error("Preencha o nome do projeto");
+    if (!form.clienteId) return toast.error("Selecione um cliente");
     if (!form.local.trim() || !form.prazo) return toast.error("Preencha local e prazo");
     const orcado = Number(String(form.orcado).replace(/\D/g, "")) || 0;
     const progresso = Math.max(0, Math.min(100, Number(form.progresso) || 0));
     const payload = {
-      nome: form.nome, cliente: form.cliente, local: form.local, descricao: form.descricao,
+      nome: form.nome, cliente: form.cliente, clienteId: form.clienteId,
+      local: form.local, descricao: form.descricao,
       responsavel: form.responsavel, dataInicio: form.dataInicio, prazo: form.prazo,
       status: form.status, orcado, progresso,
     };
@@ -175,7 +178,7 @@ function ProjetosList() {
           <DialogHeader><DialogTitle>{editId ? "Editar projeto" : "Novo projeto"}</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="md:col-span-2"><Label>Nome do projeto *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
-            <div><Label>Cliente *</Label><Input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} /></div>
+            <div><Label>Cliente *</Label><ClienteSelect value={form.clienteId} fallbackNome={form.cliente} onChange={(id, nome) => setForm({ ...form, clienteId: id, cliente: nome })} /></div>
             <div><Label>Local / obra *</Label><Input value={form.local} onChange={e => setForm({ ...form, local: e.target.value })} placeholder="Ex.: Cubatão/SP" /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
             <div><Label>Responsável</Label><Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} /></div>

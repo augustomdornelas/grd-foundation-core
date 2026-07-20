@@ -16,6 +16,7 @@ import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { useProjetosStore, projetosActions, resumoProjeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/$id")({
   component: ProjetoDetalhe,
@@ -49,7 +50,8 @@ function ProjetoDetalhe() {
   const [nota, setNota] = useState({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "Pendente" as const });
   const [med, setMed] = useState({ data: hoje(), periodo: "", pct: "", valor: "", status: "Enviada" as const });
   const [edit, setEdit] = useState({
-    nome: p.nome, cliente: p.cliente, local: p.local, descricao: p.descricao, responsavel: p.responsavel,
+    nome: p.nome, cliente: p.cliente, clienteId: p.clienteId as string | null,
+    local: p.local, descricao: p.descricao, responsavel: p.responsavel,
     dataInicio: p.dataInicio, prazo: p.prazo, status: p.status, orcado: String(p.orcado), progresso: String(p.progresso),
   });
 
@@ -113,9 +115,11 @@ function ProjetoDetalhe() {
     setMedOpen(false);
   };
   const submitEdit = () => {
-    if (!edit.nome.trim() || !edit.cliente.trim()) return toast.error("Preencha nome e cliente");
+    if (!edit.nome.trim()) return toast.error("Preencha o nome");
+    if (!edit.clienteId) return toast.error("Selecione um cliente");
     projetosActions.atualizarProjeto(id, {
-      nome: edit.nome, cliente: edit.cliente, local: edit.local, descricao: edit.descricao,
+      nome: edit.nome, cliente: edit.cliente, clienteId: edit.clienteId,
+      local: edit.local, descricao: edit.descricao,
       responsavel: edit.responsavel, dataInicio: edit.dataInicio, prazo: edit.prazo,
       status: edit.status, orcado: Number(String(edit.orcado).replace(/\D/g, "")) || 0,
       progresso: Math.max(0, Math.min(100, Number(edit.progresso) || 0)),
@@ -399,7 +403,7 @@ function ProjetoDetalhe() {
           <DialogHeader><DialogTitle>Editar projeto</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="md:col-span-2"><Label>Nome</Label><Input value={edit.nome} onChange={e => setEdit({ ...edit, nome: e.target.value })} /></div>
-            <div><Label>Cliente</Label><Input value={edit.cliente} onChange={e => setEdit({ ...edit, cliente: e.target.value })} /></div>
+            <div><Label>Cliente *</Label><ClienteSelect value={edit.clienteId} fallbackNome={edit.cliente} onChange={(id, nome) => setEdit({ ...edit, clienteId: id, cliente: nome })} /></div>
             <div><Label>Local</Label><Input value={edit.local} onChange={e => setEdit({ ...edit, local: e.target.value })} /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={edit.descricao} onChange={e => setEdit({ ...edit, descricao: e.target.value })} /></div>
             <div><Label>Responsável</Label><Input value={edit.responsavel} onChange={e => setEdit({ ...edit, responsavel: e.target.value })} /></div>
