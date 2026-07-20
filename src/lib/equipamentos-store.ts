@@ -264,6 +264,7 @@ export const equipActions = {
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
     if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl;
+    if (patch.exibirCatalogo !== undefined) row.exibir_catalogo = patch.exibirCatalogo;
     void supabase.from("equipamentos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   async uploadFoto(id: string, file: File): Promise<string | null> {
