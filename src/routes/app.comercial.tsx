@@ -55,9 +55,15 @@ function ComercialError({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+type ComercialSearch = { novoOrc?: string; descricao?: string; valor?: string };
 export const Route = createFileRoute("/app/comercial")({
   component: Comercial,
   errorComponent: ComercialError,
+  validateSearch: (s: Record<string, unknown>): ComercialSearch => ({
+    novoOrc: typeof s.novoOrc === "string" ? s.novoOrc : undefined,
+    descricao: typeof s.descricao === "string" ? s.descricao : undefined,
+    valor: typeof s.valor === "string" ? s.valor : (typeof s.valor === "number" ? String(s.valor) : undefined),
+  }),
 });
 
 // Coerção defensiva para somas (valor pode vir null/undefined do banco)
