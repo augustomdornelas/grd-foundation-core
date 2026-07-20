@@ -100,6 +100,8 @@ function EquipDetalhe() {
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [openEncerrarMn, setOpenEncerrarMn] = useState<string | null>(null);
+
 
 
 
@@ -291,10 +293,8 @@ function EquipDetalhe() {
     gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
   };
 
-  const encerrarManut = (mnId: string) => {
-    equipActions.fecharManutencao(mnId, new Date().toISOString().slice(0, 10));
-    toast.success("Manutenção encerrada");
-  };
+  const mnAberta = manutencoes.find(m => m.id === openEncerrarMn) || null;
+
 
   const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista, e.unidade), 0);
 
@@ -592,7 +592,7 @@ function EquipDetalhe() {
                       <TableCell><StatusBadge status={m.statusManut} /></TableCell>
                       <TableCell>
                         {m.statusManut !== "Concluída" && (
-                          <Button size="sm" variant="outline" onClick={() => encerrarManut(m.id)}>Encerrar</Button>
+                          <Button size="sm" variant="outline" onClick={() => setOpenEncerrarMn(m.id)}>Encerrar</Button>
                         )}
                       </TableCell>
                     </TableRow>
@@ -846,6 +846,21 @@ function EquipDetalhe() {
       {/* Manutenção */}
       <ManutencaoDialog open={openMn} onOpenChange={setOpenMn} equipamentoId={eq.id} />
 
+      {/* Encerrar manutenção */}
+      <EncerrarManutencaoDialog
+        manutencao={mnAberta}
+        equipamentoNome={eq.nome}
+        onClose={() => setOpenEncerrarMn(null)}
+        onLancarOrcamento={(descricao, valor) => {
+          setOpenEncerrarMn(null);
+          navigate({
+            to: "/app/comercial",
+            search: { novoOrc: "1", descricao, valor: String(valor) },
+          });
+        }}
+      />
+
+
       {/* Empréstimo */}
       <EmprestimoDialog open={openEmp} onOpenChange={setOpenEmp} equipamentoId={eq.id} />
 
@@ -1059,3 +1074,119 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
     </Dialog>
   );
 }
+
+import type { Manutencao } from "@/lib/equipamentos-store";
+
+function EncerrarManutencaoDialog({
+  manutencao, equipamentoNome, onClose, onLancarOrcamento,
+}: {
+  manutencao: Manutencao | null;
+  equipamentoNome: string;
+  onClose: () => void;
+  onLancarOrcamento: (descricao: string, valor: number) => void;
+}) {
+  const [dataFim, setDataFim] = useState("");
+  const [oficina, setOficina] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [pecas, setPecas] = useState("");
+  const [maoObra, setMaoObra] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const pecasNum = Number(pecas);
+  const maoNum = Number(maoObra);
+  const pecasOk = pecas !== "" && Number.isFinite(pecasNum) && pecasNum >= 0;
+  const maoOk = maoObra !== "" && Number.isFinite(maoNum) && maoNum >= 0;
+  const total = (pecasOk ? pecasNum : 0) + (maoOk ? maoNum : 0);
+  const podeConfirmar = !!dataFim && oficina.trim() !== "" && descricao.trim() !== "" && pecasOk && maoOk;
+
+  useMemo(() => {
+    if (manutencao) {
+      setDataFim(new Date().toISOString().slice(0, 10));
+      setOficina(manutencao.oficina ?? "");
+      setDescricao(manutencao.descricao ?? "");
+      setPecas(manutencao.custoPecas ? String(manutencao.custoPecas) : "");
+      setMaoObra(manutencao.custoMaoObra ? String(manutencao.custoMaoObra) : "");
+    }
+  }, [manutencao?.id]);
+
+  async function confirmar() {
+    if (!manutencao || !podeConfirmar || saving) return;
+    setSaving(true);
+    try {
+      equipActions.atualizarManutencao(manutencao.id, {
+        dataFim,
+        oficina: oficina.trim(),
+        descricao: descricao.trim(),
+        custoPecas: pecasNum,
+        custoMaoObra: maoNum,
+        statusManut: "Concluída",
+      });
+      toast.success("Manutenção encerrada");
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function lancarOrc() {
+    if (!manutencao) return;
+    const desc = `Manutenção - ${equipamentoNome}`;
+    onLancarOrcamento(desc, total);
+  }
+
+  return (
+    <Dialog open={!!manutencao} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Encerrar Manutenção</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label>Data de fim *</Label>
+            <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Oficina / Responsável *</Label>
+            <Input value={oficina} onChange={e => setOficina(e.target.value)} placeholder="Nome da oficina ou responsável" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Descrição *</Label>
+            <Textarea rows={3} value={descricao} onChange={e => setDescricao(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>Peças (R$) *</Label>
+              <Input type="number" min={0} step="0.01" value={pecas} onChange={e => setPecas(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Mão de obra (R$) *</Label>
+              <Input type="number" min={0} step="0.01" value={maoObra} onChange={e => setMaoObra(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Total (R$)</Label>
+            <Input readOnly value={brl(total)} className="bg-[#F4F4F4] font-semibold text-[#213368]" />
+          </div>
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch">
+          <Button
+            onClick={confirmar}
+            disabled={!podeConfirmar || saving}
+            className="bg-[#213368] text-white hover:bg-[#2a4185]"
+          >
+            {saving ? "Salvando..." : "Confirmar encerramento"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={lancarOrc}
+            className="border-[#F37032] text-[#F37032] hover:bg-[#F37032]/10"
+          >
+            <FileText className="mr-1 h-4 w-4" /> Lançar orçamento desta manutenção
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

@@ -55,9 +55,15 @@ function ComercialError({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+type ComercialSearch = { novoOrc?: string; descricao?: string; valor?: string };
 export const Route = createFileRoute("/app/comercial")({
   component: Comercial,
   errorComponent: ComercialError,
+  validateSearch: (s: Record<string, unknown>): ComercialSearch => ({
+    novoOrc: typeof s.novoOrc === "string" ? s.novoOrc : undefined,
+    descricao: typeof s.descricao === "string" ? s.descricao : undefined,
+    valor: typeof s.valor === "string" ? s.valor : (typeof s.valor === "number" ? String(s.valor) : undefined),
+  }),
 });
 
 // Coerção defensiva para somas (valor pode vir null/undefined do banco)
@@ -139,6 +145,8 @@ function DateBRInput({ value, onChange, ...rest }: {
 
 function Comercial() {
   const orcamentos = useOrcamentos(s => s);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
 
   // ---------- Filtro de período ----------
   const [periodoTipo, setPeriodoTipo] = useState<PeriodoTipo>("ano");
@@ -155,10 +163,24 @@ function Comercial() {
 
   // ---------- Modais / drawer ----------
   const [novoOpen, setNovoOpen] = useState(false);
+  const [novoPreset, setNovoPreset] = useState<{ descricao?: string; valor?: number } | undefined>(undefined);
   const [editOpen, setEditOpen] = useState<Orcamento | null>(null);
   const [detalhe, setDetalhe] = useState<Orcamento | null>(null);
   const [excluir, setExcluir] = useState<Orcamento | null>(null);
   const [loteOpen, setLoteOpen] = useState(false);
+
+  useEffect(() => {
+    if (search.novoOrc === "1") {
+      const valorNum = search.valor ? Number(search.valor) : undefined;
+      setNovoPreset({
+        descricao: search.descricao,
+        valor: Number.isFinite(valorNum) ? valorNum : undefined,
+      });
+      setNovoOpen(true);
+      navigate({ search: {}, replace: true });
+    }
+  }, [search.novoOrc, search.descricao, search.valor, navigate]);
+
 
   // ---------- Métricas do período ----------
   const metricas = useMemo(() => {
@@ -581,7 +603,7 @@ function Comercial() {
       </Card>
 
       {/* Modais */}
-      <OrcamentoForm open={novoOpen} onOpenChange={setNovoOpen} />
+      <OrcamentoForm open={novoOpen} onOpenChange={(o) => { setNovoOpen(o); if (!o) setNovoPreset(undefined); }} preset={novoPreset} />
       <BatchDialog open={loteOpen} onOpenChange={setLoteOpen} />
       <OrcamentoForm open={!!editOpen} onOpenChange={o => !o && setEditOpen(null)} orcamento={editOpen ?? undefined} />
       <DetalheDrawer orcamento={detalhe} onClose={() => setDetalhe(null)} onEdit={o => { setDetalhe(null); setEditOpen(o); }} />
@@ -644,11 +666,12 @@ function SortableTh({ label, col, sortBy, sortDir, onClick }: {
 // ------------------------------------------------------------
 // Formulário (Novo / Editar)
 // ------------------------------------------------------------
-function OrcamentoForm({ open, onOpenChange, orcamento }: {
+function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
   open: boolean; onOpenChange: (o: boolean) => void; orcamento?: Orcamento;
+  preset?: { descricao?: string; valor?: number };
 }) {
   const editing = !!orcamento;
-  const [form, setForm] = useState(() => defaults(orcamento));
+  const [form, setForm] = useState(() => defaults(orcamento, preset));
   const [erro, setErro] = useState("");
   const [clientes, setClientes] = useState<{id:string;nome:string}[]>([]);
   const [buscaCliente, setBuscaCliente] = useState("");
@@ -657,7 +680,8 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
     if (!open) return;
     supabase.from("clientes").select("id,nome").order("nome").then(({data}) => setClientes(data ?? []));
   }, [open]);
-  useMemo(() => { if (open) { setForm(defaults(orcamento)); setErro(""); } }, [open, orcamento?.id]);
+  useMemo(() => { if (open) { setForm(defaults(orcamento, preset)); setErro(""); } }, [open, orcamento?.id, preset?.descricao, preset?.valor]);
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -757,17 +781,22 @@ function OrcamentoForm({ open, onOpenChange, orcamento }: {
   );
 }
 
-function defaults(o?: Orcamento) {
+function defaults(o?: Orcamento, preset?: { descricao?: string; valor?: number }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const val30 = new Date(); val30.setDate(val30.getDate() + 30);
+  const presetValor = preset?.valor;
   return {
     numero: o?.numero ?? orcamentosActions.proximoNumero(),
     cliente: o?.cliente ?? "",
     cnpj: o?.cnpj ?? "",
     tipo: (o?.tipo ?? "") as string,
     obra: o?.obra ?? "",
-    descricao: o?.descricao ?? "",
-    valor: o?.valor ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+    descricao: o?.descricao ?? preset?.descricao ?? "",
+    valor: o?.valor
+      ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : (typeof presetValor === "number" && Number.isFinite(presetValor)
+        ? presetValor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : ""),
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
@@ -777,6 +806,7 @@ function defaults(o?: Orcamento) {
     observacoes: o?.observacoes ?? "",
   };
 }
+
 
 function Campo({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
