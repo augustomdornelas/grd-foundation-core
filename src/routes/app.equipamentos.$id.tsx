@@ -377,6 +377,16 @@ function EquipDetalhe() {
                 {eq.responsavelAtual && <div className="flex items-center gap-2 text-muted-foreground"><User className="h-4 w-4" /> Resp.: <span className="text-foreground">{eq.responsavelAtual}</span></div>}
               </div>
               <div><StatusBadge status={eq.status} /></div>
+              <div className="flex items-center justify-between rounded-lg border bg-slate-50 px-3 py-2">
+                <div className="text-xs">
+                  <div className="font-semibold text-[#213368]">Exibir no catálogo público</div>
+                  <div className="text-muted-foreground">Aparece em /catalogo quando disponível</div>
+                </div>
+                <Switch
+                  checked={!!eq.exibirCatalogo}
+                  onCheckedChange={(v) => equipActions.atualizarEquipamento(eq.id, { exibirCatalogo: v })}
+                />
+              </div>
             </div>
           </Card>
 
