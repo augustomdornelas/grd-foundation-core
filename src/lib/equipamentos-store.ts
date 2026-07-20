@@ -59,6 +59,13 @@ export type Emprestimo = {
 export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
 export type ManutencaoStatus = "Aberta" | "Em andamento" | "Concluída";
 
+export type ManutencaoAnexo = {
+  name: string;
+  path: string; // ex.: "{manutencao_id}/{filename}"
+  size?: number;
+  type?: string;
+};
+
 export type Manutencao = {
   id: string;
   equipamentoId: string;
@@ -74,6 +81,7 @@ export type Manutencao = {
   statusManut: ManutencaoStatus;
   observacoes?: string;
   aberta: boolean; // derivado: status !== "Concluída"
+  anexos: ManutencaoAnexo[];
 };
 
 type State = {
