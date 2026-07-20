@@ -592,7 +592,7 @@ function EquipDetalhe() {
                       <TableCell><StatusBadge status={m.statusManut} /></TableCell>
                       <TableCell>
                         {m.statusManut !== "Concluída" && (
-                          <Button size="sm" variant="outline" onClick={() => encerrarManut(m.id)}>Encerrar</Button>
+                          <Button size="sm" variant="outline" onClick={() => setOpenEncerrarMn(m.id)}>Encerrar</Button>
                         )}
                       </TableCell>
                     </TableRow>
