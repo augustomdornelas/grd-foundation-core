@@ -100,6 +100,8 @@ function EquipDetalhe() {
   const [openEdit, setOpenEdit] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [openEncerrarMn, setOpenEncerrarMn] = useState<string | null>(null);
+
 
 
 
