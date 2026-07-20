@@ -291,10 +291,8 @@ function EquipDetalhe() {
     gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
   };
 
-  const encerrarManut = (mnId: string) => {
-    equipActions.fecharManutencao(mnId, new Date().toISOString().slice(0, 10));
-    toast.success("Manutenção encerrada");
-  };
+  const mnAberta = manutencoes.find(m => m.id === openEncerrarMn) || null;
+
 
   const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista, e.unidade), 0);
 
