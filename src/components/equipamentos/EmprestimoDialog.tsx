@@ -117,7 +117,7 @@ export function EmprestimoDialog({
       });
       if (!idSalvo) { setSaving(false); return; }
 
-      toast.success("Empréstimo registrado.");
+      toast.success("Aluguel registrado.");
       onOpenChange(false);
 
       try {
