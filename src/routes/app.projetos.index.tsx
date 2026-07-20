@@ -178,7 +178,7 @@ function ProjetosList() {
           <DialogHeader><DialogTitle>{editId ? "Editar projeto" : "Novo projeto"}</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="md:col-span-2"><Label>Nome do projeto *</Label><Input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></div>
-            <div><Label>Cliente *</Label><Input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} /></div>
+            <div><Label>Cliente *</Label><ClienteSelect value={form.clienteId} fallbackNome={form.cliente} onChange={(id, nome) => setForm({ ...form, clienteId: id, cliente: nome })} /></div>
             <div><Label>Local / obra *</Label><Input value={form.local} onChange={e => setForm({ ...form, local: e.target.value })} placeholder="Ex.: Cubatão/SP" /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
             <div><Label>Responsável</Label><Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} /></div>
