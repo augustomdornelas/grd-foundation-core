@@ -159,7 +159,7 @@ export const medicoesActions = {
     if (patch.dataRecebimento !== undefined) row.data_recebimento = patch.dataRecebimento;
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
-    void supabase.from("medicoes").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("medicoes").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluir(id: string) {
     state = state.filter(m => m.id !== id);
