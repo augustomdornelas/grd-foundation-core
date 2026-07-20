@@ -174,6 +174,7 @@ async function fetchAll() {
           statusManut: status,
           observacoes: r.observacoes ?? undefined,
           aberta: r.aberta ?? (status !== "Concluída"),
+          anexos: Array.isArray(r.anexos) ? (r.anexos as ManutencaoAnexo[]) : [],
         };
       }),
     };
