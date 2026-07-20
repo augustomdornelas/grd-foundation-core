@@ -59,6 +59,13 @@ export type Emprestimo = {
 export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
 export type ManutencaoStatus = "Aberta" | "Em andamento" | "Concluída";
 
+export type ManutencaoAnexo = {
+  name: string;
+  path: string; // ex.: "{manutencao_id}/{filename}"
+  size?: number;
+  type?: string;
+};
+
 export type Manutencao = {
   id: string;
   equipamentoId: string;
@@ -74,6 +81,7 @@ export type Manutencao = {
   statusManut: ManutencaoStatus;
   observacoes?: string;
   aberta: boolean; // derivado: status !== "Concluída"
+  anexos: ManutencaoAnexo[];
 };
 
 type State = {
@@ -166,6 +174,7 @@ async function fetchAll() {
           statusManut: status,
           observacoes: r.observacoes ?? undefined,
           aberta: r.aberta ?? (status !== "Concluída"),
+          anexos: Array.isArray(r.anexos) ? (r.anexos as ManutencaoAnexo[]) : [],
         };
       }),
     };
@@ -404,11 +413,12 @@ export const equipActions = {
       return false;
     }
   },
-  registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
+  registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo" | "anexos"> & { custo?: number; anexos?: ManutencaoAnexo[] }) {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("MAN");
     const custo = (input.custoPecas || 0) + (input.custoMaoObra || 0);
     const aberta = input.statusManut !== "Concluída";
-    const novo: Manutencao = { ...input, id, custo, aberta };
+    const anexos = input.anexos ?? [];
+    const novo: Manutencao = { ...input, id, custo, aberta, anexos };
     state = {
       ...state,
       manutencoes: [...state.manutencoes, novo],
@@ -422,7 +432,7 @@ export const equipActions = {
       data: input.data, data_fim: input.dataFim ?? null,
       descricao: input.descricao, oficina: input.oficina,
       custo_pecas: input.custoPecas, custo_mao_obra: input.custoMaoObra, custo,
-      status: input.statusManut, observacoes: input.observacoes ?? null, aberta,
+      status: input.statusManut, observacoes: input.observacoes ?? null, aberta, anexos,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     if (aberta) {
       void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
@@ -451,6 +461,7 @@ export const equipActions = {
     if (patch.custoMaoObra !== undefined) row.custo_mao_obra = patch.custoMaoObra;
     if (patch.statusManut !== undefined) { row.status = patch.statusManut; row.aberta = patch.statusManut !== "Concluída"; }
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
+    if (patch.anexos !== undefined) row.anexos = patch.anexos;
     const m = state.manutencoes.find(x => x.id === id);
     if (m) row.custo = m.custo;
     void supabase.from("manutencoes").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));

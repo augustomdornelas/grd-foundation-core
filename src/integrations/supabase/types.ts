@@ -301,6 +301,7 @@ export type Database = {
       manutencoes: {
         Row: {
           aberta: boolean
+          anexos: Json
           created_at: string
           custo: number
           custo_mao_obra: number
@@ -318,6 +319,7 @@ export type Database = {
         }
         Insert: {
           aberta?: boolean
+          anexos?: Json
           created_at?: string
           custo?: number
           custo_mao_obra?: number
@@ -335,6 +337,7 @@ export type Database = {
         }
         Update: {
           aberta?: boolean
+          anexos?: Json
           created_at?: string
           custo?: number
           custo_mao_obra?: number

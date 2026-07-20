@@ -1,0 +1,1 @@
+ALTER TABLE public.manutencoes ADD COLUMN IF NOT EXISTS anexos jsonb NOT NULL DEFAULT '[]'::jsonb;
