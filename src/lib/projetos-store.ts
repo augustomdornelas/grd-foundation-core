@@ -16,6 +16,7 @@ export type Projeto = {
   id: string;
   nome: string;
   cliente: string;
+  clienteId: string | null;
   local: string;
   descricao: string;
   responsavel: string;
