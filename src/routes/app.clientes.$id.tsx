@@ -100,7 +100,7 @@ function ClienteDetalhe() {
       evts.push({ ts: o.created_at, tipo: "orcamento", titulo: `Orçamento ${o.numero} criado`, sub: `${o.obra} — ${BRL(Number(o.valor ?? 0))} (${o.status})` });
     }
     for (const e of emprestimos) {
-      evts.push({ ts: e.created_at, tipo: "emprestimo", titulo: `Empréstimo: ${equipamentos[e.equipamento_id] ?? e.equipamento_id}`, sub: `Destino ${e.destino} — ${BRL(Number(e.custo_total ?? 0))}` });
+      evts.push({ ts: e.created_at, tipo: "emprestimo", titulo: `Aluguel: ${equipamentos[e.equipamento_id] ?? e.equipamento_id}`, sub: `Destino ${e.destino} — ${BRL(Number(e.custo_total ?? 0))}` });
       if (e.data_devolucao_real) {
         evts.push({ ts: e.data_devolucao_real, tipo: "devolucao", titulo: `Devolução: ${equipamentos[e.equipamento_id] ?? e.equipamento_id}`, sub: `Devolvido em ${fmtDate(e.data_devolucao_real)}` });
       }
@@ -232,7 +232,7 @@ function ClienteDetalhe() {
                 <th className="py-2 pr-3">Equipamento</th><th className="py-2 pr-3">Destino</th><th className="py-2 pr-3">Início</th><th className="py-2 pr-3">Devolução</th><th className="py-2 pr-3">Custo total</th><th className="py-2 pr-3">Status</th>
               </tr></thead>
               <tbody>
-                {emprestimos.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">Nenhum empréstimo</td></tr>}
+                {emprestimos.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted-foreground">Nenhum aluguel</td></tr>}
                 {emprestimos.map(e => (
                   <tr key={e.id} className="border-b">
                     <td className="py-2 pr-3 font-medium">{equipamentos[e.equipamento_id] ?? e.equipamento_id}</td>

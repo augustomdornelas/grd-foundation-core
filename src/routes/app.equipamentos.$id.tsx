@@ -156,7 +156,7 @@ function EquipDetalhe() {
   const timeline = useMemo(() => {
     const items: { tipo: "emp" | "dev" | "manut" | "manut-fim"; data: string; titulo: string; sub: string; cor: string; icone: any }[] = [];
     emprestimos.forEach(e => {
-      items.push({ tipo: "emp", data: e.dataInicio, titulo: `Empréstimo → ${e.destino}`, sub: `Responsável: ${e.responsavel} · ${brl(e.custoTotal)}`, cor: "#213368", icone: PackageOpen });
+      items.push({ tipo: "emp", data: e.dataInicio, titulo: `Aluguel → ${e.destino}`, sub: `Responsável: ${e.responsavel} · ${brl(e.custoTotal)}`, cor: "#213368", icone: PackageOpen });
       if (e.dataDevolucaoReal) items.push({ tipo: "dev", data: e.dataDevolucaoReal, titulo: `Devolução`, sub: `De ${e.destino}`, cor: "#16a34a", icone: PackageCheck });
     });
     manutencoes.forEach(m => {
@@ -314,7 +314,7 @@ function EquipDetalhe() {
             disabled={eq.status !== "Disponível"}
             className="bg-[#213368] text-white hover:bg-[#2a4185]"
           >
-            <PackageOpen className="mr-1 h-4 w-4" /> Registrar empréstimo
+            <PackageOpen className="mr-1 h-4 w-4" /> Registrar aluguel
           </Button>
           <Button onClick={() => setOpenMn(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Wrench className="mr-1 h-4 w-4" /> Registrar manutenção
@@ -470,17 +470,17 @@ function EquipDetalhe() {
       {/* ABAS */}
       <Tabs defaultValue="emp">
         <TabsList>
-          <TabsTrigger value="emp">Empréstimos</TabsTrigger>
+          <TabsTrigger value="emp">Aluguéis</TabsTrigger>
           <TabsTrigger value="manut">Manutenções</TabsTrigger>
           <TabsTrigger value="hist">Histórico completo</TabsTrigger>
         </TabsList>
 
-        {/* Empréstimos */}
+        {/* Aluguéis */}
         <TabsContent value="emp" className="mt-4">
           <Card className="p-4">
             <div className="mb-3 flex justify-end">
               <Button onClick={() => setOpenEmp(true)} disabled={eq.status !== "Disponível"} className="bg-[#213368] text-white hover:bg-[#2a4185]">
-                <PackageOpen className="mr-1 h-4 w-4" /> Registrar empréstimo
+                <PackageOpen className="mr-1 h-4 w-4" /> Registrar aluguel
               </Button>
             </div>
             <div className="overflow-x-auto">
@@ -499,7 +499,7 @@ function EquipDetalhe() {
                 </TableRow></TableHeader>
                 <TableBody>
                   {emprestimos.length === 0 && (
-                    <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sem empréstimos registrados.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sem aluguéis registrados.</TableCell></TableRow>
                   )}
                   {emprestimos.slice().reverse().map(e => {
                     const fim = e.dataDevolucaoReal || e.dataDevolucaoPrevista;
@@ -784,7 +784,7 @@ function EquipDetalhe() {
                 </div>
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <div className="text-xs font-bold uppercase tracking-wider text-[#213368]">Empréstimo</div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#213368]">Aluguel</div>
                     <StatusBadge status={statusEmp} />
                   </div>
                   <div className="grid gap-1 rounded-lg border p-3 md:grid-cols-2">
@@ -861,7 +861,7 @@ function EquipDetalhe() {
       />
 
 
-      {/* Empréstimo */}
+      {/* Aluguel */}
       <EmprestimoDialog open={openEmp} onOpenChange={setOpenEmp} equipamentoId={eq.id} />
 
       {/* Editar */}
@@ -1061,7 +1061,7 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
             <Label>Status</Label>
             <Select value={status} onValueChange={v => setStatus(v as EquipStatus)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "Emprestado" ? "Alugado" : s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>

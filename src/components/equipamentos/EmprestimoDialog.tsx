@@ -146,7 +146,7 @@ export function EmprestimoDialog({
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "erro desconhecido";
-      toast.error(`Erro ao registrar empréstimo: ${msg}`);
+      toast.error(`Erro ao registrar aluguel: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -158,7 +158,7 @@ export function EmprestimoDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[#213368]">
             <PackageOpen className="h-5 w-5 text-[#F37032]" />
-            Registrar empréstimo {eq ? `— ${eq.nome}` : ""}
+            Registrar aluguel {eq ? `— ${eq.nome}` : ""}
           </DialogTitle>
         </DialogHeader>
 
@@ -233,7 +233,7 @@ export function EmprestimoDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={salvar} disabled={saving} className="bg-[#213368] text-white hover:bg-[#2a4185]">
-            {saving ? "Salvando…" : "Salvar empréstimo"}
+            {saving ? "Salvando…" : "Salvar aluguel"}
           </Button>
         </DialogFooter>
       </DialogContent>
