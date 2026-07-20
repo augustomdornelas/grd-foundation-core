@@ -577,11 +577,12 @@ function EquipDetalhe() {
                   <TableHead>Mão de obra</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Anexos</TableHead>
                   <TableHead></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                   {manutencoes.length === 0 && (
-                    <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sem manutenções registradas.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={11} className="py-8 text-center text-muted-foreground">Sem manutenções registradas.</TableCell></TableRow>
                   )}
                   {manutencoes.slice().reverse().map(m => (
                     <TableRow key={m.id}>
@@ -594,6 +595,7 @@ function EquipDetalhe() {
                       <TableCell>{brl(m.custoMaoObra)}</TableCell>
                       <TableCell className="font-semibold text-[#dc2626]">{brl(m.custo)}</TableCell>
                       <TableCell><StatusBadge status={m.statusManut} /></TableCell>
+                      <TableCell><AnexosCell anexos={m.anexos} /></TableCell>
                       <TableCell>
                         {m.statusManut !== "Concluída" && (
                           <Button size="sm" variant="outline" onClick={() => setOpenEncerrarMn(m.id)}>Encerrar</Button>
@@ -609,7 +611,7 @@ function EquipDetalhe() {
                       <td className="p-3">{brl(manutencoes.reduce((a, m) => a + m.custoPecas, 0))}</td>
                       <td className="p-3">{brl(manutencoes.reduce((a, m) => a + m.custoMaoObra, 0))}</td>
                       <td className="p-3 text-[#dc2626]">{brl(custoManut)}</td>
-                      <td className="p-3" colSpan={2}></td>
+                      <td className="p-3" colSpan={3}></td>
                     </tr>
                   </tfoot>
                 )}
