@@ -16,6 +16,7 @@ import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { useProjetosStore, projetosActions, resumoProjeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/$id")({
   component: ProjetoDetalhe,
