@@ -1,0 +1,1 @@
+ALTER TABLE public.equipamentos ADD COLUMN IF NOT EXISTS exibir_catalogo BOOLEAN NOT NULL DEFAULT false;

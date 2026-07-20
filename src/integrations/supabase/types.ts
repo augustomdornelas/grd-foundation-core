@@ -230,6 +230,7 @@ export type Database = {
           created_at: string
           custo_periodo: number
           descricao: string
+          exibir_catalogo: boolean
           foto_url: string | null
           id: string
           local_atual: string
@@ -247,6 +248,7 @@ export type Database = {
           created_at?: string
           custo_periodo?: number
           descricao?: string
+          exibir_catalogo?: boolean
           foto_url?: string | null
           id: string
           local_atual?: string
@@ -264,6 +266,7 @@ export type Database = {
           created_at?: string
           custo_periodo?: number
           descricao?: string
+          exibir_catalogo?: boolean
           foto_url?: string | null
           id?: string
           local_atual?: string
