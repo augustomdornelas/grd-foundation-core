@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   ChevronLeft, Pencil, PackageOpen, Wrench, PackageCheck, MapPin, User,
   ArrowUpRight, ArrowDownRight, Activity, Package, RotateCcw, Trash2,
+  Paperclip, Upload, X, ExternalLink,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -24,7 +26,9 @@ import { brl } from "@/lib/mock-data";
 import {
   useEquipStore, equipActions, periodos,
   type EquipStatus, type UnidadePeriodo, type ManutencaoTipo, type ManutencaoStatus,
+  type ManutencaoAnexo,
 } from "@/lib/equipamentos-store";
+import { supabase } from "@/integrations/supabase/client";
 import { iconeCategoria } from "./app.equipamentos.index";
 import { gerarTermoPDF, type TermoData } from "@/lib/termo-pdf";
 import { EmprestimoDialog } from "@/components/equipamentos/EmprestimoDialog";
