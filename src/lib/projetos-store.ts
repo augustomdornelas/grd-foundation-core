@@ -126,8 +126,8 @@ export const projetosActions = {
     state = { ...state, projetos: [...state.projetos, { ...input, id }] };
     emit();
     void supabase.from("projetos").insert(upperizePayload({
-      id, nome: input.nome, cliente: input.cliente, local: input.local,
-      descricao: input.descricao, responsavel: input.responsavel,
+      id, nome: input.nome, cliente: input.cliente, cliente_id: input.clienteId ?? null,
+      local: input.local, descricao: input.descricao, responsavel: input.responsavel,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
