@@ -846,6 +846,21 @@ function EquipDetalhe() {
       {/* Manutenção */}
       <ManutencaoDialog open={openMn} onOpenChange={setOpenMn} equipamentoId={eq.id} />
 
+      {/* Encerrar manutenção */}
+      <EncerrarManutencaoDialog
+        manutencao={mnAberta}
+        equipamentoNome={eq.nome}
+        onClose={() => setOpenEncerrarMn(null)}
+        onLancarOrcamento={(descricao, valor) => {
+          setOpenEncerrarMn(null);
+          navigate({
+            to: "/app/comercial",
+            search: { novoOrc: "1", descricao, valor: String(valor) },
+          });
+        }}
+      />
+
+
       {/* Empréstimo */}
       <EmprestimoDialog open={openEmp} onOpenChange={setOpenEmp} equipamentoId={eq.id} />
 
