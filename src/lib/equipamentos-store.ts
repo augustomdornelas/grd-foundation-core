@@ -27,6 +27,7 @@ export type Equipamento = {
   localAtual: string;
   responsavelAtual?: string;
   fotoUrl?: string;
+  exibirCatalogo?: boolean;
 };
 
 export type Emprestimo = {
