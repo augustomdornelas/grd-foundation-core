@@ -83,6 +83,47 @@ export type Database = {
         }
         Relationships: []
       }
+      custos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data: string | null
+          descricao: string | null
+          id: string
+          projeto_id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data?: string | null
+          descricao?: string | null
+          id: string
+          projeto_id: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data?: string | null
+          descricao?: string | null
+          id?: string
+          projeto_id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emprestimos: {
         Row: {
           ativo: boolean
@@ -369,6 +410,53 @@ export type Database = {
           },
         ]
       }
+      notas_fiscais: {
+        Row: {
+          created_at: string
+          data: string | null
+          descricao: string | null
+          fornecedor: string | null
+          id: string
+          numero: string | null
+          projeto_id: string
+          status: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string | null
+          descricao?: string | null
+          fornecedor?: string | null
+          id: string
+          numero?: string | null
+          projeto_id: string
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string | null
+          descricao?: string | null
+          fornecedor?: string | null
+          id?: string
+          numero?: string | null
+          projeto_id?: string
+          status?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_fiscais_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orcamentos: {
         Row: {
           anexo: string | null
@@ -434,6 +522,65 @@ export type Database = {
           valor?: number
         }
         Relationships: []
+      }
+      projetos: {
+        Row: {
+          cliente: string | null
+          cliente_id: string | null
+          created_at: string
+          data_inicio: string | null
+          descricao: string | null
+          id: string
+          local: string | null
+          nome: string
+          orcado: number
+          prazo: string | null
+          progresso: number
+          responsavel: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cliente?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          data_inicio?: string | null
+          descricao?: string | null
+          id: string
+          local?: string | null
+          nome: string
+          orcado?: number
+          prazo?: string | null
+          progresso?: number
+          responsavel?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cliente?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          local?: string | null
+          nome?: string
+          orcado?: number
+          prazo?: string | null
+          progresso?: number
+          responsavel?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projetos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
