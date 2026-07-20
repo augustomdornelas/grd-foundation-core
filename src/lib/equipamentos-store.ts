@@ -461,6 +461,7 @@ export const equipActions = {
     if (patch.custoMaoObra !== undefined) row.custo_mao_obra = patch.custoMaoObra;
     if (patch.statusManut !== undefined) { row.status = patch.statusManut; row.aberta = patch.statusManut !== "Concluída"; }
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
+    if (patch.anexos !== undefined) row.anexos = patch.anexos;
     const m = state.manutencoes.find(x => x.id === id);
     if (m) row.custo = m.custo;
     void supabase.from("manutencoes").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
