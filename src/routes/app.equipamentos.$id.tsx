@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   ChevronLeft, Pencil, PackageOpen, Wrench, PackageCheck, MapPin, User,
   ArrowUpRight, ArrowDownRight, Activity, Package, RotateCcw, Trash2,
-  Paperclip, Upload, X, ExternalLink,
+  Paperclip, Upload, X, ExternalLink, Search,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -105,6 +105,8 @@ function EquipDetalhe() {
   const [openDelete, setOpenDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [openEncerrarMn, setOpenEncerrarMn] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
 
 
 
@@ -169,6 +171,15 @@ function EquipDetalhe() {
     });
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxOpen(false); };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prevOverflow; };
+  }, [lightboxOpen]);
 
   // Loading state — todos os hooks já foram chamados acima
   if (!eq) {
@@ -303,7 +314,8 @@ function EquipDetalhe() {
   const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista, e.unidade), 0);
 
   return (
-    <div className="space-y-6 font-[Montserrat] animate-fade-in">
+    <>
+      <div className="space-y-6 font-[Montserrat] animate-fade-in">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/equipamentos" })}>
@@ -337,9 +349,18 @@ function EquipDetalhe() {
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4 lg:col-span-1">
           <Card className="overflow-hidden">
-            <div className="relative flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+            <div
+              className={`relative flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185] ${eq.fotoUrl ? "cursor-pointer" : ""}`}
+              onClick={() => eq.fotoUrl && setLightboxOpen(true)}
+            >
               {eq.fotoUrl ? (
-                <img src={eq.fotoUrl} alt={eq.nome} className="absolute inset-0 h-full w-full object-cover" />
+                <>
+                  <img src={eq.fotoUrl} alt={eq.nome} className="absolute inset-0 h-full w-full object-cover" />
+                  <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 hover:bg-black/20" />
+                  <div className="pointer-events-none absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#213368] shadow-md">
+                    <Search className="h-4 w-4" />
+                  </div>
+                </>
               ) : (
                 <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
               )}
@@ -901,8 +922,32 @@ function EquipDetalhe() {
         </DialogContent>
       </Dialog>
     </div>
+
+    {/* Lightbox da foto principal */}
+    {lightboxOpen && eq?.fotoUrl && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
+        onClick={() => setLightboxOpen(false)}
+      >
+        <button
+          aria-label="Fechar"
+          className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <X className="h-6 w-6" />
+        </button>
+        <img
+          src={eq.fotoUrl}
+          alt={eq.nome}
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
+        />
+      </div>
+    )}
+    </>
   );
 }
+
 
 function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; value: string; color?: string; bold?: boolean; icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }) {
   return (
