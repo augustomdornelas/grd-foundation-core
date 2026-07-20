@@ -172,6 +172,15 @@ function EquipDetalhe() {
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
 
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxOpen(false); };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prevOverflow; };
+  }, [lightboxOpen]);
+
   // Loading state — todos os hooks já foram chamados acima
   if (!eq) {
     return (
