@@ -132,7 +132,7 @@ export const medicoesActions = {
     };
     state = [nova, ...state];
     emit();
-    void supabase.from("medicoes").insert({
+    void supabase.from("medicoes").insert(upperizePayload({
       id,
       orcamento_id: input.orcamentoId,
       numero: input.numero,
@@ -143,7 +143,7 @@ export const medicoesActions = {
       data_recebimento: input.previsaoRecebimento ?? "",
       status: input.status,
       observacoes: input.observacoes,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   atualizar(id: string, patch: Partial<Medicao>) {
