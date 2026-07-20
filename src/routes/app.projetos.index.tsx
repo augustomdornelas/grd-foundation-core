@@ -20,11 +20,11 @@ export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList
 const STATUS_OPTIONS: ProjetoStatus[] = ["Planejamento", "Em andamento", "Paralisado", "Concluído"];
 
 type FormState = {
-  nome: string; cliente: string; local: string; descricao: string; responsavel: string;
+  nome: string; cliente: string; clienteId: string | null; local: string; descricao: string; responsavel: string;
   dataInicio: string; prazo: string; status: ProjetoStatus; orcado: string; progresso: string;
 };
 const emptyForm = (): FormState => ({
-  nome: "", cliente: "", local: "", descricao: "", responsavel: "",
+  nome: "", cliente: "", clienteId: null, local: "", descricao: "", responsavel: "",
   dataInicio: new Date().toISOString().slice(0, 10), prazo: "",
   status: "Planejamento", orcado: "", progresso: "0",
 });
