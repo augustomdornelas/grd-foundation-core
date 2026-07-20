@@ -417,13 +417,13 @@ export const equipActions = {
       ),
     };
     emit();
-    void supabase.from("manutencoes").insert({
+    void supabase.from("manutencoes").insert(upperizePayload({
       id, equipamento_id: input.equipamentoId, tipo: input.tipo,
       data: input.data, data_fim: input.dataFim ?? null,
       descricao: input.descricao, oficina: input.oficina,
       custo_pecas: input.custoPecas, custo_mao_obra: input.custoMaoObra, custo,
       status: input.statusManut, observacoes: input.observacoes ?? null, aberta,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     if (aberta) {
       void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     }
