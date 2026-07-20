@@ -175,10 +175,10 @@ export const projetosActions = {
     const id = uid("N");
     state = { ...state, notas: [...state.notas, { ...n, id }] };
     emit();
-    void supabase.from("notas_fiscais").insert({
+    void supabase.from("notas_fiscais").insert(upperizePayload({
       id, projeto_id: n.projetoId, numero: n.numero, fornecedor: n.fornecedor,
       descricao: n.descricao, data: n.data, valor: n.valor, status: n.status,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirNota(id: string) {
     state = { ...state, notas: state.notas.filter(n => n.id !== id) };
