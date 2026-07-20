@@ -453,7 +453,7 @@ export const equipActions = {
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
     const m = state.manutencoes.find(x => x.id === id);
     if (m) row.custo = m.custo;
-    void supabase.from("manutencoes").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("manutencoes").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   fecharManutencao(id: string, dataFim: string) {
     const man = state.manutencoes.find(m => m.id === id);
