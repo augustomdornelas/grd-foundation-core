@@ -603,7 +603,7 @@ function Comercial() {
       </Card>
 
       {/* Modais */}
-      <OrcamentoForm open={novoOpen} onOpenChange={setNovoOpen} />
+      <OrcamentoForm open={novoOpen} onOpenChange={(o) => { setNovoOpen(o); if (!o) setNovoPreset(undefined); }} preset={novoPreset} />
       <BatchDialog open={loteOpen} onOpenChange={setLoteOpen} />
       <OrcamentoForm open={!!editOpen} onOpenChange={o => !o && setEditOpen(null)} orcamento={editOpen ?? undefined} />
       <DetalheDrawer orcamento={detalhe} onClose={() => setDetalhe(null)} onEdit={o => { setDetalhe(null); setEditOpen(o); }} />
