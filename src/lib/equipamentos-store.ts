@@ -252,7 +252,7 @@ export const equipActions = {
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
     if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl;
-    void supabase.from("equipamentos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("equipamentos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   async uploadFoto(id: string, file: File): Promise<string | null> {
     const ext = file.name.split(".").pop() || "jpg";
