@@ -759,10 +759,10 @@ function EquipDetalhe() {
         </DialogContent>
       </Dialog>
 
-      {/* Detalhes do empréstimo */}
+      {/* Detalhes do aluguel */}
       <Dialog open={!!openView} onOpenChange={(v) => { if (!v) setOpenView(null); }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-[#213368]">Detalhes do empréstimo</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-[#213368]">Detalhes do aluguel</DialogTitle></DialogHeader>
           {empView && (() => {
             const hojeIso = new Date().toISOString().slice(0, 10);
             const statusEmp = !empView.ativo
