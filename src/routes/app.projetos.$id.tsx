@@ -115,9 +115,11 @@ function ProjetoDetalhe() {
     setMedOpen(false);
   };
   const submitEdit = () => {
-    if (!edit.nome.trim() || !edit.cliente.trim()) return toast.error("Preencha nome e cliente");
+    if (!edit.nome.trim()) return toast.error("Preencha o nome");
+    if (!edit.clienteId) return toast.error("Selecione um cliente");
     projetosActions.atualizarProjeto(id, {
-      nome: edit.nome, cliente: edit.cliente, local: edit.local, descricao: edit.descricao,
+      nome: edit.nome, cliente: edit.cliente, clienteId: edit.clienteId,
+      local: edit.local, descricao: edit.descricao,
       responsavel: edit.responsavel, dataInicio: edit.dataInicio, prazo: edit.prazo,
       status: edit.status, orcado: Number(String(edit.orcado).replace(/\D/g, "")) || 0,
       progresso: Math.max(0, Math.min(100, Number(edit.progresso) || 0)),
