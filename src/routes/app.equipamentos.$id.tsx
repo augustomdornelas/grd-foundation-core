@@ -348,9 +348,18 @@ function EquipDetalhe() {
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4 lg:col-span-1">
           <Card className="overflow-hidden">
-            <div className="relative flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185]">
+            <div
+              className={`relative flex h-56 items-center justify-center overflow-hidden bg-gradient-to-br from-[#213368] to-[#2a4185] ${eq.fotoUrl ? "cursor-pointer" : ""}`}
+              onClick={() => eq.fotoUrl && setLightboxOpen(true)}
+            >
               {eq.fotoUrl ? (
-                <img src={eq.fotoUrl} alt={eq.nome} className="absolute inset-0 h-full w-full object-cover" />
+                <>
+                  <img src={eq.fotoUrl} alt={eq.nome} className="absolute inset-0 h-full w-full object-cover" />
+                  <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors duration-300 hover:bg-black/20" />
+                  <div className="pointer-events-none absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#213368] shadow-md">
+                    <Search className="h-4 w-4" />
+                  </div>
+                </>
               ) : (
                 <Ico className="h-24 w-24 text-white/90" strokeWidth={1.2} />
               )}
