@@ -413,11 +413,12 @@ export const equipActions = {
       return false;
     }
   },
-  registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo"> & { custo?: number }) {
+  registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo" | "anexos"> & { custo?: number; anexos?: ManutencaoAnexo[] }) {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("MAN");
     const custo = (input.custoPecas || 0) + (input.custoMaoObra || 0);
     const aberta = input.statusManut !== "Concluída";
-    const novo: Manutencao = { ...input, id, custo, aberta };
+    const anexos = input.anexos ?? [];
+    const novo: Manutencao = { ...input, id, custo, aberta, anexos };
     state = {
       ...state,
       manutencoes: [...state.manutencoes, novo],
