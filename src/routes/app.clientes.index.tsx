@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { upperizePayload } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,7 +133,7 @@ function ClientesPage() {
     if (!form.nome.trim()) { toast.error("Nome é obrigatório"); return; }
     setSaving(true);
     try {
-      const payload = { ...form, cpf_cnpj: form.cpf_cnpj || null, email: form.email || null, telefone: form.telefone || null };
+      const payload = upperizePayload({ ...form, cpf_cnpj: form.cpf_cnpj || null, email: form.email || null, telefone: form.telefone || null });
       if (editing) {
         const { error } = await supabase.from("clientes").update(payload).eq("id", editing.id);
         if (error) throw error;

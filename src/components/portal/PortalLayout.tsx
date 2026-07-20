@@ -58,7 +58,7 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
     navigate({ to: "/login" });
   };
   return (
-    <div className="flex min-h-screen w-full bg-[#F4F4F4]">
+    <div className="app-layout flex min-h-screen w-full bg-[#F4F4F4]">
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col bg-[#213368] md:flex">
         <div className="flex h-20 items-center border-b border-white/10 px-5">

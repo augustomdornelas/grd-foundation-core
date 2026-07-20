@@ -4,6 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { upperizePayload } from "@/lib/utils";
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
@@ -122,12 +123,12 @@ export const projetosActions = {
     const id = input.id || uid("P");
     state = { ...state, projetos: [...state.projetos, { ...input, id }] };
     emit();
-    void supabase.from("projetos").insert({
+    void supabase.from("projetos").insert(upperizePayload({
       id, nome: input.nome, cliente: input.cliente, local: input.local,
       descricao: input.descricao, responsavel: input.responsavel,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     return id;
   },
   atualizarProjeto(id: string, patch: Partial<Projeto>) {
@@ -144,7 +145,7 @@ export const projetosActions = {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.progresso !== undefined) row.progresso = patch.progresso;
     if (patch.orcado !== undefined) row.orcado = patch.orcado;
-    void supabase.from("projetos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("projetos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirProjeto(id: string) {
     state = {
@@ -160,10 +161,10 @@ export const projetosActions = {
     const id = uid("C");
     state = { ...state, custos: [...state.custos, { ...c, id }] };
     emit();
-    void supabase.from("custos").insert({
+    void supabase.from("custos").insert(upperizePayload({
       id, projeto_id: c.projetoId, data: c.data,
       descricao: c.descricao, categoria: c.categoria, valor: c.valor,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirCusto(id: string) {
     state = { ...state, custos: state.custos.filter(c => c.id !== id) };
@@ -174,10 +175,10 @@ export const projetosActions = {
     const id = uid("N");
     state = { ...state, notas: [...state.notas, { ...n, id }] };
     emit();
-    void supabase.from("notas_fiscais").insert({
+    void supabase.from("notas_fiscais").insert(upperizePayload({
       id, projeto_id: n.projetoId, numero: n.numero, fornecedor: n.fornecedor,
       descricao: n.descricao, data: n.data, valor: n.valor, status: n.status,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirNota(id: string) {
     state = { ...state, notas: state.notas.filter(n => n.id !== id) };
@@ -194,10 +195,10 @@ export const projetosActions = {
       void supabase.from("projetos").update({ progresso: m.pct }).eq("id", m.projetoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     }
     emit();
-    void supabase.from("medicoes").insert({
+    void supabase.from("medicoes").insert(upperizePayload({
       id, projeto_id: m.projetoId, numero: m.numero, periodo: m.periodo,
       data: m.data, pct: m.pct, valor: m.valor, status: m.status,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirMedicao(id: string) {
     state = { ...state, medicoes: state.medicoes.filter(m => m.id !== id) };

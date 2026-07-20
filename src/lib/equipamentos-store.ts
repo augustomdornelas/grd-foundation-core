@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { upperizePayload } from "@/lib/utils";
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
@@ -225,14 +226,14 @@ export const equipActions = {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("E");
     state = { ...state, equipamentos: [...state.equipamentos, { ...input, id }] };
     emit();
-    void supabase.from("equipamentos").insert({
+    void supabase.from("equipamentos").insert(upperizePayload({
       id, nome: input.nome, codigo: input.codigo, categoria: input.categoria,
       descricao: input.descricao, valor: input.valor, custo_periodo: input.custoPeriodo,
       unidade_periodo: input.unidade, status: input.status,
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
       foto_url: input.fotoUrl ?? null,
-    } as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
+    }) as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
     return id;
   },
   atualizarEquipamento(id: string, patch: Partial<Equipamento>) {
@@ -251,7 +252,7 @@ export const equipActions = {
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
     if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl;
-    void supabase.from("equipamentos").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("equipamentos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   async uploadFoto(id: string, file: File): Promise<string | null> {
     const ext = file.name.split(".").pop() || "jpg";
@@ -278,7 +279,7 @@ export const equipActions = {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
     const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
-   const emprestimoPayload = {
+   const emprestimoPayload = upperizePayload({
   equipamento_id: input.equipamentoId,
       destino: input.destino,
       responsavel: input.responsavel,
@@ -292,7 +293,7 @@ export const equipActions = {
       observacoes: input.observacoes ?? null,
       custo_total: custoTotal,
       ativo: true,
-    };
+    });
 
     try {
       const insertResult = await supabase
@@ -308,11 +309,11 @@ export const equipActions = {
 
       const updateEquipResult = await supabase
         .from("equipamentos")
-        .update({
+        .update(upperizePayload({
           status: "Emprestado",
           local_atual: input.destino,
           responsavel_atual: input.responsavel,
-        } as any)
+        }) as any)
         .eq("id", input.equipamentoId)
         .select("*")
         .single();
@@ -368,7 +369,7 @@ export const equipActions = {
     try {
       const updateEmprestimoResult = await supabase
         .from("emprestimos")
-        .update(updatePayload as any)
+        .update(upperizePayload(updatePayload) as any)
         .eq("id", emprestimoId)
         .select("*")
         .single();
@@ -380,11 +381,11 @@ export const equipActions = {
 
       const updateEquipResult = await supabase
         .from("equipamentos")
-        .update({
+        .update(upperizePayload({
           status: "Disponível",
           local_atual: equip?.localBase ?? "",
           responsavel_atual: null,
-        } as any)
+        }) as any)
         .eq("id", emp.equipamentoId)
         .select("*")
         .single();
@@ -416,13 +417,13 @@ export const equipActions = {
       ),
     };
     emit();
-    void supabase.from("manutencoes").insert({
+    void supabase.from("manutencoes").insert(upperizePayload({
       id, equipamento_id: input.equipamentoId, tipo: input.tipo,
       data: input.data, data_fim: input.dataFim ?? null,
       descricao: input.descricao, oficina: input.oficina,
       custo_pecas: input.custoPecas, custo_mao_obra: input.custoMaoObra, custo,
       status: input.statusManut, observacoes: input.observacoes ?? null, aberta,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     if (aberta) {
       void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     }
@@ -452,7 +453,7 @@ export const equipActions = {
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
     const m = state.manutencoes.find(x => x.id === id);
     if (m) row.custo = m.custo;
-    void supabase.from("manutencoes").update(row).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("manutencoes").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   fecharManutencao(id: string, dataFim: string) {
     const man = state.manutencoes.find(m => m.id === id);
