@@ -403,7 +403,7 @@ function ProjetoDetalhe() {
           <DialogHeader><DialogTitle>Editar projeto</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="md:col-span-2"><Label>Nome</Label><Input value={edit.nome} onChange={e => setEdit({ ...edit, nome: e.target.value })} /></div>
-            <div><Label>Cliente</Label><Input value={edit.cliente} onChange={e => setEdit({ ...edit, cliente: e.target.value })} /></div>
+            <div><Label>Cliente *</Label><ClienteSelect value={edit.clienteId} fallbackNome={edit.cliente} onChange={(id, nome) => setEdit({ ...edit, clienteId: id, cliente: nome })} /></div>
             <div><Label>Local</Label><Input value={edit.local} onChange={e => setEdit({ ...edit, local: e.target.value })} /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={edit.descricao} onChange={e => setEdit({ ...edit, descricao: e.target.value })} /></div>
             <div><Label>Responsável</Label><Input value={edit.responsavel} onChange={e => setEdit({ ...edit, responsavel: e.target.value })} /></div>
