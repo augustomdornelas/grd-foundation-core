@@ -161,8 +161,9 @@ function toRow(o: Partial<Orcamento>) {
     if (o.anexo !== undefined) row.anexo = o.anexo;
     if (o.timeline !== undefined) row.timeline = o.timeline;
     if (o.notas !== undefined) row.notas = o.notas;
-    return row;
+    return upperizePayload(row, ["timeline", "notas", "anexo"]);
 }
+
 
 // -----------------------------------------------------------
 // Store (padrao useSyncExternalStore + Supabase)
