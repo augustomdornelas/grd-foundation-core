@@ -50,7 +50,8 @@ function ProjetoDetalhe() {
   const [nota, setNota] = useState({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "Pendente" as const });
   const [med, setMed] = useState({ data: hoje(), periodo: "", pct: "", valor: "", status: "Enviada" as const });
   const [edit, setEdit] = useState({
-    nome: p.nome, cliente: p.cliente, local: p.local, descricao: p.descricao, responsavel: p.responsavel,
+    nome: p.nome, cliente: p.cliente, clienteId: p.clienteId as string | null,
+    local: p.local, descricao: p.descricao, responsavel: p.responsavel,
     dataInicio: p.dataInicio, prazo: p.prazo, status: p.status, orcado: String(p.orcado), progresso: String(p.progresso),
   });
 
