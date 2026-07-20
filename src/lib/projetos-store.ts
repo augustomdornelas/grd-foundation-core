@@ -195,10 +195,10 @@ export const projetosActions = {
       void supabase.from("projetos").update({ progresso: m.pct }).eq("id", m.projetoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     }
     emit();
-    void supabase.from("medicoes").insert({
+    void supabase.from("medicoes").insert(upperizePayload({
       id, projeto_id: m.projetoId, numero: m.numero, periodo: m.periodo,
       data: m.data, pct: m.pct, valor: m.valor, status: m.status,
-    }).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirMedicao(id: string) {
     state = { ...state, medicoes: state.medicoes.filter(m => m.id !== id) };
