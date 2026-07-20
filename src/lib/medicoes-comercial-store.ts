@@ -4,6 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { upperizePayload } from "@/lib/utils";
 import type { Orcamento } from "@/lib/orcamentos-store";
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
