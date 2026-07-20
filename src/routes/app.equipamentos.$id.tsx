@@ -1306,6 +1306,28 @@ function EncerrarManutencaoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Lightbox da foto principal */}
+    {lightboxOpen && eq?.fotoUrl && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
+        onClick={() => setLightboxOpen(false)}
+      >
+        <button
+          aria-label="Fechar"
+          className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <X className="h-6 w-6" />
+        </button>
+        <img
+          src={eq.fotoUrl}
+          alt={eq.nome}
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
+        />
+      </div>
+    )}
   );
 }
 
