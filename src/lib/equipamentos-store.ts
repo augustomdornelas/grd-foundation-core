@@ -27,6 +27,7 @@ export type Equipamento = {
   localAtual: string;
   responsavelAtual?: string;
   fotoUrl?: string;
+  exibirCatalogo?: boolean;
 };
 
 export type Emprestimo = {
@@ -132,6 +133,7 @@ async function fetchAll() {
         localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
         responsavelAtual: r.responsavel_atual ?? undefined,
         fotoUrl: r.foto_url ?? undefined,
+        exibirCatalogo: r.exibir_catalogo ?? false,
       })),
       emprestimos: (emp.data ?? []).map((r: any) => ({
         id: r.id, equipamentoId: r.equipamento_id ?? "",
@@ -242,6 +244,7 @@ export const equipActions = {
       local_base: input.localBase, local_atual: input.localAtual,
       responsavel_atual: input.responsavelAtual ?? null,
       foto_url: input.fotoUrl ?? null,
+      exibir_catalogo: input.exibirCatalogo ?? false,
     }) as any).then(({ error }: { error: unknown }) => toastErr("Erro ao salvar no banco", error as any));
     return id;
   },
@@ -261,6 +264,7 @@ export const equipActions = {
     if (patch.localAtual !== undefined) row.local_atual = patch.localAtual;
     if (patch.responsavelAtual !== undefined) row.responsavel_atual = patch.responsavelAtual;
     if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl;
+    if (patch.exibirCatalogo !== undefined) row.exibir_catalogo = patch.exibirCatalogo;
     void supabase.from("equipamentos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   async uploadFoto(id: string, file: File): Promise<string | null> {

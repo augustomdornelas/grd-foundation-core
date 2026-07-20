@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import logoGrd from "@/assets/logo_grd.png";
 
 export const Route = createFileRoute("/catalogo")({
@@ -13,9 +14,10 @@ export const Route = createFileRoute("/catalogo")({
   component: CatalogPage,
 });
 
-const WHATSAPP_URL =
-  "https://wa.me/5514996004194?text=" +
-  encodeURIComponent("Olá! Gostaria de solicitar um orçamento de locação de equipamentos.");
+const WHATSAPP_BASE = "https://wa.me/5514996004194?text=";
+const WHATSAPP_URL = WHATSAPP_BASE + encodeURIComponent("Olá! Gostaria de solicitar um orçamento de locação de equipamentos.");
+
+const SUPA = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/catalogo-categorias";
 
 const DESCRICOES: Record<string, string> = {
   "ACABAMENTO": "Lixadeiras, espátulas, rolos e ferramentas para acabamento fino",
@@ -27,29 +29,25 @@ const DESCRICOES: Record<string, string> = {
   "ESCORAS": "Escoras metálicas e escoramento para lajes e estruturas",
   "FERRAMENTAS A BATERIA": "Parafusadeiras, furadeiras e ferramentas sem fio de alta performance",
   "FERRAMENTAS ELÉTRICAS": "Furadeiras, esmerilhadeiras, serras e ferramentas elétricas em geral",
-  "FIXAÇÃO": "Pistolas de fixação, pregos, buchas e sistemas de ancoragem",
   "FURAÇÃO E DEMOLIÇÃO": "Marteletes, rompedores e equipamentos para demolição e furação",
-  "ILUMINAÇÃO": "Refletores, gambiarras e torres de iluminação para obra noturna",
   "JARDINAGEM": "Roçadeiras, sopradores e equipamentos para manutenção de áreas verdes",
   "LIMPEZA": "Lavadoras de alta pressão e equipamentos para limpeza industrial",
-  "MEDIÇÃO E NÍVEL": "Níveis a laser, trenas e instrumentos de medição de precisão",
-  "OUTROS": "Equipamentos diversos para apoio às atividades de obra",
-  "SEGURANÇA": "EPIs, sinalização e equipamentos de segurança para obra",
+  "VEÍCULOS E OUTROS": "Veículos utilitários e equipamentos diversos para apoio às obras",
 };
 
 const FOTOS: Record<string, string> = {
-  "ANDAIME": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
-  "COMPACTACAO": "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=600",
-  "CONTAINER": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600",
-  "CORTE E CONCRETO": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600",
-  "ELETRICO, AGUA E AR": "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=600",
-  "ESCORAS": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
-  "FERRAMENTAS A BATERIA": "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?w=600",
-  "FERRAMENTAS ELETRICAS": "https://images.unsplash.com/photo-1530124566582-a618bc2615dc?w=600",
-  "FURACAO E DEMOLICAO": "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600",
-  "JARDINAGEM": "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600",
-  "LIMPEZA": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600",
-  "OUTROS": "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=600",
+  "ANDAIME": `${SUPA}/andaime.jpg`,
+  "COMPACTACAO": `${SUPA}/compactacao.jpg`,
+  "CONTAINER": `${SUPA}/container.png`,
+  "CORTE E CONCRETO": `${SUPA}/corte_e_concreto.webp`,
+  "ELETRICO, AGUA E AR": `${SUPA}/eletrico_agua_e_ar.png`,
+  "ESCORAS": `${SUPA}/escoras.jpg`,
+  "FERRAMENTAS A BATERIA": `${SUPA}/ferramentas_a_bateria.jpg`,
+  "FERRAMENTAS ELETRICAS": `${SUPA}/ferramenta_eletrica.webp`,
+  "FURACAO E DEMOLICAO": `${SUPA}/demolicão.jpg`,
+  "JARDINAGEM": `${SUPA}/jardinagem.jpg`,
+  "LIMPEZA": `${SUPA}/limpeza.jpg`,
+  "VEICULOS E OUTROS": `${SUPA}/veiculos.png`,
 };
 
 function normalize(s: string) {
@@ -64,17 +62,27 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-type Row = { id: string; nome: string; categoria: string };
+type Row = {
+  id: string;
+  nome: string;
+  categoria: string;
+  descricao: string | null;
+  foto_url: string | null;
+  status: string | null;
+  exibir_catalogo: boolean | null;
+};
 
 function CatalogPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openCat, setOpenCat] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
       .from("equipamentos")
-      .select("id, nome, categoria")
+      .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
       .eq("status", "Disponível")
+      .eq("exibir_catalogo", true)
       .then(({ data }) => {
         setRows((data ?? []) as Row[]);
         setLoading(false);
@@ -84,12 +92,25 @@ function CatalogPage() {
   const categorias = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) {
-      const cat = (r.categoria || "OUTROS").trim();
-      if (normalize(cat) === "VEICULO") continue;
-      set.add(cat.toUpperCase());
+      const catRaw = (r.categoria || "OUTROS").trim().toUpperCase();
+      const nk = normalize(catRaw);
+      if (nk === "VEICULO") continue;
+      // Renomear "OUTROS" e "VEICULOS" para agrupar como "VEÍCULOS E OUTROS"
+      const display = (nk === "OUTROS" || nk === "VEICULOS") ? "VEÍCULOS E OUTROS" : catRaw;
+      set.add(display);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [rows]);
+
+  const equipsPorCategoria = useMemo(() => {
+    if (!openCat) return [];
+    const nk = normalize(openCat);
+    return rows.filter(r => {
+      const rk = normalize(r.categoria || "OUTROS");
+      if (nk === "VEICULOS E OUTROS") return rk === "OUTROS" || rk === "VEICULOS";
+      return rk === nk;
+    });
+  }, [openCat, rows]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] font-[Montserrat,system-ui,sans-serif]">
@@ -122,12 +143,13 @@ function CatalogPage() {
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {categorias.map((cat) => {
               const key = normalize(cat);
-              const desc = DESCRICOES[key] || "Equipamentos disponíveis para locação";
+              const desc = DESCRICOES[cat] || DESCRICOES[key] || "Equipamentos disponíveis para locação";
               const foto = FOTOS[key];
               return (
-                <div
+                <button
                   key={cat}
-                  className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                  onClick={() => setOpenCat(cat)}
+                  className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer text-left"
                   style={{ height: 220 }}
                 >
                   {foto ? (
@@ -144,16 +166,16 @@ function CatalogPage() {
                       </svg>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/50 group-hover:bg-black/70 transition-colors duration-300" />
+                  <div className="absolute inset-0 bg-black/50 group-hover:bg-[#213368]/85 transition-colors duration-300" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center">
                     <h3 className="text-lg md:text-xl font-extrabold text-white uppercase tracking-wide drop-shadow">
                       {cat}
                     </h3>
-                    <p className="mt-3 text-sm text-white/95 leading-relaxed max-h-0 overflow-hidden opacity-0 group-hover:max-h-40 group-hover:opacity-100 transition-all duration-300">
+                    <p className="mt-3 text-sm text-white leading-relaxed max-h-0 overflow-hidden opacity-0 group-hover:max-h-40 group-hover:opacity-100 transition-all duration-300">
                       {desc}
                     </p>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -175,6 +197,51 @@ function CatalogPage() {
       <footer className="bg-white border-t px-6 py-6 text-center text-xs text-gray-500">
         © 2026 Grupo GRD · grupogrdbrasil.com.br
       </footer>
+
+      <Dialog open={!!openCat} onOpenChange={(o) => !o && setOpenCat(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#213368] text-xl font-extrabold uppercase">
+              {openCat}
+            </DialogTitle>
+          </DialogHeader>
+          {equipsPorCategoria.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">Nenhum equipamento disponível nesta categoria.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {equipsPorCategoria.map((eq) => {
+                const link = WHATSAPP_BASE + encodeURIComponent(`Olá! Tenho interesse em alugar: ${eq.nome}`);
+                return (
+                  <div key={eq.id} className="rounded-lg border overflow-hidden bg-white flex flex-col">
+                    <div className="h-40 bg-slate-100 flex items-center justify-center overflow-hidden">
+                      {eq.foto_url ? (
+                        <img src={eq.foto_url} alt={eq.nome} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-slate-400 text-xs">Sem foto</span>
+                      )}
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col gap-2">
+                      <h4 className="font-bold text-[#213368] text-sm uppercase">{eq.nome}</h4>
+                      {eq.descricao && (
+                        <p className="text-xs text-gray-600 leading-relaxed flex-1">{eq.descricao}</p>
+                      )}
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center justify-center gap-2 bg-[#F37032] hover:bg-[#ff8850] text-white text-xs font-bold px-4 py-2 rounded-md transition-colors"
+                      >
+                        <WhatsAppIcon className="h-4 w-4" />
+                        SOLICITAR ESTE EQUIPAMENTO
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
