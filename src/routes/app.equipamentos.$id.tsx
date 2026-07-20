@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   ChevronLeft, Pencil, PackageOpen, Wrench, PackageCheck, MapPin, User,
   ArrowUpRight, ArrowDownRight, Activity, Package, RotateCcw, Trash2,
-  Paperclip, Upload, X, ExternalLink,
+  Paperclip, Upload, X, ExternalLink, Search,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
