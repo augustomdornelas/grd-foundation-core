@@ -119,24 +119,39 @@ function CatalogPage() {
         ) : categorias.length === 0 ? (
           <p className="text-center text-gray-500 py-12">Nenhuma categoria disponível no momento.</p>
         ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {categorias.map((cat) => {
-              const desc = DESCRICOES[normalize(cat)] || "Equipamentos disponíveis para locação";
+              const key = normalize(cat);
+              const desc = DESCRICOES[key] || "Equipamentos disponíveis para locação";
+              const foto = FOTOS[key];
               return (
                 <div
                   key={cat}
-                  className="group relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100 h-48 cursor-pointer transition-all duration-300 hover:bg-[#213368] hover:shadow-xl hover:-translate-y-1"
+                  className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                  style={{ height: 220 }}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center px-4 transition-opacity duration-300 group-hover:opacity-0">
-                    <h3 className="text-center text-lg font-bold text-[#213368] uppercase tracking-wide">
+                  {foto ? (
+                    <img
+                      src={foto}
+                      alt={cat}
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#213368]">
+                      <svg className="h-16 w-16 text-white/40" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1 .1-1.4z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/50 group-hover:bg-black/70 transition-colors duration-300" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center">
+                    <h3 className="text-lg md:text-xl font-extrabold text-white uppercase tracking-wide drop-shadow">
                       {cat}
                     </h3>
-                  </div>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    <h3 className="text-base font-bold text-white uppercase mb-2 tracking-wide">
-                      {cat}
-                    </h3>
-                    <p className="text-sm text-white/90 leading-relaxed">{desc}</p>
+                    <p className="mt-3 text-sm text-white/95 leading-relaxed max-h-0 overflow-hidden opacity-0 group-hover:max-h-40 group-hover:opacity-100 transition-all duration-300">
+                      {desc}
+                    </p>
                   </div>
                 </div>
               );
