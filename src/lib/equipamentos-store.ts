@@ -369,7 +369,7 @@ export const equipActions = {
     try {
       const updateEmprestimoResult = await supabase
         .from("emprestimos")
-        .update(updatePayload as any)
+        .update(upperizePayload(updatePayload) as any)
         .eq("id", emprestimoId)
         .select("*")
         .single();
