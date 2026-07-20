@@ -314,7 +314,8 @@ function EquipDetalhe() {
   const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista, e.unidade), 0);
 
   return (
-    <div className="space-y-6 font-[Montserrat] animate-fade-in">
+    <>
+      <div className="space-y-6 font-[Montserrat] animate-fade-in">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/equipamentos" })}>
