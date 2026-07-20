@@ -385,7 +385,7 @@ function EquipDetalhe() {
                 </div>
                 <Switch
                   checked={!!eq.exibirCatalogo}
-                  onCheckedChange={(v) => equipActions.atualizarEquipamento(eq.id, { exibirCatalogo: v })}
+                  onCheckedChange={(v: boolean) => equipActions.atualizarEquipamento(eq.id, { exibirCatalogo: v })}
                 />
               </div>
             </div>
