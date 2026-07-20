@@ -279,7 +279,7 @@ export const equipActions = {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
     const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
-   const emprestimoPayload = {
+   const emprestimoPayload = upperizePayload({
   equipamento_id: input.equipamentoId,
       destino: input.destino,
       responsavel: input.responsavel,
@@ -293,7 +293,7 @@ export const equipActions = {
       observacoes: input.observacoes ?? null,
       custo_total: custoTotal,
       ativo: true,
-    };
+    });
 
     try {
       const insertResult = await supabase
