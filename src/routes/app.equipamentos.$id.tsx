@@ -1075,19 +1075,69 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
 
 import type { Manutencao } from "@/lib/equipamentos-store";
 
+const ANEXOS_BUCKET = "manutencoes-anexos";
+const ANEXOS_ACCEPT = ".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+function sanitizeFilename(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const base = (dot > 0 ? name.slice(0, dot) : name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "arquivo";
+  const ext = dot > 0 ? name.slice(dot).toLowerCase() : "";
+  return `${Date.now()}_${base}${ext}`;
+}
+
+async function abrirAnexo(path: string) {
+  const { data, error } = await supabase.storage.from(ANEXOS_BUCKET).createSignedUrl(path, 60 * 10);
+  if (error || !data?.signedUrl) {
+    toast.error("Não foi possível abrir o arquivo");
+    return;
+  }
+  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+}
+
+function AnexosCell({ anexos }: { anexos: ManutencaoAnexo[] }) {
+  if (!anexos || anexos.length === 0) return <span className="text-muted-foreground">—</span>;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="ghost" className="h-8 gap-1 px-2 text-[#213368] hover:bg-[#213368]/10">
+          <Paperclip className="h-4 w-4" />
+          <span className="text-xs font-semibold">{anexos.length}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2">
+        <div className="mb-2 px-2 text-xs font-semibold uppercase text-[#213368]">Anexos ({anexos.length})</div>
+        <ul className="max-h-72 space-y-1 overflow-auto">
+          {anexos.map(a => (
+            <li key={a.path}>
+              <button
+                type="button"
+                onClick={() => abrirAnexo(a.path)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-[#F4F4F4]"
+              >
+                <FileText className="h-4 w-4 shrink-0 text-[#F37032]" />
+                <span className="flex-1 truncate" title={a.name}>{a.name}</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function EncerrarManutencaoDialog({
-  manutencao, equipamentoNome, onClose, onLancarOrcamento,
+  manutencao, onClose,
 }: {
   manutencao: Manutencao | null;
-  equipamentoNome: string;
   onClose: () => void;
-  onLancarOrcamento: (descricao: string, valor: number) => void;
 }) {
   const [dataFim, setDataFim] = useState("");
   const [oficina, setOficina] = useState("");
   const [descricao, setDescricao] = useState("");
   const [pecas, setPecas] = useState("");
   const [maoObra, setMaoObra] = useState("");
+  const [arquivos, setArquivos] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
 
   const pecasNum = Number(pecas);
@@ -1104,13 +1154,38 @@ function EncerrarManutencaoDialog({
       setDescricao(manutencao.descricao ?? "");
       setPecas(manutencao.custoPecas ? String(manutencao.custoPecas) : "");
       setMaoObra(manutencao.custoMaoObra ? String(manutencao.custoMaoObra) : "");
+      setArquivos([]);
     }
   }, [manutencao?.id]);
+
+  function adicionarArquivos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setArquivos(prev => [...prev, ...Array.from(files)]);
+  }
+
+  function removerArquivo(idx: number) {
+    setArquivos(prev => prev.filter((_, i) => i !== idx));
+  }
 
   async function confirmar() {
     if (!manutencao || !podeConfirmar || saving) return;
     setSaving(true);
     try {
+      const anexosExistentes = manutencao.anexos ?? [];
+      const anexosNovos: ManutencaoAnexo[] = [];
+      for (const file of arquivos) {
+        const filename = sanitizeFilename(file.name);
+        const path = `${manutencao.id}/${filename}`;
+        const { error } = await supabase.storage.from(ANEXOS_BUCKET).upload(path, file, {
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+        if (error) {
+          toast.error(`Falha ao enviar ${file.name}: ${error.message}`);
+          continue;
+        }
+        anexosNovos.push({ name: file.name, path, size: file.size, type: file.type });
+      }
       equipActions.atualizarManutencao(manutencao.id, {
         dataFim,
         oficina: oficina.trim(),
@@ -1118,18 +1193,13 @@ function EncerrarManutencaoDialog({
         custoPecas: pecasNum,
         custoMaoObra: maoNum,
         statusManut: "Concluída",
+        anexos: [...anexosExistentes, ...anexosNovos],
       });
       toast.success("Manutenção encerrada");
       onClose();
     } finally {
       setSaving(false);
     }
-  }
-
-  function lancarOrc() {
-    if (!manutencao) return;
-    const desc = `Manutenção - ${equipamentoNome}`;
-    onLancarOrcamento(desc, total);
   }
 
   return (
@@ -1165,22 +1235,53 @@ function EncerrarManutencaoDialog({
             <Label>Total (R$)</Label>
             <Input readOnly value={brl(total)} className="bg-[#F4F4F4] font-semibold text-[#213368]" />
           </div>
+
+          <div className="grid gap-1.5">
+            <Label>Anexos (nota fiscal, orçamento, fotos)</Label>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-[#213368]/40 bg-[#F4F4F4] px-3 py-3 text-sm font-semibold text-[#213368] hover:bg-[#213368]/5">
+              <Upload className="h-4 w-4" />
+              Selecionar arquivos
+              <input
+                type="file"
+                multiple
+                accept={ANEXOS_ACCEPT}
+                className="hidden"
+                onChange={e => { adicionarArquivos(e.target.files); e.target.value = ""; }}
+              />
+            </label>
+            {(manutencao?.anexos?.length ?? 0) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {manutencao?.anexos.length} anexo(s) já salvo(s) nesta manutenção.
+              </p>
+            )}
+            {arquivos.length > 0 && (
+              <ul className="mt-1 space-y-1">
+                {arquivos.map((f, i) => (
+                  <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-sm">
+                    <FileText className="h-4 w-4 shrink-0 text-[#F37032]" />
+                    <span className="flex-1 truncate" title={f.name}>{f.name}</span>
+                    <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
+                    <button
+                      type="button"
+                      onClick={() => removerArquivo(i)}
+                      className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Remover ${f.name}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-        <DialogFooter className="flex-col gap-2 sm:flex-col sm:items-stretch">
+        <DialogFooter>
           <Button
             onClick={confirmar}
             disabled={!podeConfirmar || saving}
-            className="bg-[#213368] text-white hover:bg-[#2a4185]"
+            className="w-full bg-[#213368] text-white hover:bg-[#2a4185]"
           >
             {saving ? "Salvando..." : "Confirmar encerramento"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={lancarOrc}
-            className="border-[#F37032] text-[#F37032] hover:bg-[#F37032]/10"
-          >
-            <FileText className="mr-1 h-4 w-4" /> Lançar orçamento desta manutenção
           </Button>
         </DialogFooter>
       </DialogContent>
