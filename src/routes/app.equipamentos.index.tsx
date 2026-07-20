@@ -782,7 +782,7 @@ function EquipamentosList() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Empréstimo (compartilhado) */}
+      {/* Modal de Aluguel (compartilhado) */}
       {empEquipId && (
         <EmprestimoDialog
           open={!!empEquipId}
