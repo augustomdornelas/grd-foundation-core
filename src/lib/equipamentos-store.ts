@@ -309,11 +309,11 @@ export const equipActions = {
 
       const updateEquipResult = await supabase
         .from("equipamentos")
-        .update({
+        .update(upperizePayload({
           status: "Emprestado",
           local_atual: input.destino,
           responsavel_atual: input.responsavel,
-        } as any)
+        }) as any)
         .eq("id", input.equipamentoId)
         .select("*")
         .single();
