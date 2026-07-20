@@ -35,5 +35,6 @@ const map: Record<string, string> = {
 
 export function StatusBadge({ status }: { status: string }) {
   const cls = map[status] ?? "bg-muted text-muted-foreground border-border";
-  return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{status}</span>;
+  const label = status === "Emprestado" ? "Alugado" : status;
+  return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{label}</span>;
 }
