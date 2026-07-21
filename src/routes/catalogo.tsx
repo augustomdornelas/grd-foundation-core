@@ -32,6 +32,7 @@ const DESCRICOES: Record<string, string> = {
   "FURAÇÃO E DEMOLIÇÃO": "Marteletes, rompedores e equipamentos para demolição e furação",
   "JARDINAGEM": "Roçadeiras, sopradores e equipamentos para manutenção de áreas verdes",
   "LIMPEZA": "Lavadoras de alta pressão e equipamentos para limpeza industrial",
+  "OUTROS": "Máquinas de solda, transformadores, refletores, cortadores e ferramentas diversas",
   "VEÍCULOS E OUTROS": "Veículos utilitários e equipamentos diversos para apoio às obras",
 };
 
@@ -47,6 +48,7 @@ const FOTOS: Record<string, string> = {
   "FURACAO E DEMOLICAO": `${SUPA}/demolicão.jpg`,
   "JARDINAGEM": `${SUPA}/jardinagem.jpg`,
   "LIMPEZA": `${SUPA}/limpeza.jpg`,
+  "OUTROS": `${SUPA}/veiculos.png`,
   "VEICULOS E OUTROS": `${SUPA}/veiculos.png`,
 };
 
@@ -95,8 +97,8 @@ function CatalogPage() {
       const catRaw = (r.categoria || "OUTROS").trim().toUpperCase();
       const nk = normalize(catRaw);
       if (nk === "VEICULO") continue;
-      // Renomear "OUTROS" e "VEICULOS" para agrupar como "VEÍCULOS E OUTROS"
-      const display = (nk === "OUTROS" || nk === "VEICULOS") ? "VEÍCULOS E OUTROS" : catRaw;
+      // Agrupar apenas VEÍCULOS como "VEÍCULOS E OUTROS"; OUTROS agora é categoria própria
+      const display = nk === "VEICULOS" ? "VEÍCULOS E OUTROS" : catRaw;
       set.add(display);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -107,7 +109,7 @@ function CatalogPage() {
     const nk = normalize(openCat);
     return rows.filter(r => {
       const rk = normalize(r.categoria || "OUTROS");
-      if (nk === "VEICULOS E OUTROS") return rk === "OUTROS" || rk === "VEICULOS";
+      if (nk === "VEICULOS E OUTROS") return rk === "VEICULOS";
       return rk === nk;
     });
   }, [openCat, rows]);
