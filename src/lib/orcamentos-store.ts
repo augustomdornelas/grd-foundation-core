@@ -162,7 +162,7 @@ function toRow(o: Partial<Orcamento>) {
     if (o.anexo !== undefined) row.anexo = o.anexo;
     if (o.timeline !== undefined) row.timeline = o.timeline;
     if (o.notas !== undefined) row.notas = o.notas;
-    return upperizePayload(row, ["timeline", "notas", "anexo"]);
+    return upperizePayload(row, ["timeline", "notas", "anexo", "status", "descricao", "observacoes"]);
 }
 
 
