@@ -1,35 +1,17 @@
+## Problema
 
-## Diagnóstico
+O site inteiro está retornando erro 401 "Invalid API key" em todas as chamadas ao backend (equipamentos, empréstimos, manutenções, catálogo público etc.).
 
-Não consigo reproduzir o erro no navegador porque a sessão do sandbox está deslogada. Do lado do servidor:
+## Causa raiz (confirmada)
 
-- Tabela `orcamentos` tem 0 registros mas está com todas as colunas corretas e permissões OK.
-- A rota `/app/comercial` **não define `errorComponent`** — se qualquer coisa lançar exceção dentro do componente, a UI cai no boundary genérico do TanStack mostrando "erro de carregamento" sem mensagem detalhada.
-- No cálculo dos KPIs (`useMemo`), há divisões que quebram quando o dataset está vazio (`ticket = total/qtd`, `conv = aprovados/total`) e conversões numéricas sem coerção defensiva (`a + o.valor` com `valor` possivelmente `null` vindo do banco).
+Os arquivos `src/integrations/supabase/client.ts` e `src/integrations/supabase/client.server.ts` foram sobrescritos em algum momento e passaram a ler a variável `VITE_SUPABASE_ANON_KEY` do `.env`. Essa variável aponta para um projeto Supabase antigo/diferente (`fpuwyndpmcgwkuaqbcvm`), enquanto o projeto atual do backend é `uxamqazqhcpuxlthvxbp`. Resultado: a chave enviada não pertence ao projeto chamado → 401 em todo lugar.
 
-Ou seja, tem duas coisas a resolver: **(a)** mostrar a mensagem real do erro ao invés de tela de "erro de carregamento" e **(b)** blindar os cálculos para não estourarem com base vazia ou valores nulos.
+Teste direto na API com a chave correta (`VITE_SUPABASE_PUBLISHABLE_KEY`) retornou 200, confirmando que o backend está saudável — o problema é apenas de configuração no cliente.
 
-## Plano
+## Correção
 
-### 1. Adicionar `errorComponent` em `/app/comercial`
-- Editar `src/routes/app.comercial.tsx` e passar `errorComponent` no `createFileRoute`, exibindo `error.message` + botão "Tentar novamente" que chama `router.invalidate()` + `reset()`.
-- Assim, mesmo que a causa raiz seja outra, o usuário (e nós) vemos o erro exato no lugar do "erro de carregamento".
+1. **`src/integrations/supabase/client.ts`**: passar a ler `VITE_SUPABASE_PUBLISHABLE_KEY` (não `VITE_SUPABASE_ANON_KEY`) e usar `VITE_SUPABASE_URL`.
+2. **`src/integrations/supabase/client.server.ts`**: mesma correção, garantindo consistência entre cliente e servidor.
+3. **`.env`**: remover a linha órfã `VITE_SUPABASE_ANON_KEY` que aponta para o projeto antigo, para evitar que volte a ser usada por engano.
 
-### 2. Blindar os cálculos do dashboard
-Em `src/routes/app.comercial.tsx`, dentro do `useMemo` de métricas:
-- Trocar todos os `a + o.valor` por `a + Number(o.valor ?? 0)`.
-- Guardar divisões: `ticket = qtd ? total / qtd : 0`, `conv = total ? valorAprovado / total : 0`.
-- No filtro por data (`dentro(o.data, range)` e `new Date(o.data)`), tratar `o.data` vazio/`null` sem lançar (`if (!o.data) return false`).
-
-### 3. Blindar o `fromRow` da store
-Em `src/lib/orcamentos-store.ts`, garantir que `valor`, `probabilidade` são sempre `number` finito (`Number.isFinite(x) ? x : 0`) — já quase está, só reforçar contra `NaN`.
-
-### 4. Verificar depois do fix
-Rodar Playwright já autenticado (se possível) ou pedir print do console ao usuário. Se após o `errorComponent` a página seguir mostrando erro, veremos a mensagem real e trato na sequência.
-
-### Observação
-Se o que você vê literalmente é uma tela em branco (não a mensagem "erro de carregamento") ou o texto do erro é diferente, me passe: **(a)** print da tela e **(b)** mensagem do console (F12 → Console). Com o `errorComponent` novo isso vai aparecer explicitamente na própria página.
-
----
-
-Se aprovar, aplico as 3 alterações acima em um único passo.
+Nada mais precisa mudar — nenhum dado do Supabase é afetado, é apenas o cliente lendo a chave errada.
