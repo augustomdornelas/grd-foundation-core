@@ -112,7 +112,13 @@
 /* Exceções obrigatórias (defesa em profundidade) */
 input[type="password"],
 input[type="email"],
-input[type="text"][autocomplete="email"] {
+input[type="text"][autocomplete="email"],
+input[type="text"][autocomplete="username"],
+.login-page input,
+.login-page textarea,
+.auth-page input,
+.auth-page textarea {
   text-transform: none !important;
 }
+
 
