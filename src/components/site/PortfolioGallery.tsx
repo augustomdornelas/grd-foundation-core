@@ -1,34 +1,48 @@
 import { useEffect, useState, useCallback } from "react";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
+import { supabase } from "@/integrations/supabase/client";
 
-import img1 from "@/assets/portfolio_nova_1.png";
-import img2 from "@/assets/portfolio_nova_2.png";
-import img3 from "@/assets/portfolio_nova_3.png";
-import img4 from "@/assets/portfolio_nova_4.png";
-import img5 from "@/assets/portfolio_nova_5.png";
-import img6 from "@/assets/portfolio_nova_6.png";
-import img7 from "@/assets/portfolio_nova_7.png";
-import img8 from "@/assets/portfolio_nova_8.png";
+type Obra = {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  foto_url: string | null;
+};
 
-const photos = [img1, img2, img3, img4, img5, img6, img7, img8];
 const PAGE_SIZE = 6;
 
 export function PortfolioGallery() {
+  const [obras, setObras] = useState<Obra[]>([]);
   const [open, setOpen] = useState<number | null>(null);
   const [page, setPage] = useState(0);
-  const totalPages = Math.max(1, Math.ceil(photos.length / PAGE_SIZE));
+
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from("portfolio")
+      .select("id, titulo, descricao, foto_url")
+      .eq("ativo", true)
+      .order("ordem", { ascending: true })
+      .then(({ data }) => {
+        if (!alive) return;
+        setObras((data ?? []).filter((o: any) => o.foto_url) as Obra[]);
+      });
+    return () => { alive = false; };
+  }, []);
+
+  const totalPages = Math.max(1, Math.ceil(obras.length / PAGE_SIZE));
   const pageStart = page * PAGE_SIZE;
-  const visible = photos.slice(pageStart, pageStart + PAGE_SIZE);
+  const visible = obras.slice(pageStart, pageStart + PAGE_SIZE);
 
   const close = useCallback(() => setOpen(null), []);
   const prev = useCallback(
-    () => setOpen((i) => (i === null ? i : (i - 1 + photos.length) % photos.length)),
-    [],
+    () => setOpen((i) => (i === null ? i : (i - 1 + obras.length) % obras.length)),
+    [obras.length],
   );
   const next = useCallback(
-    () => setOpen((i) => (i === null ? i : (i + 1) % photos.length)),
-    [],
+    () => setOpen((i) => (i === null ? i : (i + 1) % obras.length)),
+    [obras.length],
   );
 
   useEffect(() => {
@@ -58,32 +72,38 @@ export function PortfolioGallery() {
           </p>
         </Reveal>
 
-        <div className="mt-10 columns-1 gap-5 sm:columns-2 lg:columns-3 [column-fill:_balance]">
-          {visible.map((src, idx) => {
-            const i = pageStart + idx;
-            return (
-              <Reveal key={src} delay={idx * 90} className="mb-5 block break-inside-avoid">
-                <button
-                  type="button"
-                  onClick={() => setOpen(i)}
-                  className="group relative block w-full overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F37032]"
-                >
-                  <img
-                    src={src}
-                    alt=""
-                    loading="lazy"
-                    className="w-full transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="pointer-events-none absolute inset-0 flex translate-y-full items-center justify-center bg-[#213368]/50 transition-transform duration-300 ease-out group-hover:translate-y-0">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-[#213368] shadow-lg">
-                      <Search className="h-6 w-6" />
+        {obras.length === 0 ? (
+          <p className="mt-10 text-center text-sm text-muted-foreground">Em breve, novas obras.</p>
+        ) : (
+          <div className="mt-10 columns-1 gap-5 sm:columns-2 lg:columns-3 [column-fill:_balance]">
+            {visible.map((obra, idx) => {
+              const i = pageStart + idx;
+              return (
+                <Reveal key={obra.id} delay={idx * 90} className="mb-5 block break-inside-avoid">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(i)}
+                    className="group relative block w-full overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F37032]"
+                  >
+                    <img
+                      src={obra.foto_url ?? ""}
+                      alt={obra.titulo}
+                      loading="lazy"
+                      className="w-full transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="pointer-events-none absolute inset-0 flex translate-y-full flex-col items-center justify-center gap-2 bg-[#213368]/70 p-4 text-center text-white transition-transform duration-300 ease-out group-hover:translate-y-0">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-[#213368] shadow-lg">
+                        <Search className="h-5 w-5" />
+                      </div>
+                      <div className="text-base font-bold">{obra.titulo}</div>
+                      {obra.descricao && <div className="text-xs opacity-90 line-clamp-2">{obra.descricao}</div>}
                     </div>
-                  </div>
-                </button>
-              </Reveal>
-            );
-          })}
-        </div>
+                  </button>
+                </Reveal>
+              );
+            })}
+          </div>
+        )}
 
         {totalPages > 1 && (
           <div className="mt-10 flex items-center justify-center gap-3">
@@ -125,7 +145,7 @@ export function PortfolioGallery() {
         )}
       </div>
 
-      {open !== null && (
+      {open !== null && obras[open] && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"
           onClick={close}
@@ -151,14 +171,22 @@ export function PortfolioGallery() {
           >
             <ChevronRight className="h-7 w-7" />
           </button>
-          <img
-            src={photos[open]}
-            alt=""
+          <div
+            className="flex max-h-[90vh] max-w-[92vw] flex-col items-center gap-4"
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
-          />
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white">
-            {open + 1} / {photos.length}
+          >
+            <img
+              src={obras[open].foto_url ?? ""}
+              alt={obras[open].titulo}
+              className="max-h-[75vh] rounded-lg object-contain shadow-2xl"
+            />
+            <div className="max-w-2xl rounded-lg bg-white/10 px-5 py-3 text-center text-white backdrop-blur">
+              <div className="text-lg font-bold">{obras[open].titulo}</div>
+              {obras[open].descricao && <div className="mt-1 text-sm opacity-90">{obras[open].descricao}</div>}
+            </div>
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-medium text-white">
+            {open + 1} / {obras.length}
           </div>
         </div>
       )}

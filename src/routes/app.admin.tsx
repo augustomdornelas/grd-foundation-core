@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { PortfolioAdmin } from "@/components/portal/PortfolioAdmin";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
@@ -289,6 +290,8 @@ function Admin() {
           </table>
         </div>
       </Card>
+
+      <PortfolioAdmin />
 
       {/* Modal novo usuário */}
       <NovoUsuarioModal open={novoOpen} onClose={() => setNovoOpen(false)} onCriado={fetchUsuarios} />
