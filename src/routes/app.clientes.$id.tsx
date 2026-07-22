@@ -118,7 +118,7 @@ function ClienteDetalhe() {
 
   const kpiCards = [
     { label: "Total em orçamentos", value: BRL(kpis.total), icon: FileText, tone: "#213368" },
-    { label: "APROVADOs", value: BRL(kpis.aprovado), icon: DollarSign, tone: "#213368" },
+    { label: "APROVADOS", value: BRL(kpis.aprovado), icon: DollarSign, tone: "#213368" },
     { label: "EM NEGOCIAÇÃO", value: BRL(kpis.negociacao), icon: Handshake, tone: "#F37032" },
     { label: "Ticket médio", value: BRL(kpis.ticket), icon: Calculator, tone: "#F37032" },
   ];
