@@ -193,11 +193,11 @@ function Comercial() {
     const totalAnt = noAnt.reduce((a, o) => a + num(o.valor), 0);
     const qtd = noPer.length;
     const ticket = qtd ? total / qtd : 0;
-    const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + num(o.valor), 0);
+    const valorAprovado = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + num(o.valor), 0);
     const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
-    const abertos = noPer.filter(o => o.status === "Levantamento" || o.status === "Aguardando Retorno" || o.status === "Em negociação");
+    const abertos = noPer.filter(o => o.status === "LEVANTAMENTO" || o.status === "AGUARDANDO RETORNO" || o.status === "EM NEGOCIAÇÃO");
     const abertoValor = abertos.reduce((a, o) => a + num(o.valor), 0);
-    const emNegociacaoValor = noPer.filter(o => o.status === "Em negociação").reduce((a, o) => a + num(o.valor), 0);
+    const emNegociacaoValor = noPer.filter(o => o.status === "EM NEGOCIAÇÃO").reduce((a, o) => a + num(o.valor), 0);
 
     const hoje = new Date();
     const meses: { mes: string; valor: number; qtd: number }[] = [];
@@ -234,7 +234,7 @@ function Comercial() {
     });
 
     const clientesMap = new Map<string, number>();
-    for (const o of noPer.filter(o => o.status === "Aprovado")) {
+    for (const o of noPer.filter(o => o.status === "APROVADO")) {
       const nome = (o.cliente || "").trim() || "—";
       clientesMap.set(nome, (clientesMap.get(nome) ?? 0) + num(o.valor));
     }
@@ -244,7 +244,7 @@ function Comercial() {
       .slice(0, 5);
 
     // Acompanhamento por status — últimos 6 meses (independe do filtro)
-    const acompanhamento: { mes: string; Aprovado: number; "Em negociação": number; "Aguardando Retorno": number; total: number }[] = [];
+    const acompanhamento: { mes: string; APROVADO: number; "EM NEGOCIAÇÃO": number; "AGUARDANDO RETORNO": number; total: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
       const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
@@ -254,14 +254,14 @@ function Comercial() {
         if (isNaN(od.getTime())) return false;
         return od >= d && od < dNext;
       });
-      const aprov = lst.filter(o => o.status === "Aprovado").reduce((a, o) => a + num(o.valor), 0);
-      const neg = lst.filter(o => o.status === "Em negociação").reduce((a, o) => a + num(o.valor), 0);
-      const ag = lst.filter(o => o.status === "Aguardando Retorno").reduce((a, o) => a + num(o.valor), 0);
+      const aprov = lst.filter(o => o.status === "APROVADO").reduce((a, o) => a + num(o.valor), 0);
+      const neg = lst.filter(o => o.status === "EM NEGOCIAÇÃO").reduce((a, o) => a + num(o.valor), 0);
+      const ag = lst.filter(o => o.status === "AGUARDANDO RETORNO").reduce((a, o) => a + num(o.valor), 0);
       acompanhamento.push({
         mes: `${NOMES_MES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
-        Aprovado: aprov,
-        "Em negociação": neg,
-        "Aguardando Retorno": ag,
+        APROVADO: aprov,
+        "EM NEGOCIAÇÃO": neg,
+        "AGUARDANDO RETORNO": ag,
         total: aprov + neg + ag,
       });
     }
@@ -427,7 +427,7 @@ function Comercial() {
         <Kpi label="Ticket médio" value={brl(metricas.ticket)} icon={TrendingUp} />
         <Kpi label="Taxa de conversão" value={`${metricas.conv.toFixed(0)}%`} icon={CheckCircle2} />
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
-        <Kpi label="Em negociação" value={brl(metricas.emNegociacaoValor)} icon={HandshakeIcon} />
+        <Kpi label="EM NEGOCIAÇÃO" value={brl(metricas.emNegociacaoValor)} icon={HandshakeIcon} />
       </div>
 
       {/* Gráficos linha 1 */}
@@ -501,7 +501,7 @@ function Comercial() {
       <div className="grid gap-6">
         <Card className="p-6">
           <div className="text-sm font-semibold text-[#213368]">Acompanhamento por status</div>
-          <div className="text-xs text-muted-foreground">Aprovado · Em negociação · Aguardando Retorno</div>
+          <div className="text-xs text-muted-foreground">APROVADO · EM NEGOCIAÇÃO · AGUARDANDO RETORNO</div>
           <div className="mt-4" style={{ height: 320 }}>
             {metricas.acompanhamento.some(m => m.total > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -516,9 +516,9 @@ function Comercial() {
                     contentStyle={{ fontFamily: "Montserrat", borderRadius: 8, border: "1px solid #E5E7EB" }}
                   />
                   <Legend wrapperStyle={{ fontFamily: "Montserrat", fontSize: 12 }} />
-                  <Bar yAxisId="left" dataKey="Aprovado" fill="#16A34A" radius={[4,4,0,0]} />
-                  <Bar yAxisId="left" dataKey="Em negociação" fill="#213368" radius={[4,4,0,0]} />
-                  <Bar yAxisId="left" dataKey="Aguardando Retorno" fill="#F37032" radius={[4,4,0,0]} />
+                  <Bar yAxisId="left" dataKey="APROVADO" fill="#16A34A" radius={[4,4,0,0]} />
+                  <Bar yAxisId="left" dataKey="EM NEGOCIAÇÃO" fill="#213368" radius={[4,4,0,0]} />
+                  <Bar yAxisId="left" dataKey="AGUARDANDO RETORNO" fill="#F37032" radius={[4,4,0,0]} />
                   <Line yAxisId="right" type="monotone" dataKey="total" name="Total" stroke="#213368" strokeWidth={2.5} dot={{ r: 4, fill: "#F37032" }} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -800,7 +800,7 @@ function defaults(o?: Orcamento, preset?: { descricao?: string; valor?: number }
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
-    status: (o?.status ?? "Levantamento") as string,
+    status: (o?.status ?? "LEVANTAMENTO") as string,
 
     probabilidade: o?.probabilidade ?? 50,
     observacoes: o?.observacoes ?? "",
@@ -930,7 +930,7 @@ function novaLinha(numero: string): LoteRow {
     obra: "",
     valor: "",
     data: new Date().toISOString().slice(0, 10),
-    status: "Levantamento",
+    status: "LEVANTAMENTO",
   };
 }
 

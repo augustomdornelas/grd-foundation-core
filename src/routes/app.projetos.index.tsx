@@ -17,7 +17,7 @@ import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList });
 
-const STATUS_OPTIONS: ProjetoStatus[] = ["Planejamento", "Em andamento", "Paralisado", "Concluído"];
+const STATUS_OPTIONS: ProjetoStatus[] = ["PLANEJAMENTO", "EM ANDAMENTO", "PARALISADO", "CONCLUÍDO"];
 
 type FormState = {
   nome: string; cliente: string; clienteId: string | null; local: string; descricao: string; responsavel: string;
@@ -26,7 +26,7 @@ type FormState = {
 const emptyForm = (): FormState => ({
   nome: "", cliente: "", clienteId: null, local: "", descricao: "", responsavel: "",
   dataInicio: new Date().toISOString().slice(0, 10), prazo: "",
-  status: "Planejamento", orcado: "", progresso: "0",
+  status: "PLANEJAMENTO", orcado: "", progresso: "0",
 });
 
 function ProjetosList() {
@@ -49,7 +49,7 @@ function ProjetosList() {
   }, [projetos, busca, statusFiltro]);
 
   const kpis = useMemo(() => {
-    const emAndamento = projetos.filter(p => p.status === "Em andamento").length;
+    const emAndamento = projetos.filter(p => p.status === "EM ANDAMENTO").length;
     const valorTotal = projetos.reduce((a, p) => a + p.orcado, 0);
     const execMedia = projetos.length ? Math.round(projetos.reduce((a, p) => a + p.progresso, 0) / projetos.length) : 0;
     return { total: projetos.length, emAndamento, valorTotal, execMedia };
@@ -104,7 +104,7 @@ function ProjetosList() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="p-5"><div className="text-xs text-muted-foreground">Total de projetos</div><div className="mt-1 text-2xl font-extrabold text-[#213368]">{kpis.total}</div></Card>
-        <Card className="p-5"><div className="text-xs text-muted-foreground">Em andamento</div><div className="mt-1 text-2xl font-extrabold text-[#213368]">{kpis.emAndamento}</div></Card>
+        <Card className="p-5"><div className="text-xs text-muted-foreground">EM ANDAMENTO</div><div className="mt-1 text-2xl font-extrabold text-[#213368]">{kpis.emAndamento}</div></Card>
         <Card className="p-5"><div className="text-xs text-muted-foreground">Valor em obras</div><div className="mt-1 text-2xl font-extrabold text-[#F37032]">{brl(kpis.valorTotal)}</div></Card>
         <Card className="p-5"><div className="text-xs text-muted-foreground">Execução média</div><div className="mt-1 text-2xl font-extrabold">{kpis.execMedia}%</div></Card>
       </div>

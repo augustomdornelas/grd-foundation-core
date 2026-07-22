@@ -47,9 +47,9 @@ export const Route = createFileRoute("/app/equipamentos/$id")({
 });
 
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
-const STATUS: EquipStatus[] = ["Disponível", "Emprestado", "Manutenção"];
-const TIPOS_MN: ManutencaoTipo[] = ["Preventiva", "Corretiva", "Emergencial"];
-const STATUS_MN: ManutencaoStatus[] = ["Aberta", "Em andamento", "Concluída"];
+const STATUS: EquipStatus[] = ["DISPONÍVEL", "ALUGADO", "MANUTENÇÃO"];
+const TIPOS_MN: ManutencaoTipo[] = ["PREVENTIVA", "CORRETIVA", "EMERGENCIAL"];
+const STATUS_MN: ManutencaoStatus[] = ["ABERTA", "EM ANDAMENTO", "CONCLUÍDA"];
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 function fmtDate(iso?: string) {
@@ -85,9 +85,9 @@ function EquipDetalhe() {
   const [openView, setOpenView] = useState<string | null>(null);
   const [dataReal, setDataReal] = useState(new Date().toISOString().slice(0, 10));
   const CONDICOES = [
-    "Devolvido em bom estado, sem avarias aparentes",
-    "Devolvido com avarias leves",
-    "Devolvido com avarias graves",
+    "DEVOLVIDO em bom estado, sem avarias aparentes",
+    "DEVOLVIDO com avarias leves",
+    "DEVOLVIDO com avarias graves",
     "Outro (especificar)",
   ];
   const [condicaoOpt, setCondicaoOpt] = useState<string>(CONDICOES[0]);
@@ -154,9 +154,9 @@ function EquipDetalhe() {
   const statusDist = useMemo(() => {
     const total = diasUso + diasManut + diasDisp || 1;
     return [
-      { name: "Em uso", value: diasUso, pct: (diasUso / total) * 100, color: "#213368" },
-      { name: "Manutenção", value: diasManut, pct: (diasManut / total) * 100, color: "#F37032" },
-      { name: "Disponível", value: diasDisp, pct: (diasDisp / total) * 100, color: "#22c55e" },
+      { name: "EM USO", value: diasUso, pct: (diasUso / total) * 100, color: "#213368" },
+      { name: "MANUTENÇÃO", value: diasManut, pct: (diasManut / total) * 100, color: "#F37032" },
+      { name: "DISPONÍVEL", value: diasDisp, pct: (diasDisp / total) * 100, color: "#22c55e" },
     ].filter(d => d.value > 0);
   }, [diasUso, diasManut, diasDisp]);
 
@@ -167,8 +167,8 @@ function EquipDetalhe() {
       if (e.dataDevolucaoReal) items.push({ tipo: "dev", data: e.dataDevolucaoReal, titulo: `Devolução`, sub: `De ${e.destino}`, cor: "#16a34a", icone: PackageCheck });
     });
     manutencoes.forEach(m => {
-      items.push({ tipo: "manut", data: m.data, titulo: `Manutenção ${m.tipo}`, sub: `${m.oficina || "—"} · ${brl(m.custo)}`, cor: "#F37032", icone: Wrench });
-      if (m.dataFim) items.push({ tipo: "manut-fim", data: m.dataFim, titulo: `Manutenção concluída`, sub: m.descricao, cor: "#22c55e", icone: RotateCcw });
+      items.push({ tipo: "manut", data: m.data, titulo: `MANUTENÇÃO ${m.tipo}`, sub: `${m.oficina || "—"} · ${brl(m.custo)}`, cor: "#F37032", icone: Wrench });
+      if (m.dataFim) items.push({ tipo: "manut-fim", data: m.dataFim, titulo: `MANUTENÇÃO concluída`, sub: m.descricao, cor: "#22c55e", icone: RotateCcw });
     });
     return items.sort((a, b) => b.data.localeCompare(a.data));
   }, [emprestimos, manutencoes]);
@@ -282,7 +282,7 @@ function EquipDetalhe() {
     setObsDev("");
   };
 
-  const gerarTermoDevolvido = (empId: string) => {
+  const gerarTermoDevolucao = (empId: string) => {
     const emp = emprestimos.find(e => e.id === empId);
     if (!emp || !emp.dataDevolucaoReal) return;
     const periodoEfetivo = periodos(emp.dataInicio, emp.dataDevolucaoReal, emp.unidade);
@@ -328,7 +328,7 @@ function EquipDetalhe() {
           </Button>
           <Button
             onClick={() => setOpenEmp(true)}
-            disabled={eq.status !== "Disponível"}
+            disabled={eq.status !== "DISPONÍVEL"}
             className="bg-[#213368] text-white hover:bg-[#2a4185]"
           >
             <PackageOpen className="mr-1 h-4 w-4" /> Registrar aluguel
@@ -515,7 +515,7 @@ function EquipDetalhe() {
         <TabsContent value="emp" className="mt-4">
           <Card className="p-4">
             <div className="mb-3 flex justify-end">
-              <Button onClick={() => setOpenEmp(true)} disabled={eq.status !== "Disponível"} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+              <Button onClick={() => setOpenEmp(true)} disabled={eq.status !== "DISPONÍVEL"} className="bg-[#213368] text-white hover:bg-[#2a4185]">
                 <PackageOpen className="mr-1 h-4 w-4" /> Registrar aluguel
               </Button>
             </div>
@@ -542,8 +542,8 @@ function EquipDetalhe() {
                     const p = periodos(e.dataInicio, fim, e.unidade);
                     const hojeIso = new Date().toISOString().slice(0, 10);
                     const statusEmp = !e.ativo
-                      ? "Devolvido"
-                      : (e.dataDevolucaoPrevista && e.dataDevolucaoPrevista < hojeIso ? "Atrasado" : "Em uso");
+                      ? "DEVOLVIDO"
+                      : (e.dataDevolucaoPrevista && e.dataDevolucaoPrevista < hojeIso ? "ATRASADO" : "EM USO");
                     return (
                       <TableRow key={e.id} className="cursor-pointer hover:bg-[#F4F4F4]/60" onClick={() => setOpenView(e.id)}>
                         <TableCell>{e.destino}</TableCell>
@@ -563,7 +563,7 @@ function EquipDetalhe() {
                               </Button>
                             )}
                             {!e.ativo && (
-                              <Button size="sm" variant="ghost" title="Gerar termo de devolução" onClick={() => gerarTermoDevolvido(e.id)}>
+                              <Button size="sm" variant="ghost" title="Gerar termo de devolução" onClick={() => gerarTermoDevolucao(e.id)}>
                                 <FileText className="h-4 w-4 text-[#213368]" />
                               </Button>
                             )}
@@ -629,7 +629,7 @@ function EquipDetalhe() {
                       <TableCell><StatusBadge status={m.statusManut} /></TableCell>
                       <TableCell><AnexosCell anexos={m.anexos} /></TableCell>
                       <TableCell>
-                        {m.statusManut !== "Concluída" && (
+                        {m.statusManut !== "CONCLUÍDA" && (
                           <Button size="sm" variant="outline" onClick={() => setOpenEncerrarMn(m.id)}>Encerrar</Button>
                         )}
                       </TableCell>
@@ -804,8 +804,8 @@ function EquipDetalhe() {
           {empView && (() => {
             const hojeIso = new Date().toISOString().slice(0, 10);
             const statusEmp = !empView.ativo
-              ? "Devolvido"
-              : (empView.dataDevolucaoPrevista && empView.dataDevolucaoPrevista < hojeIso ? "Atrasado" : "Em uso");
+              ? "DEVOLVIDO"
+              : (empView.dataDevolucaoPrevista && empView.dataDevolucaoPrevista < hojeIso ? "ATRASADO" : "EM USO");
             const periodoEfetivo = empView.dataDevolucaoReal
               ? periodos(empView.dataInicio, empView.dataDevolucaoReal, empView.unidade)
               : null;
@@ -865,7 +865,7 @@ function EquipDetalhe() {
           })()}
           <DialogFooter className="gap-2">
             {empView && !empView.ativo && (
-              <Button onClick={() => { gerarTermoDevolvido(empView.id); }} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+              <Button onClick={() => { gerarTermoDevolucao(empView.id); }} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
                 <FileText className="mr-1 h-4 w-4" /> Gerar termo
               </Button>
             )}
@@ -881,7 +881,7 @@ function EquipDetalhe() {
 
 
 
-      {/* Manutenção */}
+      {/* MANUTENÇÃO */}
       <ManutencaoDialog open={openMn} onOpenChange={setOpenMn} equipamentoId={eq.id} />
 
       {/* Encerrar manutenção */}
@@ -973,14 +973,14 @@ function KpiRow({ label, value, color, bold, icon: Icon }: { label: string; valu
 }
 
 function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean; onOpenChange: (v: boolean) => void; equipamentoId: string }) {
-  const [tipo, setTipo] = useState<ManutencaoTipo>("Preventiva");
+  const [tipo, setTipo] = useState<ManutencaoTipo>("PREVENTIVA");
   const [data, setData] = useState(new Date().toISOString().slice(0, 10));
   const [dataFim, setDataFim] = useState("");
   const [descricao, setDescricao] = useState("");
   const [oficina, setOficina] = useState("");
   const [pecas, setPecas] = useState("");
   const [mo, setMo] = useState("");
-  const [status, setStatus] = useState<ManutencaoStatus>("Aberta");
+  const [status, setStatus] = useState<ManutencaoStatus>("ABERTA");
   const [obs, setObs] = useState("");
 
   const total = (Number(pecas) || 0) + (Number(mo) || 0);
@@ -992,9 +992,9 @@ function ManutencaoDialog({ open, onOpenChange, equipamentoId }: { open: boolean
       descricao, oficina, custoPecas: Number(pecas) || 0, custoMaoObra: Number(mo) || 0,
       statusManut: status, observacoes: obs || undefined,
     });
-    toast.success("Manutenção registrada");
+    toast.success("MANUTENÇÃO registrada");
     onOpenChange(false);
-    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFim(""); setStatus("Aberta"); setTipo("Preventiva");
+    setDescricao(""); setOficina(""); setPecas(""); setMo(""); setObs(""); setDataFim(""); setStatus("ABERTA"); setTipo("PREVENTIVA");
   };
 
   return (
@@ -1047,7 +1047,7 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
   const [valor, setValor] = useState(String(eq?.valor ?? ""));
   const [custoPeriodo, setCustoPeriodo] = useState(String(eq?.custoPeriodo ?? ""));
   const [unidade, setUnidade] = useState<UnidadePeriodo>(eq?.unidade ?? "dia");
-  const [status, setStatus] = useState<EquipStatus>(eq?.status ?? "Disponível");
+  const [status, setStatus] = useState<EquipStatus>(eq?.status ?? "DISPONÍVEL");
   const [localBase, setLocalBase] = useState(eq?.localBase ?? "");
   const [fotoUrl, setFotoUrl] = useState(eq?.fotoUrl ?? "");
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -1115,7 +1115,7 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
             <Label>Status</Label>
             <Select value={status} onValueChange={v => setStatus(v as EquipStatus)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "Emprestado" ? "Alugado" : s}</SelectItem>)}</SelectContent>
+              <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "ALUGADO" ? "Alugado" : s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
@@ -1248,10 +1248,10 @@ function EncerrarManutencaoDialog({
         descricao: descricao.trim(),
         custoPecas: pecasNum,
         custoMaoObra: maoNum,
-        statusManut: "Concluída",
+        statusManut: "CONCLUÍDA",
         anexos: [...anexosExistentes, ...anexosNovos],
       });
-      toast.success("Manutenção encerrada");
+      toast.success("MANUTENÇÃO encerrada");
       onClose();
     } finally {
       setSaving(false);
@@ -1262,7 +1262,7 @@ function EncerrarManutencaoDialog({
     <Dialog open={!!manutencao} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Encerrar Manutenção</DialogTitle>
+          <DialogTitle>Encerrar MANUTENÇÃO</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-1.5">

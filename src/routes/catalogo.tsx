@@ -83,7 +83,7 @@ function CatalogPage() {
     supabase
       .from("equipamentos")
       .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
-      .eq("status", "Disponível")
+      .eq("status", "DISPONÍVEL")
       .eq("exibir_catalogo", true)
       .then(({ data }) => {
         setRows((data ?? []) as Row[]);
