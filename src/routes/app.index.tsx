@@ -229,12 +229,13 @@ function PainelHome() {
   }, [manutencoes, equipamentos]);
   const proxDevolucoes = useMemo(() => {
     const hoje = new Date().toISOString().slice(0, 10);
-    return emprestimos
+    return (emprestimos as Row[])
       .filter(e => !e.data_devolucao_real && e.data_devolucao_prevista && e.data_devolucao_prevista >= hoje)
-      .sort((a, b) => a.data_devolucao_prevista.localeCompare(b.data_devolucao_prevista))
+      .sort((a, b) => String(a.data_devolucao_prevista).localeCompare(String(b.data_devolucao_prevista)))
       .slice(0, 5)
-      ]).map((e: Row) => ({ ...e, nomeEq: equipamentos.find(x => x.id === e.equipamento_id)?.nome || "—" }));
+      .map((e: Row) => ({ ...e, nomeEq: equipamentos.find(x => x.id === e.equipamento_id)?.nome || "—" }));
   }, [emprestimos, equipamentos]);
+
 
   if (loading) return <LoadingSkeleton />;
 
