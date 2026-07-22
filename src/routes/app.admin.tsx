@@ -291,6 +291,8 @@ function Admin() {
         </div>
       </Card>
 
+      <PortfolioAdmin />
+
       {/* Modal novo usuário */}
       <NovoUsuarioModal open={novoOpen} onClose={() => setNovoOpen(false)} onCriado={fetchUsuarios} />
 
