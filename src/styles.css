@@ -103,14 +103,15 @@
   background-size: 32px 32px;
 }
 
-/* Uppercase inputs no portal /app */
-.app-layout input:not([type="checkbox"]):not([type="radio"]):not([type="date"]):not([type="number"]):not([type="email"]):not([type="password"]):not([type="file"]),
-.app-layout textarea,
-.app-layout select {
+/* Uppercase geral no portal /app */
+.app-layout * {
   text-transform: uppercase;
 }
 
-/* Garante que campos de e-mail e senha nunca sejam transformados */
+/* Exceções obrigatórias */
+.app-layout input[type="password"],
+.app-layout input[type="email"],
+.app-layout input[type="text"][autocomplete="email"],
 input[type="password"],
 input[type="email"],
 input[type="text"][autocomplete="email"] {
