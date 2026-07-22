@@ -1,715 +1,570 @@
 // ============================================================
-// Painel inicial — relatórios por módulo, respeitando permissões.
-// ------------------------------------------------------------
-// NOTA DE SEGURANÇA: a checagem `useHasPermission` no front é
-// apenas para EXIBIÇÃO. Quando o Supabase for conectado, a
-// segurança REAL será garantida por Row Level Security no banco:
-// mesmo que a UI renderize um relatório, o servidor deve recusar
-// dados que o usuário não pode acessar.
-// ------------------------------------------------------------
-// Fonte de dados: lê exatamente das mesmas stores que os módulos
-// (projetos-store, equipamentos-store, mock-data). Quando ligar
-// o banco, basta trocar a origem — os relatórios não mudam.
+// Painel inicial — dashboard completo em tempo real (Supabase)
 // ============================================================
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { brl } from "@/lib/mock-data";
 import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
-  BriefcaseBusiness, FolderKanban, Wrench, TrendingUp, AlertTriangle,
-  DollarSign, CheckCircle2, Clock, PackageCheck, PackageX, Hammer, ArrowRight, Percent,
-} from "lucide-react";
-import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  LineChart, Line, PieChart, Pie, Cell, Legend, ComposedChart,
 } from "recharts";
-import { useCurrentUser, useHasPermission, useCanShowPainel, type ModuloKey } from "@/lib/current-user";
-import { useProjetosStore } from "@/lib/projetos-store";
-import { useEquipStore, periodos } from "@/lib/equipamentos-store";
-import { brl } from "@/lib/mock-data";
-import { useOrcamentos, STATUS_COLORS } from "@/lib/orcamentos-store";
-import { useMedicoes, resumoDoOrcamento } from "@/lib/medicoes-comercial-store";
+import {
+  FileText, DollarSign, CheckCircle2, Percent, Target, Handshake,
+  FolderKanban, ClipboardList, Wallet, TrendingUp,
+  Package, PackageCheck, PackageX, Wrench, BarChart3, Activity,
+} from "lucide-react";
 
 export const Route = createFileRoute("/app/")({ component: PainelHome });
 
-// ---------- Filtro de período ----------
-type Periodo = "mes" | "trimestre" | "ano";
-const PERIODO_LABEL: Record<Periodo, string> = {
-  mes: "Mês atual",
-  trimestre: "Últimos 3 meses",
-  ano: "Ano",
-};
-function inicioDoPeriodo(p: Periodo): Date {
-  const hoje = new Date();
-  if (p === "mes") return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  if (p === "trimestre") return new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1);
-  return new Date(hoje.getFullYear(), 0, 1);
-}
-function noPeriodo(dataISO: string, p: Periodo): boolean {
-  if (!dataISO) return false;
-  const d = new Date(dataISO);
-  return d >= inicioDoPeriodo(p) && d <= new Date();
-}
+const NAVY = "#213368";
+const ORANGE = "#F37032";
+const MESES = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
 
-const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const ORC_COLORS: Record<string, string> = {
+  "APROVADO": "#16a34a",
+  "LEVANTAMENTO": "#0ea5e9",
+  "AGUARDANDO RETORNO": "#f59e0b",
+  "EM NEGOCIAÇÃO": "#F37032",
+  "NÃO APROVADO": "#ef4444",
+  "CANCELADO": "#64748b",
+};
+const PROJ_COLORS: Record<string, string> = {
+  "PLANEJAMENTO": "#0ea5e9",
+  "EM ANDAMENTO": "#F37032",
+  "CONCLUÍDO": "#16a34a",
+  "PAUSADO": "#f59e0b",
+};
+const EQ_COLORS: Record<string, string> = {
+  "DISPONÍVEL": "#16a34a",
+  "ALUGADO": "#F37032",
+  "MANUTENÇÃO": "#ef4444",
+};
+
+type Row = Record<string, any>;
+
+function diffDias(ini: string, fim: string): number {
+  if (!ini || !fim) return 0;
+  const a = new Date(ini).getTime(); const b = new Date(fim).getTime();
+  if (isNaN(a) || isNaN(b)) return 0;
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+}
+function receitaEmprestimo(e: Row): number {
+  const total = Number(e.custo_total ?? 0);
+  if (total > 0) return total;
+  const fim = e.data_devolucao_real ?? e.data_devolucao_prevista;
+  const dias = diffDias(e.data_inicio, fim);
+  const unidade = String(e.unidade ?? "dia").toLowerCase();
+  const cp = Number(e.custo_periodo ?? 0);
+  if (unidade.startsWith("mes") || unidade.startsWith("mês")) return cp * Math.max(1, Math.ceil(dias / 30));
+  if (unidade.startsWith("sem")) return cp * Math.max(1, Math.ceil(dias / 7));
+  return cp * dias;
+}
+function noAno(iso: string | null | undefined, ano: number): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return d.getFullYear() === ano;
+}
 
 function PainelHome() {
-  const user = useCurrentUser();
-  const [periodo, setPeriodo] = useState<Periodo>("trimestre");
+  const anoAtual = new Date().getFullYear();
+  const [ano, setAno] = useState<number>(anoAtual);
+  const [loading, setLoading] = useState(true);
+  const [orcamentos, setOrcamentos] = useState<Row[]>([]);
+  const [projetos, setProjetos] = useState<Row[]>([]);
+  const [medicoes, setMedicoes] = useState<Row[]>([]);
+  const [equipamentos, setEquipamentos] = useState<Row[]>([]);
+  const [emprestimos, setEmprestimos] = useState<Row[]>([]);
+  const [manutencoes, setManutencoes] = useState<Row[]>([]);
+  const [clientes, setClientes] = useState<Row[]>([]);
 
-  const podeComercial = useHasPermission("comercial");
-  const podeProjetos = useHasPermission("projetos");
-  const podeEquip = useHasPermission("equipamentos");
-  const podeFinanceiro = useHasPermission("financeiro");
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      const [orc, proj, med, eq, emp, man, cli] = await Promise.all([
+        supabase.from("orcamentos").select("*"),
+        supabase.from("projetos").select("*"),
+        supabase.from("medicoes").select("*"),
+        supabase.from("equipamentos").select("*"),
+        supabase.from("emprestimos").select("*"),
+        supabase.from("manutencoes").select("*"),
+        supabase.from("clientes").select("id, nome"),
+      ]);
+      if (!alive) return;
+      setOrcamentos(orc.data ?? []);
+      setProjetos(proj.data ?? []);
+      setMedicoes(med.data ?? []);
+      setEquipamentos(eq.data ?? []);
+      setEmprestimos(emp.data ?? []);
+      setManutencoes(man.data ?? []);
+      setClientes(cli.data ?? []);
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, []);
 
-  const showComercial = useCanShowPainel("comercial");
-  const showPrevisao = useCanShowPainel("previsao");
-  const showProjetos = useCanShowPainel("projetos");
-  const showEquip = useCanShowPainel("equipamentos");
-  const showFinanceiro = useCanShowPainel("financeiro");
+  const anosDisponiveis = useMemo(() => {
+    const set = new Set<number>([anoAtual]);
+    orcamentos.forEach(o => { if (o.data_emissao) set.add(new Date(o.data_emissao).getFullYear()); });
+    medicoes.forEach(m => { if (m.data) set.add(new Date(m.data).getFullYear()); });
+    return Array.from(set).sort((a, b) => b - a);
+  }, [orcamentos, medicoes, anoAtual]);
 
-  const nada = !showComercial && !showPrevisao && !showProjetos && !showEquip && !showFinanceiro;
+  // === COMERCIAL ===
+  const orcAno = useMemo(() => orcamentos.filter(o => noAno(o.data_emissao, ano)), [orcamentos, ano]);
+  const totalOrc = orcAno.length;
+  const valorOrc = orcAno.reduce((a, o) => a + (Number(o.valor) || 0), 0);
+  const aprovados = orcAno.filter(o => o.status === "APROVADO");
+  const valorAprovado = aprovados.reduce((a, o) => a + (Number(o.valor) || 0), 0);
+  const taxaAprov = totalOrc > 0 ? (aprovados.length / totalOrc) * 100 : 0;
+  const ticket = aprovados.length > 0 ? valorAprovado / aprovados.length : 0;
+  const emNeg = orcAno.filter(o => o.status === "EM NEGOCIAÇÃO");
+  const valorEmNeg = emNeg.reduce((a, o) => a + (Number(o.valor) || 0), 0);
+
+  // === OPERACIONAL ===
+  const projAndamento = projetos.filter(p => p.status === "EM ANDAMENTO");
+  const projConcluidosAno = projetos.filter(p => p.status === "CONCLUÍDO" && (
+    noAno(p.data_inicio, ano) || noAno(p.prazo, ano) || noAno(p.created_at, ano)
+  ));
+  const medAno = useMemo(() => medicoes.filter(m => noAno(m.data, ano)), [medicoes, ano]);
+  const totalMed = medAno.length;
+  const faturado = medAno.filter(m => m.data_recebimento).reduce((a, m) => a + (Number(m.valor) || 0), 0);
+  const saldoFaturar = Math.max(0, valorAprovado - faturado);
+
+  // === EQUIPAMENTOS ===
+  const totalEq = equipamentos.length;
+  const disponiveis = equipamentos.filter(e => e.status === "DISPONÍVEL").length;
+  const alugados = equipamentos.filter(e => e.status === "ALUGADO").length;
+  const emManut = equipamentos.filter(e => e.status === "MANUTENÇÃO").length;
+  const empAno = useMemo(() => emprestimos.filter(e => noAno(e.data_inicio, ano)), [emprestimos, ano]);
+  const receitaEq = empAno.reduce((a, e) => a + receitaEmprestimo(e), 0);
+  const taxaUtil = totalEq > 0 ? (alugados / totalEq) * 100 : 0;
+
+  // === CHARTS ===
+  const orcPorMes = useMemo(() => {
+    const arr = MESES.map((m, i) => ({ mes: m, qtd: 0, valor: 0, _i: i }));
+    orcAno.forEach(o => {
+      if (!o.data_emissao) return;
+      const i = new Date(o.data_emissao).getMonth();
+      arr[i].qtd += 1;
+      arr[i].valor += Number(o.valor) || 0;
+    });
+    return arr;
+  }, [orcAno]);
+
+  const orcPorStatus = useMemo(() => {
+    const map: Record<string, number> = {};
+    orcAno.forEach(o => { const s = o.status || "LEVANTAMENTO"; map[s] = (map[s] || 0) + 1; });
+    return Object.entries(map).map(([name, value]) => ({ name, value, color: ORC_COLORS[name] || "#94a3b8" }));
+  }, [orcAno]);
+
+  const previsaoVsFat = useMemo(() => {
+    const arr = MESES.map(m => ({ mes: m, previsto: 0, faturado: 0 }));
+    aprovados.forEach(o => {
+      if (!o.data_emissao) return;
+      const i = new Date(o.data_emissao).getMonth();
+      arr[i].previsto += Number(o.valor) || 0;
+    });
+    medAno.forEach(m => {
+      if (!m.data_recebimento) return;
+      const i = new Date(m.data_recebimento).getMonth();
+      arr[i].faturado += Number(m.valor) || 0;
+    });
+    return arr;
+  }, [aprovados, medAno]);
+
+  const projPorStatus = useMemo(() => {
+    const map: Record<string, number> = {};
+    projetos.forEach(p => { const s = p.status || "PLANEJAMENTO"; map[s] = (map[s] || 0) + 1; });
+    return Object.entries(map).map(([name, value]) => ({ name, value, color: PROJ_COLORS[name] || "#94a3b8" }));
+  }, [projetos]);
+
+  const receitaEqPorMes = useMemo(() => {
+    const arr = MESES.map(m => ({ mes: m, valor: 0 }));
+    empAno.forEach(e => {
+      if (!e.data_inicio) return;
+      const i = new Date(e.data_inicio).getMonth();
+      arr[i].valor += receitaEmprestimo(e);
+    });
+    return arr;
+  }, [empAno]);
+
+  const eqPorStatus = useMemo(() => {
+    const map: Record<string, number> = { "DISPONÍVEL": 0, "ALUGADO": 0, "MANUTENÇÃO": 0 };
+    equipamentos.forEach(e => { const s = e.status || "DISPONÍVEL"; map[s] = (map[s] || 0) + 1; });
+    return Object.entries(map).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value, color: EQ_COLORS[name] || "#94a3b8" }));
+  }, [equipamentos]);
+
+  const topClientes = useMemo(() => {
+    const map: Record<string, number> = {};
+    aprovados.forEach(o => { const c = (o.cliente || "—").toString().toUpperCase(); map[c] = (map[c] || 0) + (Number(o.valor) || 0); });
+    return Object.entries(map).map(([name, valor]) => ({ name, valor })).sort((a, b) => b.valor - a.valor).slice(0, 10);
+  }, [aprovados]);
+
+  const acumulado = useMemo(() => {
+    const arr = MESES.map(m => ({ mes: m, valor: 0 }));
+    aprovados.forEach(o => {
+      if (!o.data_emissao) return;
+      const i = new Date(o.data_emissao).getMonth();
+      arr[i].valor += Number(o.valor) || 0;
+    });
+    let acc = 0;
+    return arr.map(x => ({ mes: x.mes, acumulado: (acc += x.valor) }));
+  }, [aprovados]);
+
+  // === TABELAS ===
+  const ultimosOrc = useMemo(() =>
+    [...orcamentos].sort((a, b) => (b.data_emissao || b.created_at || "").localeCompare(a.data_emissao || a.created_at || "")).slice(0, 5)
+  , [orcamentos]);
+  const projEmObra = useMemo(() => projAndamento.slice(0, 5), [projAndamento]);
+  const eqManut = useMemo(() => {
+    const abertas = manutencoes.filter(m => m.aberta !== false && m.status !== "CONCLUÍDA");
+    return abertas.slice(0, 5).map(m => ({
+      ...m, nomeEq: equipamentos.find(e => e.id === m.equipamento_id)?.nome || "—",
+    }));
+  }, [manutencoes, equipamentos]);
+  const proxDevolucoes = useMemo(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    return emprestimos
+      .filter(e => !e.data_devolucao_real && e.data_devolucao_prevista && e.data_devolucao_prevista >= hoje)
+      .sort((a, b) => a.data_devolucao_prevista.localeCompare(b.data_devolucao_prevista))
+      .slice(0, 5)
+      .map(e => ({ ...e, nomeEq: equipamentos.find(x => x.id === e.equipamento_id)?.nome || "—" }));
+  }, [emprestimos, equipamentos]);
+
+  if (loading) return <LoadingSkeleton />;
 
   return (
-    <div className="space-y-8">
-      {/* Cabeçalho + filtro global */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-extrabold text-[#213368]">Olá, {user.nome.split(" ")[0]} 👋</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
-            {" · "}
-            Perfil: <span className="font-semibold text-[#213368]">{user.perfil}</span>
-          </p>
+          <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Painel inicial</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Visão consolidada em tempo real</p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border bg-white p-1 shadow-sm">
-          {(Object.keys(PERIODO_LABEL) as Periodo[]).map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriodo(p)}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                periodo === p ? "bg-[#213368] text-white" : "text-[#213368] hover:bg-[#213368]/5"
-              }`}
-            >
-              {PERIODO_LABEL[p]}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 rounded-lg border bg-white p-2 shadow-sm">
+          <span className="text-xs font-semibold" style={{ color: NAVY }}>ANO:</span>
+          <select
+            value={ano}
+            onChange={e => setAno(Number(e.target.value))}
+            className="rounded-md border-0 bg-transparent text-sm font-bold outline-none"
+            style={{ color: NAVY }}
+          >
+            {anosDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
         </div>
       </div>
 
-      {podeComercial && showComercial && <SecaoComercial periodo={periodo} showPrevisao={showPrevisao} />}
-      {podeComercial && !showComercial && showPrevisao && <SecaoPrevisaoAvulsa />}
-      {podeProjetos && showProjetos && <SecaoProjetos periodo={periodo} />}
-      {podeEquip && showEquip && <SecaoEquipamentos periodo={periodo} />}
-      {podeFinanceiro && showFinanceiro && <SecaoFinanceiro periodo={periodo} />}
+      {/* SEÇÃO 1 — COMERCIAL */}
+      <Section title="Comercial" icon={<FileText className="h-4 w-4" />}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <Kpi icon={<FileText />} label="Orçamentos no ano" value={String(totalOrc)} />
+          <Kpi icon={<DollarSign />} label="Valor total orçado" value={brl(valorOrc)} />
+          <Kpi icon={<CheckCircle2 />} label="Aprovados" value={`${aprovados.length} · ${brl(valorAprovado)}`} tone="green" />
+          <Kpi icon={<Percent />} label="Taxa de aprovação" value={`${taxaAprov.toFixed(1)}%`} />
+          <Kpi icon={<Target />} label="Ticket médio" value={brl(ticket)} />
+          <Kpi icon={<Handshake />} label="Em negociação" value={`${emNeg.length} · ${brl(valorEmNeg)}`} tone="orange" />
+        </div>
+      </Section>
 
-      {nada && (
-        <Card className="p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nenhum bloco do painel está liberado para você. Fale com o administrador.
-          </p>
-        </Card>
-      )}
+      {/* SEÇÃO 2 — OPERACIONAL */}
+      <Section title="Operacional" icon={<FolderKanban className="h-4 w-4" />}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <Kpi icon={<FolderKanban />} label="Projetos em andamento" value={String(projAndamento.length)} tone="orange" />
+          <Kpi icon={<CheckCircle2 />} label="Concluídos no ano" value={String(projConcluidosAno.length)} tone="green" />
+          <Kpi icon={<ClipboardList />} label="Medições lançadas" value={String(totalMed)} />
+          <Kpi icon={<Wallet />} label="Faturado" value={brl(faturado)} tone="green" />
+          <Kpi icon={<TrendingUp />} label="Saldo a faturar" value={brl(saldoFaturar)} />
+        </div>
+      </Section>
+
+      {/* SEÇÃO 3 — EQUIPAMENTOS */}
+      <Section title="Equipamentos" icon={<Package className="h-4 w-4" />}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          <Kpi icon={<Package />} label="Total" value={String(totalEq)} />
+          <Kpi icon={<PackageCheck />} label="Disponíveis" value={String(disponiveis)} tone="green" />
+          <Kpi icon={<PackageX />} label="Alugados" value={String(alugados)} tone="orange" />
+          <Kpi icon={<Wrench />} label="Manutenção" value={String(emManut)} tone="red" />
+          <Kpi icon={<DollarSign />} label="Receita no ano" value={brl(receitaEq)} tone="green" />
+          <Kpi icon={<Percent />} label="Taxa de utilização" value={`${taxaUtil.toFixed(1)}%`} />
+        </div>
+      </Section>
+
+      {/* SEÇÃO 4 — GRÁFICOS */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard title="Orçamentos por mês">
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={orcPorMes}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="l" tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: number, n: string) => n === "valor" ? brl(v) : v} />
+              <Legend />
+              <Bar yAxisId="l" dataKey="qtd" name="Qtd" fill={NAVY} radius={[4,4,0,0]} />
+              <Bar yAxisId="r" dataKey="valor" name="Valor" fill={ORANGE} radius={[4,4,0,0]} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Orçamentos por status">
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={orcPorStatus} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={2}>
+                {orcPorStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
+              </Pie>
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Previsão de entrada vs Faturado">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={previsaoVsFat}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: number) => brl(v)} />
+              <Legend />
+              <Bar dataKey="previsto" name="Previsto" fill={NAVY} radius={[4,4,0,0]} />
+              <Bar dataKey="faturado" name="Faturado" fill={ORANGE} radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Projetos por status">
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={projPorStatus} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={2}>
+                {projPorStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
+              </Pie>
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Receita de equipamentos por mês">
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={receitaEqPorMes}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: number) => brl(v)} />
+              <Line type="monotone" dataKey="valor" name="Receita" stroke={ORANGE} strokeWidth={3} dot={{ fill: ORANGE, r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Equipamentos por status">
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={eqPorStatus} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={2}>
+                {eqPorStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
+              </Pie>
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Top 10 clientes por valor aprovado">
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={topClientes} layout="vertical" margin={{ left: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={140} />
+              <Tooltip formatter={(v: number) => brl(v)} />
+              <Bar dataKey="valor" name="Valor" fill={NAVY} radius={[0,4,4,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Evolução acumulada — orçamentos aprovados">
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={acumulado}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: number) => brl(v)} />
+              <Line type="monotone" dataKey="acumulado" name="Acumulado" stroke={ORANGE} strokeWidth={3} dot={{ fill: NAVY, r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* SEÇÃO 5 — TABELAS */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TableCard title="Últimos 5 orçamentos" link="/app/comercial">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                <th className="py-2">Obra</th><th>Cliente</th><th>Valor</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ultimosOrc.length === 0 && <tr><td colSpan={4} className="py-6 text-center text-muted-foreground">Sem registros</td></tr>}
+              {ultimosOrc.map(o => (
+                <tr key={o.id} className="border-b last:border-0">
+                  <td className="py-2 font-semibold" style={{ color: NAVY }}>{o.obra || "—"}</td>
+                  <td>{o.cliente || "—"}</td>
+                  <td className="font-semibold">{brl(Number(o.valor) || 0)}</td>
+                  <td><StatusBadge status={o.status || "LEVANTAMENTO"} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+
+        <TableCard title="Projetos em obra" link="/app/projetos">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                <th className="py-2">Nome</th><th>Cliente</th><th className="text-right">Progresso</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projEmObra.length === 0 && <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Sem projetos em andamento</td></tr>}
+              {projEmObra.map(p => {
+                const clienteNome = p.cliente || clientes.find(c => c.id === p.cliente_id)?.nome || "—";
+                const pct = Number(p.progresso) || 0;
+                return (
+                  <tr key={p.id} className="border-b last:border-0">
+                    <td className="py-2 font-semibold" style={{ color: NAVY }}>{p.nome || "—"}</td>
+                    <td>{clienteNome}</td>
+                    <td className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-200">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: ORANGE }} />
+                        </div>
+                        <span className="text-xs font-bold" style={{ color: NAVY }}>{pct}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </TableCard>
+
+        <TableCard title="Equipamentos em manutenção" link="/app/equipamentos">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                <th className="py-2">Equipamento</th><th>Data início</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eqManut.length === 0 && <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Nenhuma manutenção aberta</td></tr>}
+              {eqManut.map(m => (
+                <tr key={m.id} className="border-b last:border-0">
+                  <td className="py-2 font-semibold" style={{ color: NAVY }}>{m.nomeEq}</td>
+                  <td>{m.data ? new Date(m.data).toLocaleDateString("pt-BR") : "—"}</td>
+                  <td><StatusBadge status={m.status || "ABERTA"} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+
+        <TableCard title="Próximas devoluções" link="/app/equipamentos">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                <th className="py-2">Equipamento</th><th>Responsável</th><th>Prevista</th>
+              </tr>
+            </thead>
+            <tbody>
+              {proxDevolucoes.length === 0 && <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Sem devoluções futuras</td></tr>}
+              {proxDevolucoes.map(e => (
+                <tr key={e.id} className="border-b last:border-0">
+                  <td className="py-2 font-semibold" style={{ color: NAVY }}>{e.nomeEq}</td>
+                  <td>{e.responsavel || "—"}</td>
+                  <td className="font-semibold" style={{ color: ORANGE }}>
+                    {new Date(e.data_devolucao_prevista).toLocaleDateString("pt-BR")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
     </div>
   );
 }
 
-// Seção com apenas o resumo de Previsão de Entrada, quando o usuário só habilitou esse bloco.
-function SecaoPrevisaoAvulsa() {
+// ---------- UI ----------
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Secao titulo="Previsão de Entrada" subtitulo="Receita por orçamento aprovado" icon={TrendingUp} modulo="comercial">
-      <PrevisaoEntradaResumo />
-    </Secao>
-  );
-}
-
-// ============================================================
-// Bloco base de seção
-// ============================================================
-function Secao({ titulo, subtitulo, icon: Icon, modulo, children }: {
-  titulo: string; subtitulo: string; icon: typeof BriefcaseBusiness;
-  modulo: ModuloKey; children: React.ReactNode;
-}) {
-  return (
-    <section aria-label={titulo} data-modulo={modulo} className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#213368] text-white">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <h3 className="text-lg font-bold text-[#213368]">{titulo}</h3>
-          <p className="text-xs text-muted-foreground">{subtitulo}</p>
-        </div>
-      </div>
+    <section>
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide" style={{ color: NAVY }}>
+        {icon} {title}
+      </h3>
       {children}
     </section>
   );
 }
 
-function Kpi({ label, value, delta, tone, icon: Icon }: {
-  label: string; value: string; delta?: string; tone?: "up" | "down"; icon: typeof BriefcaseBusiness;
-}) {
-  const toneCls = tone === "up" ? "text-green-600" : tone === "down" ? "text-red-600" : "text-[#213368]";
+function Kpi({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone?: "green" | "orange" | "red" }) {
+  const bg = tone === "green" ? "#16a34a" : tone === "orange" ? ORANGE : tone === "red" ? "#ef4444" : NAVY;
   return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#213368] text-white">
-          <Icon className="h-5 w-5" />
+    <Card className="p-4 transition-all hover:shadow-md">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg text-white" style={{ background: bg }}>
+          {icon}
         </div>
-        {delta && <span className={`text-xs font-semibold ${tone ? toneCls : "text-[#F37032]"}`}>{delta}</span>}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+          <div className="mt-0.5 truncate text-base font-extrabold" style={{ color: NAVY }}>{value}</div>
+        </div>
       </div>
-      <div className={`mt-4 text-2xl font-extrabold ${toneCls}`}>{value}</div>
-      <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
     </Card>
   );
 }
 
-function Vazio({ msg }: { msg?: string }) {
-  return <div className="grid h-48 place-items-center text-sm text-muted-foreground">{msg ?? "Sem dados no período."}</div>;
-}
-
-// ============================================================
-// COMERCIAL
-// ============================================================
-function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevisao: boolean }) {
-  const orcamentos = useOrcamentos(s => s);
-  const dados = useMemo(() => {
-    const noPer = orcamentos.filter(o => noPeriodo(o.data, periodo));
-    const total = noPer.reduce((a, o) => a + o.valor, 0);
-    const qtd = noPer.length;
-    const ticket = qtd ? total / qtd : 0;
-    const valorAprovado = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + o.valor, 0);
-    const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
-
-    // Variação geral do pipeline: mês atual vs mês anterior (sem filtro de status)
-    const hojeVar = new Date();
-    const mesAtualIni = new Date(hojeVar.getFullYear(), hojeVar.getMonth(), 1, 0, 0, 0, 0);
-    const mesAtualFim = new Date(hojeVar.getFullYear(), hojeVar.getMonth() + 1, 0, 23, 59, 59, 999);
-    const mesAnteriorIni = new Date(hojeVar.getFullYear(), hojeVar.getMonth() - 1, 1, 0, 0, 0, 0);
-    const mesAnteriorFim = new Date(hojeVar.getFullYear(), hojeVar.getMonth(), 0, 23, 59, 59, 999);
-    const somaMesAtual = orcamentos
-      .filter(o => {
-        if (!o.data) return false;
-        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
-        return d >= mesAtualIni && d <= mesAtualFim;
-      })
-      .reduce((a, o) => a + o.valor, 0);
-    const somaMesAnterior = orcamentos
-      .filter(o => {
-        if (!o.data) return false;
-        const d = new Date(o.data.length <= 10 ? o.data + "T12:00:00" : o.data);
-        return d >= mesAnteriorIni && d <= mesAnteriorFim;
-      })
-      .reduce((a, o) => a + o.valor, 0);
-    const variacao = somaMesAnterior > 0 ? ((somaMesAtual - somaMesAnterior) / somaMesAnterior) * 100 : null;
-
-    // Série mensal (últimos 6 meses)
-    const hoje = new Date();
-    const meses: { mes: string; valor: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      const soma = orcamentos
-        .filter(o => { const od = new Date(o.data); return `${od.getFullYear()}-${od.getMonth()}` === key; })
-        .reduce((a, o) => a + o.valor, 0);
-      meses.push({ mes: NOMES_MES[d.getMonth()], valor: soma });
-    }
-
-    // Por status
-    const porStatus = Object.entries(
-      noPer.reduce<Record<string, number>>((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {}),
-    ).map(([name, value]) => ({ name, value, color: (STATUS_COLORS as Record<string, string>)[name] ?? "#94A3B8" }));
-
-    const ultimos = [...noPer].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
-    const topClientes = (Object.entries(
-      noPer.reduce<Record<string, number>>((acc, o) => { acc[o.cliente] = (acc[o.cliente] || 0) + o.valor; return acc; }, {}),
-    ) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-    return { total, qtd, ticket, conv, variacao, meses, porStatus, ultimos, topClientes };
-  }, [orcamentos, periodo]);
-
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Secao titulo="Comercial" subtitulo={`Orçamentos e conversão · ${PERIODO_LABEL[periodo]}`} icon={BriefcaseBusiness} modulo="comercial">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Kpi label="Valor total de orçamentos" value={brl(dados.total)} icon={DollarSign} />
-        <Kpi label="Nº de orçamentos" value={String(dados.qtd)} icon={BriefcaseBusiness} />
-        <Kpi label="Ticket médio" value={brl(dados.ticket)} icon={TrendingUp} />
-        <Kpi label="Taxa de conversão" value={`${dados.conv.toFixed(0)}%`} icon={CheckCircle2} />
-        <Kpi
-          label="Vs. período anterior"
-          value={dados.variacao !== null ? `${dados.variacao > 0 ? "↑ " : dados.variacao < 0 ? "↓ " : ""}${Math.abs(dados.variacao).toFixed(0)}%` : "—"}
-          icon={Percent}
-          tone={dados.variacao !== null ? (dados.variacao > 0 ? "up" : dados.variacao < 0 ? "down" : undefined) : undefined}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2">
-          <div className="text-sm font-semibold text-muted-foreground">Orçamentos mês a mês</div>
-          <div className="mt-4 h-64">
-            {dados.meses.some(m => m.valor > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dados.meses}>
-                  <defs>
-                    <linearGradient id="gComercial" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#F37032" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="#F37032" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                  <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v / 1_000_000).toFixed(1)}M`} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Area type="monotone" dataKey="valor" stroke="#F37032" strokeWidth={2.5} fill="url(#gComercial)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-muted-foreground">Orçamentos por status</div>
-          <div className="mt-4 h-64">
-            {dados.porStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={dados.porStatus} dataKey="value" nameKey="name" outerRadius={80} innerRadius={45}>
-                    {dados.porStatus.map((s, i) => <Cell key={i} fill={s.color} />)}
-                  </Pie>
-                  <Legend />
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-muted-foreground">Últimos orçamentos</div>
-            <Link to="/app/comercial" className="text-xs font-semibold text-[#F37032] hover:underline">Ver todos <ArrowRight className="inline h-3 w-3" /></Link>
-          </div>
-          <div className="mt-3 divide-y">
-            {dados.ultimos.length === 0 ? <Vazio msg="Nenhum orçamento no período." /> :
-              dados.ultimos.map(o => (
-                <div key={o.id} className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-[#213368]">{o.obra}</div>
-                    <div className="truncate text-xs text-muted-foreground">{o.cliente} · {o.id}</div>
-                  </div>
-                  <div className="ml-3 text-right">
-                    <div className="text-sm font-bold text-[#213368]">{brl(o.valor)}</div>
-                    <StatusBadge status={o.status} />
-                  </div>
-                </div>
-              ))
-            }
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-muted-foreground">Top clientes por valor</div>
-          <div className="mt-3 space-y-3">
-            {dados.topClientes.length === 0 ? <Vazio msg="Sem clientes no período." /> :
-              dados.topClientes.map(([cliente, valor], i) => {
-                const max = dados.topClientes[0][1] as number;
-                const pct = ((valor as number) / max) * 100;
-                return (
-                  <div key={cliente}>
-                    <div className="flex justify-between text-xs">
-                      <span className="font-semibold text-[#213368]">{i + 1}. {cliente}</span>
-                      <span className="text-muted-foreground">{brl(valor as number)}</span>
-                    </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#213368]/10">
-                      <div className="h-full bg-[#F37032]" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })
-            }
-          </div>
-        </Card>
-      </div>
-
-      {showPrevisao && <PrevisaoEntradaResumo />}
-    </Secao>
+    <Card className="p-5">
+      <h4 className="mb-3 flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
+        <BarChart3 className="h-4 w-4" /> {title}
+      </h4>
+      {children}
+    </Card>
   );
 }
 
-// ------------------------------------------------------------
-// Bloco resumo — Previsão de Entrada (painel /app)
-// ------------------------------------------------------------
-function PrevisaoEntradaResumo() {
-  const aprovados = useOrcamentos(s => s.filter(o => o.status === "APROVADO"));
-  const medicoes = useMedicoes(s => s);
-  const resumos = aprovados.map(o => resumoDoOrcamento(o, medicoes));
-  const prevista = resumos.reduce((a, r) => a + r.orcamento.valor, 0);
-  const faturado = resumos.reduce((a, r) => a + r.faturado, 0);
-  const saldo = Math.max(0, prevista - faturado);
-  const pct = prevista > 0 ? (faturado / prevista) * 100 : 0;
-  const top3 = [...resumos].sort((a, b) => b.saldo - a.saldo).slice(0, 3);
-
-  // Fluxo mensal compacto (últimos 4 + próximos 2)
-  const hoje = new Date();
-  const fluxo: { mes: string; previsto: number; realizado: number }[] = [];
-  for (let i = -3; i <= 2; i++) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-    const dNext = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, 1);
-    const previsto = medicoes.filter(m => { const md = new Date(m.previsaoRecebimento); return md >= d && md < dNext; }).reduce((a, m) => a + m.valor, 0);
-    const realizado = medicoes.filter(m => { const md = new Date(m.data); return md >= d && md < dNext && m.status === "RECEBIDA"; }).reduce((a, m) => a + m.valor, 0);
-    fluxo.push({ mes: NOMES_MES[d.getMonth()], previsto, realizado });
-  }
-
+function TableCard({ title, link, children }: { title: string; link: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <Card className="p-6">
-        <div className="text-sm font-semibold text-muted-foreground">Previsão de entrada</div>
-        <div className="mt-3 space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-muted-foreground">PREVISTA</span><span className="font-bold text-[#213368]">{brl(prevista)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Faturado</span><span className="font-bold text-[#F37032]">{brl(faturado)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Saldo</span><span className="font-bold text-[#213368]">{brl(saldo)}</span></div>
-        </div>
-        <div className="mt-3">
-          <div className="flex justify-between text-xs"><span className="text-muted-foreground">Executado</span><span className="font-semibold text-[#213368]">{pct.toFixed(0)}%</span></div>
-          <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#213368]/10">
-            <div className="h-full bg-green-600 transition-all" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-      </Card>
-      <Card className="p-6">
-        <div className="text-sm font-semibold text-muted-foreground">Fluxo mensal</div>
-        <div className="mt-2 h-40">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={fluxo}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="mes" stroke="#6E7280" fontSize={11} />
-              <YAxis stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
-              <Tooltip formatter={(v: number) => brl(v)} />
-              <Bar dataKey="previsto" name="Previsto" fill="#213368" radius={[4,4,0,0]} />
-              <Bar dataKey="realizado" name="Realizado" fill="#F37032" radius={[4,4,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-      <Card className="p-6">
-        <div className="text-sm font-semibold text-muted-foreground">Maiores saldos a faturar</div>
-        <div className="mt-3 space-y-3">
-          {top3.length === 0 ? (
-            <div className="text-xs text-muted-foreground">Sem orçamentos aprovados.</div>
-          ) : top3.map(r => (
-            <div key={r.orcamento.id}>
-              <div className="flex justify-between text-xs">
-                <span className="font-semibold text-[#213368] truncate">{r.orcamento.cliente}</span>
-                <span className="text-muted-foreground">{brl(r.saldo)}</span>
-              </div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#213368]/10">
-                <div className="h-full bg-[#F37032]" style={{ width: `${r.pct}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+    <Card className="p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
+          <Activity className="h-4 w-4" /> {title}
+        </h4>
+        <Link to={link} className="text-xs font-semibold hover:underline" style={{ color: ORANGE }}>Ver todos →</Link>
+      </div>
+      <div className="overflow-x-auto">{children}</div>
+    </Card>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-10 w-64" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20" />)}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-72" />)}
+      </div>
     </div>
   );
 }
-
-
-
-// ============================================================
-// PROJETOS
-// ============================================================
-function SecaoProjetos({ periodo }: { periodo: Periodo }) {
-  const projetos = useProjetosStore(s => s.projetos);
-  const medicoes = useProjetosStore(s => s.medicoes);
-  const notas = useProjetosStore(s => s.notas);
-  const custos = useProjetosStore(s => s.custos);
-
-  const dados = useMemo(() => {
-    const ativos = projetos.filter(p => p.status === "EM ANDAMENTO" || p.status === "PLANEJAMENTO");
-    const valorTotal = ativos.reduce((a, p) => a + p.orcado, 0);
-    const execMedia = ativos.length ? ativos.reduce((a, p) => a + p.progresso, 0) / ativos.length : 0;
-    const paralisados = projetos.filter(p => p.status === "PARALISADO");
-
-    // Prazo próximo (<= 30 dias)
-    const hoje = new Date();
-    const proximosPrazo = projetos
-      .filter(p => p.status !== "CONCLUÍDO")
-      .map(p => ({ p, dias: Math.ceil((new Date(p.prazo).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) }))
-      .filter(x => x.dias <= 30 && x.dias >= 0);
-
-    // Curva S: soma medido e gasto por mês (últimos 6 meses)
-    const hoje2 = new Date();
-    const meses: { mes: string; fisico: number; financeiro: number }[] = [];
-    let accFis = 0, accFin = 0;
-    const orcado = projetos.reduce((a, p) => a + p.orcado, 0) || 1;
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje2.getFullYear(), hoje2.getMonth() - i, 1);
-      const dNext = new Date(hoje2.getFullYear(), hoje2.getMonth() - i + 1, 1);
-      const medMes = medicoes.filter(m => { const md = new Date(m.data); return md >= d && md < dNext; })
-        .reduce((a, m) => a + m.valor, 0);
-      const notaMes = notas.filter(n => { const nd = new Date(n.data); return nd >= d && nd < dNext; })
-        .reduce((a, n) => a + n.valor, 0);
-      const custoMes = custos.filter(c => { const cd = new Date(c.data); return cd >= d && cd < dNext; })
-        .reduce((a, c) => a + c.valor, 0);
-      accFis += medMes;
-      accFin += notaMes + custoMes;
-      meses.push({
-        mes: NOMES_MES[d.getMonth()],
-        fisico: Math.round((accFis / orcado) * 100),
-        financeiro: Math.round((accFin / orcado) * 100),
-      });
-    }
-
-    const ultimasMedicoes = [...medicoes].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
-    const ultimasNotas = [...notas].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 5);
-
-    return { ativos, valorTotal, execMedia, paralisados, proximosPrazo, meses, ultimasMedicoes, ultimasNotas };
-  }, [projetos, medicoes, notas, custos]);
-
-  const projetoNome = (id: string) => projetos.find(p => p.id === id)?.nome ?? id;
-  // periodo é reservado para futuras métricas por janela; a curva S usa 6 meses fixos
-  void periodo;
-
-  return (
-    <Secao titulo="Projetos" subtitulo="Andamento físico, financeiro e alertas" icon={FolderKanban} modulo="projetos">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Kpi label="Projetos ativos" value={String(dados.ativos.length)} icon={FolderKanban} />
-        <Kpi label="Valor total em obras" value={brl(dados.valorTotal)} icon={DollarSign} />
-        <Kpi label="Execução média" value={`${dados.execMedia.toFixed(0)}%`} icon={TrendingUp} />
-      </div>
-
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold text-muted-foreground">Curva S — avanço físico × financeiro</div>
-            <div className="text-xs text-muted-foreground">Consolidado dos últimos 6 meses (acumulado)</div>
-          </div>
-        </div>
-        <div className="mt-4 h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dados.meses}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-              <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${v}%`} />
-              <Tooltip formatter={(v: number) => `${v}%`} />
-              <Legend />
-              <Line type="monotone" dataKey="fisico" stroke="#213368" strokeWidth={2.5} name="Físico" />
-              <Line type="monotone" dataKey="financeiro" stroke="#F37032" strokeWidth={2.5} name="Financeiro" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#213368]">
-            <AlertTriangle className="h-4 w-4 text-[#F37032]" /> Alertas
-          </div>
-          <div className="mt-3 space-y-2">
-            {dados.paralisados.length === 0 && dados.proximosPrazo.length === 0 && (
-              <div className="text-xs text-muted-foreground">Nenhum alerta no momento. 🎉</div>
-            )}
-            {dados.paralisados.map(p => (
-              <Link key={p.id} to="/app/projetos/$id" params={{ id: p.id }} className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3 hover:bg-red-100">
-                <div className="text-sm font-semibold text-red-700">{p.nome}</div>
-                <StatusBadge status="PARALISADO" />
-              </Link>
-            ))}
-            {dados.proximosPrazo.map(({ p, dias }) => (
-              <Link key={p.id} to="/app/projetos/$id" params={{ id: p.id }} className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 hover:bg-amber-100">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-amber-800">{p.nome}</div>
-                  <div className="text-xs text-amber-700">Prazo em {dias} dia{dias === 1 ? "" : "s"}</div>
-                </div>
-                <Clock className="h-4 w-4 text-amber-700" />
-              </Link>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-muted-foreground">Últimas medições e notas</div>
-          <div className="mt-3 divide-y">
-            {dados.ultimasMedicoes.length === 0 && dados.ultimasNotas.length === 0 && <Vazio msg="Nada lançado ainda." />}
-            {dados.ultimasMedicoes.map(m => (
-              <div key={m.id} className="flex items-center justify-between py-2 text-sm">
-                <div className="min-w-0">
-                  <div className="truncate font-semibold text-[#213368]">Medição #{m.numero} · {projetoNome(m.projetoId)}</div>
-                  <div className="text-xs text-muted-foreground">{m.periodo}</div>
-                </div>
-                <div className="ml-3 text-right">
-                  <div className="font-bold text-[#213368]">{brl(m.valor)}</div>
-                  <StatusBadge status={m.status} />
-                </div>
-              </div>
-            ))}
-            {dados.ultimasNotas.map(n => (
-              <div key={n.id} className="flex items-center justify-between py-2 text-sm">
-                <div className="min-w-0">
-                  <div className="truncate font-semibold text-[#213368]">{n.numero} · {n.fornecedor}</div>
-                  <div className="truncate text-xs text-muted-foreground">{projetoNome(n.projetoId)}</div>
-                </div>
-                <div className="ml-3 text-right">
-                  <div className="font-bold text-[#213368]">{brl(n.valor)}</div>
-                  <StatusBadge status={n.status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </Secao>
-  );
-}
-
-// ============================================================
-// EQUIPAMENTOS
-// ============================================================
-function SecaoEquipamentos({ periodo }: { periodo: Periodo }) {
-  const equipamentos = useEquipStore(s => s.equipamentos);
-  const emprestimos = useEquipStore(s => s.emprestimos);
-
-  const dados = useMemo(() => {
-    const emUso = equipamentos.filter(e => e.status === "ALUGADO").length;
-    const disponiveis = equipamentos.filter(e => e.status === "DISPONÍVEL").length;
-    const manutencao = equipamentos.filter(e => e.status === "MANUTENÇÃO").length;
-
-    const noPer = emprestimos.filter(e => noPeriodo(e.dataInicio, periodo));
-    const custoPeriodoTotal = noPer.reduce((a, e) => a + e.custoTotal, 0);
-
-    // Custo por mês (últimos 6 meses)
-    const hoje = new Date();
-    const meses: { mes: string; custo: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const dNext = new Date(hoje.getFullYear(), hoje.getMonth() - i + 1, 1);
-      const custo = emprestimos.filter(e => { const ed = new Date(e.dataInicio); return ed >= d && ed < dNext; })
-        .reduce((a, e) => a + e.custoTotal, 0);
-      meses.push({ mes: NOMES_MES[d.getMonth()], custo });
-    }
-
-    // Devolução prevista próxima (<=15 dias, ativos)
-    const proximas = emprestimos.filter(e => e.ativo).map(e => {
-      const dias = Math.ceil((new Date(e.dataDevolucaoPrevista).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-      return { emp: e, dias };
-    }).filter(x => x.dias <= 15).sort((a, b) => a.dias - b.dias);
-
-    return { emUso, disponiveis, manutencao, custoPeriodoTotal, meses, proximas };
-  }, [equipamentos, emprestimos, periodo]);
-
-  const eqNome = (id: string) => equipamentos.find(e => e.id === id)?.nome ?? id;
-
-  return (
-    <Secao titulo="Equipamentos" subtitulo={`Frota, aluguéis e custos · ${PERIODO_LABEL[periodo]}`} icon={Wrench} modulo="equipamentos">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="EM USO" value={String(dados.emUso)} icon={PackageX} />
-        <Kpi label="Disponíveis" value={String(dados.disponiveis)} icon={PackageCheck} />
-        <Kpi label="Em manutenção" value={String(dados.manutencao)} icon={Hammer} />
-        <Kpi label="Custo de aluguéis no período" value={brl(dados.custoPeriodoTotal)} icon={DollarSign} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2">
-          <div className="text-sm font-semibold text-muted-foreground">Custo de aluguéis por mês</div>
-          <div className="mt-4 h-64">
-            {dados.meses.some(m => m.custo > 0) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dados.meses}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                  <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => brl(v)} />
-                  <Bar dataKey="custo" fill="#F37032" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <Vazio />}
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="text-sm font-semibold text-muted-foreground">Devoluções previstas (≤ 15 dias)</div>
-          <div className="mt-3 space-y-2">
-            {dados.proximas.length === 0 ? <Vazio msg="Sem devoluções próximas." /> :
-              dados.proximas.slice(0, 6).map(({ emp, dias }) => (
-                <Link key={emp.id} to="/app/equipamentos/$id" params={{ id: emp.equipamentoId }}
-                  className="flex items-center justify-between rounded-lg border p-3 hover:border-[#F37032] hover:bg-[#F37032]/5">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-[#213368]">{eqNome(emp.equipamentoId)}</div>
-                    <div className="truncate text-xs text-muted-foreground">{emp.destino}</div>
-                  </div>
-                  <span className={`text-xs font-semibold ${dias < 0 ? "text-red-600" : dias <= 3 ? "text-[#F37032]" : "text-[#213368]"}`}>
-                    {dias < 0 ? `${Math.abs(dias)}d atraso` : `${dias}d`}
-                  </span>
-                </Link>
-              ))
-            }
-          </div>
-        </Card>
-      </div>
-    </Secao>
-  );
-}
-
-// ============================================================
-// FINANCEIRO CONSOLIDADO (dado sensível — respeitar permissão)
-// ============================================================
-function SecaoFinanceiro({ periodo }: { periodo: Periodo }) {
-  const projetos = useProjetosStore(s => s.projetos);
-  const medicoes = useProjetosStore(s => s.medicoes);
-  const notas = useProjetosStore(s => s.notas);
-  const custos = useProjetosStore(s => s.custos);
-  const emprestimos = useEquipStore(s => s.emprestimos);
-
-  const linhas = useMemo(() => {
-    return projetos.map(p => {
-      const receita = medicoes.filter(m => m.projetoId === p.id).reduce((a, m) => a + m.valor, 0);
-      const custoNotas = notas.filter(n => n.projetoId === p.id).reduce((a, n) => a + n.valor, 0);
-      const custoLancados = custos.filter(c => c.projetoId === p.id).reduce((a, c) => a + c.valor, 0);
-      // Rateio de equipamentos por match parcial no destino
-      const custoEquip = emprestimos.filter(e => e.destino.toLowerCase().includes(p.nome.split(" ")[0].toLowerCase()))
-        .reduce((a, e) => a + e.custoTotal, 0);
-      const custoTotal = custoNotas + custoLancados + custoEquip;
-      const margem = receita - custoTotal;
-      return { p, receita, custoTotal, margem };
-    }).sort((a, b) => b.receita - a.receita);
-  }, [projetos, medicoes, notas, custos, emprestimos]);
-  void periodo;
-
-  const totRec = linhas.reduce((a, l) => a + l.receita, 0);
-  const totCus = linhas.reduce((a, l) => a + l.custoTotal, 0);
-
-  return (
-    <Secao titulo="Financeiro consolidado" subtitulo="Receita (medições) × custos por obra — dado restrito" icon={DollarSign} modulo="financeiro">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Kpi label="Receita medida" value={brl(totRec)} icon={TrendingUp} />
-        <Kpi label="Custos" value={brl(totCus)} icon={DollarSign} />
-        <Kpi label="Margem" value={brl(totRec - totCus)} icon={CheckCircle2} delta={totRec ? `${(((totRec - totCus) / totRec) * 100).toFixed(0)}%` : undefined} />
-      </div>
-
-      <Card className="p-6">
-        <div className="text-sm font-semibold text-muted-foreground">Receita × custos por obra</div>
-        <div className="mt-4 h-80">
-          {linhas.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={linhas.map(l => ({
-                nome: l.p.nome.length > 22 ? l.p.nome.slice(0, 22) + "…" : l.p.nome,
-                Receita: l.receita, Custos: l.custoTotal,
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="nome" stroke="#6E7280" fontSize={11} angle={-15} textAnchor="end" height={70} />
-                <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v / 1_000_000).toFixed(1)}M`} />
-                <Tooltip formatter={(v: number) => brl(v)} />
-                <Legend />
-                <Bar dataKey="Receita" fill="#213368" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Custos" fill="#F37032" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Vazio />}
-        </div>
-      </Card>
-    </Secao>
-  );
-}
-
-// Silencia import não usado (periodos): reservado para janelas específicas futuras.
-void periodos;
