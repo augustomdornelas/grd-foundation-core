@@ -32,7 +32,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen md:grid-cols-2">
+    <div className="login-page grid min-h-screen md:grid-cols-2" style={{ textTransform: "none" }}>
       <div className="relative hidden overflow-hidden bg-[#213368] p-10 text-white md:flex md:flex-col md:justify-between">
         <div className="grid-motif absolute inset-0" />
         <GridMotif className="absolute -right-10 top-20" opacity={0.2} />
