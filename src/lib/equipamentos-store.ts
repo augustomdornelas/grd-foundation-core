@@ -39,7 +39,7 @@ export type Emprestimo = {
   responsavelRg?: string;
   responsavelCargo?: string;
   dataInicio: string;
-  dataDevolucaoPREVISTA: string;
+  dataDevolucaoPrevista: string;
   dataDevolucaoReal?: string;
   custoPeriodo: number;
   unidade: UnidadePeriodo;
@@ -107,7 +107,7 @@ export function periodos(inicio: string, fim: string, unidade: UnidadePeriodo): 
   return Math.max(1, Math.ceil(dias / 30));
 }
 
-export function custoATIVOTotal(s: State): number {
+export function custoAtivoTotal(s: State): number {
   return s.emprestimos
     .filter(e => e.ativo)
     .reduce((a, e) => a + e.custoTotal, 0);
@@ -142,7 +142,7 @@ async function fetchAll() {
         responsavelRg: r.responsavel_rg ?? undefined,
         responsavelCargo: r.responsavel_cargo ?? undefined,
         dataInicio: r.data_inicio ?? "",
-        dataDevolucaoPREVISTA: r.data_devolucao_prevista ?? r.data_prevista ?? "",
+        dataDevolucaoPrevista: r.data_devolucao_prevista ?? r.data_prevista ?? "",
         dataDevolucaoReal: r.data_devolucao_real ?? r.data_real ?? undefined,
         custoPeriodo: Number(r.custo_periodo ?? 0) || 0,
         unidade: (r.unidade ?? "dia") as UnidadePeriodo,
@@ -290,7 +290,7 @@ export const equipActions = {
   },
   async registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">): Promise<string | null> {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
-    const qtd = periodos(input.dataInicio, input.dataDevolucaoPREVISTA, input.unidade);
+    const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
    const emprestimoPayload = upperizePayload({
   equipamento_id: input.equipamentoId,
@@ -300,7 +300,7 @@ export const equipActions = {
       responsavel_rg: input.responsavelRg ?? null,
       responsavel_cargo: input.responsavelCargo ?? null,
       data_inicio: input.dataInicio,
-      data_devolucao_prevista: input.dataDevolucaoPREVISTA,
+      data_devolucao_prevista: input.dataDevolucaoPrevista,
       custo_periodo: input.custoPeriodo,
       unidade: input.unidade,
       observacoes: input.observacoes ?? null,

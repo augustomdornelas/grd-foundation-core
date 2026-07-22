@@ -193,8 +193,8 @@ function Comercial() {
     const totalAnt = noAnt.reduce((a, o) => a + num(o.valor), 0);
     const qtd = noPer.length;
     const ticket = qtd ? total / qtd : 0;
-    const valorAPROVADO = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + num(o.valor), 0);
-    const conv = total > 0 ? (valorAPROVADO / total) * 100 : 0;
+    const valorAprovado = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + num(o.valor), 0);
+    const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
     const abertos = noPer.filter(o => o.status === "LEVANTAMENTO" || o.status === "AGUARDANDO RETORNO" || o.status === "EM NEGOCIAÇÃO");
     const abertoValor = abertos.reduce((a, o) => a + num(o.valor), 0);
     const emNegociacaoValor = noPer.filter(o => o.status === "EM NEGOCIAÇÃO").reduce((a, o) => a + num(o.valor), 0);

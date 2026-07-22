@@ -123,7 +123,7 @@ function EquipDetalhe() {
   const pctRecup = valorEq > 0 ? Math.min(100, (totalFaturado / valorEq) * 100) : 0;
 
   const hoje = new Date().toISOString().slice(0, 10);
-  const diasUso = emprestimos.reduce((a, e) => a + diffDias(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPREVISTA), 0);
+  const diasUso = emprestimos.reduce((a, e) => a + diffDias(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista), 0);
   const diasManut = manutencoes.reduce((a, m) => a + diffDias(m.data, m.dataFim || hoje), 0);
   const datasBase = [...emprestimos.map(e => e.dataInicio), ...manutencoes.map(m => m.data)].filter(Boolean).sort();
   const totalDias = Math.max(1, diffDias(datasBase[0] || hoje, hoje));
@@ -282,7 +282,7 @@ function EquipDetalhe() {
     setObsDev("");
   };
 
-  const gerarTermoDEVOLVIDO = (empId: string) => {
+  const gerarTermoDevolucao = (empId: string) => {
     const emp = emprestimos.find(e => e.id === empId);
     if (!emp || !emp.dataDevolucaoReal) return;
     const periodoEfetivo = periodos(emp.dataInicio, emp.dataDevolucaoReal, emp.unidade);
@@ -309,10 +309,10 @@ function EquipDetalhe() {
     gerarTermoPDF(termo).catch(() => toast.error("Falha ao gerar PDF"));
   };
 
-  const mnABERTA = manutencoes.find(m => m.id === openEncerrarMn) || null;
+  const mnAberta = manutencoes.find(m => m.id === openEncerrarMn) || null;
 
 
-  const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPREVISTA, e.unidade), 0);
+  const totalPeriodosEmp = emprestimos.reduce((a, e) => a + periodos(e.dataInicio, e.dataDevolucaoReal || e.dataDevolucaoPrevista, e.unidade), 0);
 
   return (
     <>
@@ -538,18 +538,18 @@ function EquipDetalhe() {
                     <TableRow><TableCell colSpan={10} className="py-8 text-center text-muted-foreground">Sem aluguéis registrados.</TableCell></TableRow>
                   )}
                   {emprestimos.slice().reverse().map(e => {
-                    const fim = e.dataDevolucaoReal || e.dataDevolucaoPREVISTA;
+                    const fim = e.dataDevolucaoReal || e.dataDevolucaoPrevista;
                     const p = periodos(e.dataInicio, fim, e.unidade);
                     const hojeIso = new Date().toISOString().slice(0, 10);
                     const statusEmp = !e.ativo
                       ? "DEVOLVIDO"
-                      : (e.dataDevolucaoPREVISTA && e.dataDevolucaoPREVISTA < hojeIso ? "ATRASADO" : "EM USO");
+                      : (e.dataDevolucaoPrevista && e.dataDevolucaoPrevista < hojeIso ? "ATRASADO" : "EM USO");
                     return (
                       <TableRow key={e.id} className="cursor-pointer hover:bg-[#F4F4F4]/60" onClick={() => setOpenView(e.id)}>
                         <TableCell>{e.destino}</TableCell>
                         <TableCell>{e.responsavel}</TableCell>
                         <TableCell>{fmtDate(e.dataInicio)}</TableCell>
-                        <TableCell>{fmtDate(e.dataDevolucaoPREVISTA)}</TableCell>
+                        <TableCell>{fmtDate(e.dataDevolucaoPrevista)}</TableCell>
                         <TableCell>{fmtDate(e.dataDevolucaoReal)}</TableCell>
                         <TableCell>{p} {e.unidade}(s)</TableCell>
                         <TableCell>{brl(e.custoPeriodo)}</TableCell>
@@ -563,7 +563,7 @@ function EquipDetalhe() {
                               </Button>
                             )}
                             {!e.ativo && (
-                              <Button size="sm" variant="ghost" title="Gerar termo de devolução" onClick={() => gerarTermoDEVOLVIDO(e.id)}>
+                              <Button size="sm" variant="ghost" title="Gerar termo de devolução" onClick={() => gerarTermoDevolucao(e.id)}>
                                 <FileText className="h-4 w-4 text-[#213368]" />
                               </Button>
                             )}
@@ -805,7 +805,7 @@ function EquipDetalhe() {
             const hojeIso = new Date().toISOString().slice(0, 10);
             const statusEmp = !empView.ativo
               ? "DEVOLVIDO"
-              : (empView.dataDevolucaoPREVISTA && empView.dataDevolucaoPREVISTA < hojeIso ? "ATRASADO" : "EM USO");
+              : (empView.dataDevolucaoPrevista && empView.dataDevolucaoPrevista < hojeIso ? "ATRASADO" : "EM USO");
             const periodoEfetivo = empView.dataDevolucaoReal
               ? periodos(empView.dataInicio, empView.dataDevolucaoReal, empView.unidade)
               : null;
@@ -829,7 +829,7 @@ function EquipDetalhe() {
                     <div><b>Obra / Destino:</b> {empView.destino}</div>
                     <div><b>Responsável:</b> {empView.responsavel}</div>
                     <div><b>Data de saída:</b> {fmtDate(empView.dataInicio)}</div>
-                    <div><b>Previsão de devolução:</b> {fmtDate(empView.dataDevolucaoPREVISTA)}</div>
+                    <div><b>Previsão de devolução:</b> {fmtDate(empView.dataDevolucaoPrevista)}</div>
                     <div><b>Custo por período:</b> {brl(empView.custoPeriodo)} / {empView.unidade}</div>
                     <div><b>Observações:</b> {empView.observacoes || "—"}</div>
                   </div>
@@ -865,7 +865,7 @@ function EquipDetalhe() {
           })()}
           <DialogFooter className="gap-2">
             {empView && !empView.ativo && (
-              <Button onClick={() => { gerarTermoDEVOLVIDO(empView.id); }} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+              <Button onClick={() => { gerarTermoDevolucao(empView.id); }} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
                 <FileText className="mr-1 h-4 w-4" /> Gerar termo
               </Button>
             )}
@@ -886,7 +886,7 @@ function EquipDetalhe() {
 
       {/* Encerrar manutenção */}
       <EncerrarManutencaoDialog
-        manutencao={mnABERTA}
+        manutencao={mnAberta}
         onClose={() => setOpenEncerrarMn(null)}
       />
 

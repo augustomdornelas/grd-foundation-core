@@ -179,8 +179,8 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
     const total = noPer.reduce((a, o) => a + o.valor, 0);
     const qtd = noPer.length;
     const ticket = qtd ? total / qtd : 0;
-    const valorAPROVADO = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + o.valor, 0);
-    const conv = total > 0 ? (valorAPROVADO / total) * 100 : 0;
+    const valorAprovado = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + o.valor, 0);
+    const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
 
     // Variação geral do pipeline: mês atual vs mês anterior (sem filtro de status)
     const hojeVar = new Date();
@@ -591,7 +591,7 @@ function SecaoEquipamentos({ periodo }: { periodo: Periodo }) {
 
     // Devolução prevista próxima (<=15 dias, ativos)
     const proximas = emprestimos.filter(e => e.ativo).map(e => {
-      const dias = Math.ceil((new Date(e.dataDevolucaoPREVISTA).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+      const dias = Math.ceil((new Date(e.dataDevolucaoPrevista).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       return { emp: e, dias };
     }).filter(x => x.dias <= 15).sort((a, b) => a.dias - b.dias);
 
