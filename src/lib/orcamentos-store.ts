@@ -240,6 +240,10 @@ export const orcamentosActions = {
     }
     state = state.map(o => o.id === tempId ? fromRow(data as OrcamentoRow) : o);
     emit();
+    const novo = fromRow(data as OrcamentoRow);
+    if (novo.status === "APROVADO") {
+      void garantirProjetoDeOrcamento({ id: novo.id, obra: novo.obra, cliente: novo.cliente, valor: novo.valor, responsavel: novo.responsavel });
+    }
     return { id: (data as OrcamentoRow).id, error: null };
   },
   async atualizar(id: string, patch: Partial<Orcamento>): Promise<{ error: { message?: string } | null }> {
