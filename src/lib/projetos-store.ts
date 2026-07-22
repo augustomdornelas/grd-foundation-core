@@ -125,12 +125,18 @@ function uid(prefix: string) {
 }
 
 export const projetosActions = {
-  criarProjeto(input: Omit<Projeto, "id"> & { id?: string }) {
+  criarProjeto(input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato"> & { id?: string; orcamentoId?: string | null; valorContrato?: number }) {
     const id = input.id || uid("P");
-    state = { ...state, projetos: [...state.projetos, { ...input, id }] };
+    const completo: Projeto = {
+      ...input, id,
+      orcamentoId: input.orcamentoId ?? null,
+      valorContrato: input.valorContrato ?? 0,
+    };
+    state = { ...state, projetos: [...state.projetos, completo] };
     emit();
     void supabase.from("projetos").insert(upperizePayload({
       id, nome: input.nome, cliente: input.cliente, cliente_id: input.clienteId ?? null,
+      orcamento_id: input.orcamentoId ?? null, valor_contrato: input.valorContrato ?? 0,
       local: input.local, descricao: input.descricao, responsavel: input.responsavel,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
