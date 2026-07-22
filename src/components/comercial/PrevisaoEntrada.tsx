@@ -434,23 +434,51 @@ export function PrevisaoEntrada() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white"
-                            style={{ background: st.color }}
-                          >
-                            {st.label}
-                          </span>
+                          {(() => {
+                            const proj = projetos.find(p => p.orcamento_id === orc.id);
+                            const label = proj?.status ?? st.label;
+                            const cor = proj?.status === "EM ANDAMENTO" ? LARANJA
+                              : proj?.status === "CONCLUÍDO" ? "#16A34A"
+                              : proj?.status === "PLANEJAMENTO" ? "#94A3B8"
+                              : proj?.status === "PARALISADO" ? "#DC2626"
+                              : st.color;
+                            return (
+                              <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: cor }}>
+                                {label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            style={{ background: LARANJA, color: "white" }}
-                            onClick={() => abrirNovaMed(orc)}
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Medição
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {(() => {
+                              const proj = projetos.find(p => p.orcamento_id === orc.id);
+                              const jaIniciada = proj && proj.status !== "PLANEJAMENTO";
+                              return (
+                                <Button
+                                  size="sm"
+                                  className="h-8"
+                                  variant="outline"
+                                  disabled={iniciando === orc.id || jaIniciada}
+                                  onClick={() => iniciarObra(orc)}
+                                  style={{ borderColor: AZUL, color: AZUL }}
+                                >
+                                  <TrendingUp className="mr-1 h-3.5 w-3.5" />
+                                  {jaIniciada ? "Obra iniciada" : (iniciando === orc.id ? "Iniciando..." : "Iniciar obra")}
+                                </Button>
+                              );
+                            })()}
+                            <Button
+                              size="sm"
+                              className="h-8"
+                              style={{ background: LARANJA, color: "white" }}
+                              onClick={() => abrirNovaMed(orc)}
+                            >
+                              <Plus className="mr-1 h-3.5 w-3.5" /> Medição
+                            </Button>
+                          </div>
                         </td>
+
                       </tr>
                       {aberto && (
                         <tr key={`${orc.id}-exp`} className="border-b bg-slate-50/60">
