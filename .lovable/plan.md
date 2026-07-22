@@ -1,44 +1,51 @@
-## Diagnóstico (verificado agora)
+## Objetivo
 
-Rodei uma auditoria no código de autenticação e no backend. **O código de login está correto** — o problema é outro.
+No `/app`, mostrar todos os KPIs, gráficos e tabelas com **todos os dados**, sem filtro de ano/período.
 
-### 1. Configuração do Supabase (client.ts / client.server.ts)
-Ambos leem `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` do `.env`. Valores atuais:
+## Mudanças em `src/routes/app.index.tsx`
 
-- `VITE_SUPABASE_URL = https://uxamqazqhcpuxlthvxbp.supabase.co`
-- `VITE_SUPABASE_PUBLISHABLE_KEY` → ref `uxamqazqhcpuxlthvxbp` ✅ (URL e chave batem)
+1. **Remover UI de ano**
+   - Excluir o estado `ano` / `anoAtual` / `setAno`, o `useMemo` `anosDisponiveis` e o bloco `<select>` de ano no header. Manter só o título "Painel inicial".
 
-Observação: você mencionou `fpuwyndpmcgwkuaqbcvm` como "o projeto correto". Esse **não é** o projeto do backend atual. Existe no `.env` uma variável órfã `VITE_SUPABASE_ANON_KEY` apontando pra esse projeto antigo, mas ela **não é usada por nenhum código** (o `client.ts` foi corrigido dias atrás para ler `VITE_SUPABASE_PUBLISHABLE_KEY`). Ou seja: o app está falando com `uxamqazqhcpuxlthvxbp`, que é o projeto ativo do Lovable Cloud.
+2. **Remover filtros por ano**
+   - Excluir o helper `noAno` (não será mais usado).
+   - `orcAno` → passa a ser `orcamentos` direto.
+   - `medAno` → passa a ser `medicoes` direto.
+   - `empAno` → passa a ser `emprestimos` direto.
+   - `projConcluidosAno` → `projetos.filter(p => p.status === "CONCLUÍDO")`.
+   - Atualizar todos os `useMemo` dependentes para as novas variáveis (`orcPorMes`, `orcPorStatus`, `previsaoVsFat`, `receitaEqPorMes`, `topClientes`, `acumulado`, `medAno` usos, etc.).
 
-### 2. Uppercase em senha/e-mail
-- `src/styles.css` (linhas 107-110) aplica `text-transform: uppercase` só dentro de `.app-layout`, e **exclui** `type="email"`, `type="password"`, etc.
-- `/login` **não está** dentro de `.app-layout` — nenhum uppercase é aplicado, nem visual nem no valor.
-- `src/routes/login.tsx` envia `email: user.trim()` e `password: password` para `supabase.auth.signInWithPassword`, **sem** `.toUpperCase()` nem qualquer outra transformação.
+3. **KPIs — recalcular sem filtro**
+   - `totalOrc = orcamentos.length`
+   - `valorOrc = SUM(orcamentos.valor)`
+   - `aprovados = orcamentos.filter(status === "APROVADO")`, `valorAprovado = SUM`
+   - `taxaAprov = aprovados / totalOrc * 100`
+   - `ticket = valorAprovado / aprovados.length`
+   - `emNeg = orcamentos.filter(status === "EM NEGOCIAÇÃO")`
+   - `projAndamento = projetos.filter(status === "EM ANDAMENTO")`
+   - **Faturado**: usar `medicoes.filter(m => m.status === "RECEBIDA")` somando `valor` (conforme especificado pelo usuário; antes usava `data_recebimento`).
+   - `saldoFaturar = max(0, valorAprovado − faturado)`
+   - Equipamentos: sem alteração (já não filtram por ano) — `receitaEq` passa a somar todos os empréstimos.
 
-Nenhuma alteração recente de CSS/form quebrou o login.
+4. **Rótulos**
+   - Trocar "Orçamentos no ano" → "Total de orçamentos".
+   - Trocar "Concluídos no ano" → "Projetos concluídos".
+   - Trocar "Receita no ano" → "Receita de aluguel".
 
-### 3. Causa real do "usuário ou senha incorretos"
-Consultei `auth.users` no backend atual:
+5. **Gráficos**
+   - `orcPorMes`, `previsaoVsFat`, `receitaEqPorMes`, `acumulado`: agrupar por `YYYY-MM` (rótulo tipo `MMM/AA`) somando todos os anos em ordem cronológica, em vez do array fixo de 12 meses do ano selecionado. Isso preserva o histórico completo sem filtro.
+   - `orcPorStatus`, `projPorStatus`, `eqPorStatus`, `topClientes`: já são agregações totais — só remover a dependência de `orcAno`/`aprovados` filtrados.
 
-```
-select id, email from auth.users → []  (zero linhas)
-```
+6. **Tabelas**
+   - `ultimosOrc`, `projEmObra`, `eqManut`, `proxDevolucoes`: manter a lógica atual (não dependem de ano).
 
-**Não existe nenhum usuário cadastrado no projeto ativo.** Por isso qualquer credencial retorna "Invalid login credentials", que sua UI traduz como "usuário ou senha incorretos". Isso é consistente com um cenário em que o backend do Lovable Cloud foi (re)provisionado / trocado em algum momento — os usuários antigos ficaram no projeto `fpuwyndpmcgwkuaqbcvm` (que hoje não é mais o backend do app).
+## Fora de escopo
 
-## O que fazer
+- Nenhuma outra rota é alterada.
+- Nenhuma mudança de schema, RLS ou stores.
 
-Preciso de uma decisão sua antes de mexer em qualquer coisa, porque envolve dados de acesso:
+## Verificação
 
-**Opção A — Recriar usuários no backend atual (recomendado)**
-- Você me passa a lista de e-mails que precisam voltar a ter acesso.
-- Eu crio cada um no backend ativo (`uxamqazqhcpuxlthvxbp`) com uma senha provisória, já confirmados, e você redistribui as senhas para o time trocar no primeiro login.
-- Limpo a variável órfã `VITE_SUPABASE_ANON_KEY` do `.env` pra não gerar confusão futura.
-
-**Opção B — Apenas 1 usuário admin agora**
-- Mesmo fluxo da A, mas só um usuário (ex.: o seu) pra você entrar, e depois cadastramos o resto pelo módulo `/app/admin`.
-
-**Opção C — Você prefere investigar migrar os usuários do projeto antigo?**
-- Isso exigiria acesso ao projeto antigo `fpuwyndpmcgwkuaqbcvm`, que não é gerenciado por este app no Lovable Cloud. Só faz sentido se você tiver certeza que quer voltar pra aquele backend inteiro (o que significaria trocar URL+chave e perder os dados atuais de equipamentos/orçamentos/clientes que estão no backend novo). **Não recomendo.**
-
-Me diga qual opção seguir (e, se A/B, quais e-mails + se quer que eu gere as senhas provisórias).
+- Build passa (`tsgo` roda no harness).
+- `/app` abre sem o dropdown de ano, com números batendo com `SELECT count(*), sum(valor) FROM orcamentos` etc.
+- Gráficos mensais mostram série completa histórica em ordem cronológica.
