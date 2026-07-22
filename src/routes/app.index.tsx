@@ -70,8 +70,8 @@ function noAno(iso: string | null | undefined, ano: number): boolean {
 }
 
 function PainelHome() {
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState<number>(anoAtual);
+  const anoAtual = 2026;
+  const [ano, setAno] = useState<number>(2026);
   const [loading, setLoading] = useState(true);
   const [orcamentos, setOrcamentos] = useState<Row[]>([]);
   const [projetos, setProjetos] = useState<Row[]>([]);
