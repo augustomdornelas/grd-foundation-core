@@ -88,6 +88,8 @@ async function fetchAll() {
     projetos: (p.data ?? []).map((r: any) => ({
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
       clienteId: r.cliente_id ?? null,
+      orcamentoId: r.orcamento_id ?? null,
+      valorContrato: Number(r.valor_contrato ?? 0) || 0,
       local: r.local ?? "", descricao: r.descricao ?? "",
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
       prazo: r.prazo ?? "", status: r.status ?? "PLANEJAMENTO",
