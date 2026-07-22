@@ -85,6 +85,7 @@ function corBarra(pct: number): string {
 export function PrevisaoEntrada() {
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [medicoes, setMedicoes] = useState<Medicao[]>([]);
+  const [projetos, setProjetos] = useState<{ id: string; orcamento_id: string | null; status: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -93,16 +94,19 @@ export function PrevisaoEntrada() {
   const [busca, setBusca] = useState("");
   const [sortKey, setSortKey] = useState<"cliente" | "obra" | "valor" | "faturado" | "saldo" | "pct">("cliente");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [iniciando, setIniciando] = useState<string | null>(null);
 
   useEffect(() => {
     async function carregar() {
       try {
-        const [{ data: orcs }, { data: meds }] = await Promise.all([
+        const [{ data: orcs }, { data: meds }, { data: prjs }] = await Promise.all([
           supabase.from("orcamentos").select("*").eq("status", "APROVADO"),
           supabase.from("medicoes").select("*"),
+          supabase.from("projetos").select("id, orcamento_id, status"),
         ]);
         setOrcamentos((orcs ?? []) as Orcamento[]);
         setMedicoes((meds ?? []) as Medicao[]);
+        setProjetos((prjs ?? []) as any);
       } catch (err) {
         console.error("[previsao] carregar:", err);
         setOrcamentos([]);
@@ -113,6 +117,31 @@ export function PrevisaoEntrada() {
     }
     void carregar();
   }, []);
+
+  async function iniciarObra(orc: Orcamento) {
+    setIniciando(orc.id);
+    try {
+      const { garantirProjetoDeOrcamento } = await import("@/lib/projeto-auto");
+      const projetoId = await garantirProjetoDeOrcamento({
+        id: orc.id, obra: orc.obra, cliente: orc.cliente, valor: orc.valor,
+        responsavel: (orc as any).responsavel ?? "",
+      });
+      if (!projetoId) { toast.error("Não foi possível criar o projeto vinculado."); return; }
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { error } = await supabase.from("projetos").update({
+        status: "EM ANDAMENTO", data_inicio: hoje,
+      }).eq("id", projetoId);
+      if (error) { toast.error(`Erro ao iniciar obra: ${error.message}`); return; }
+      setProjetos(list => {
+        const outros = list.filter(p => p.id !== projetoId);
+        return [...outros, { id: projetoId, orcamento_id: orc.id, status: "EM ANDAMENTO" }];
+      });
+      toast.success("Obra iniciada.");
+    } finally {
+      setIniciando(null);
+    }
+  }
+
 
   // -------------------- cálculos --------------------
   const resumo = useMemo(() => {
@@ -405,23 +434,51 @@ export function PrevisaoEntrada() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white"
-                            style={{ background: st.color }}
-                          >
-                            {st.label}
-                          </span>
+                          {(() => {
+                            const proj = projetos.find(p => p.orcamento_id === orc.id);
+                            const label = proj?.status ?? st.label;
+                            const cor = proj?.status === "EM ANDAMENTO" ? LARANJA
+                              : proj?.status === "CONCLUÍDO" ? "#16A34A"
+                              : proj?.status === "PLANEJAMENTO" ? "#94A3B8"
+                              : proj?.status === "PARALISADO" ? "#DC2626"
+                              : st.color;
+                            return (
+                              <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: cor }}>
+                                {label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            style={{ background: LARANJA, color: "white" }}
-                            onClick={() => abrirNovaMed(orc)}
-                          >
-                            <Plus className="mr-1 h-3.5 w-3.5" /> Medição
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {(() => {
+                              const proj = projetos.find(p => p.orcamento_id === orc.id);
+                              const jaIniciada = proj && proj.status !== "PLANEJAMENTO";
+                              return (
+                                <Button
+                                  size="sm"
+                                  className="h-8"
+                                  variant="outline"
+                                  disabled={iniciando === orc.id || jaIniciada}
+                                  onClick={() => iniciarObra(orc)}
+                                  style={{ borderColor: AZUL, color: AZUL }}
+                                >
+                                  <TrendingUp className="mr-1 h-3.5 w-3.5" />
+                                  {jaIniciada ? "Obra iniciada" : (iniciando === orc.id ? "Iniciando..." : "Iniciar obra")}
+                                </Button>
+                              );
+                            })()}
+                            <Button
+                              size="sm"
+                              className="h-8"
+                              style={{ background: LARANJA, color: "white" }}
+                              onClick={() => abrirNovaMed(orc)}
+                            >
+                              <Plus className="mr-1 h-3.5 w-3.5" /> Medição
+                            </Button>
+                          </div>
                         </td>
+
                       </tr>
                       {aberto && (
                         <tr key={`${orc.id}-exp`} className="border-b bg-slate-50/60">

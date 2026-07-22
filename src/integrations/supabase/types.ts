@@ -576,11 +576,13 @@ export type Database = {
           local: string | null
           nome: string
           orcado: number
+          orcamento_id: string | null
           prazo: string | null
           progresso: number
           responsavel: string | null
           status: string
           updated_at: string
+          valor_contrato: number
         }
         Insert: {
           cliente?: string | null
@@ -592,11 +594,13 @@ export type Database = {
           local?: string | null
           nome: string
           orcado?: number
+          orcamento_id?: string | null
           prazo?: string | null
           progresso?: number
           responsavel?: string | null
           status?: string
           updated_at?: string
+          valor_contrato?: number
         }
         Update: {
           cliente?: string | null
@@ -608,11 +612,13 @@ export type Database = {
           local?: string | null
           nome?: string
           orcado?: number
+          orcamento_id?: string | null
           prazo?: string | null
           progresso?: number
           responsavel?: string | null
           status?: string
           updated_at?: string
+          valor_contrato?: number
         }
         Relationships: [
           {
@@ -620,6 +626,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projetos_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
             referencedColumns: ["id"]
           },
         ]

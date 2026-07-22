@@ -8,6 +8,7 @@ import { useMemo, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { upperizePayload } from "@/lib/utils";
+import { garantirProjetoDeOrcamento } from "@/lib/projeto-auto";
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
@@ -239,6 +240,10 @@ export const orcamentosActions = {
     }
     state = state.map(o => o.id === tempId ? fromRow(data as OrcamentoRow) : o);
     emit();
+    const novo = fromRow(data as OrcamentoRow);
+    if (novo.status === "APROVADO") {
+      void garantirProjetoDeOrcamento({ id: novo.id, obra: novo.obra, cliente: novo.cliente, valor: novo.valor, responsavel: novo.responsavel });
+    }
     return { id: (data as OrcamentoRow).id, error: null };
   },
   async atualizar(id: string, patch: Partial<Orcamento>): Promise<{ error: { message?: string } | null }> {
@@ -268,6 +273,10 @@ export const orcamentosActions = {
     if (data) {
       state = state.map(o => o.id === id ? fromRow(data as OrcamentoRow) : o);
       emit();
+    }
+    const atualizado = state.find(o => o.id === id);
+    if (atualizado && atualizado.status === "APROVADO" && anterior.status !== "APROVADO") {
+      void garantirProjetoDeOrcamento({ id: atualizado.id, obra: atualizado.obra, cliente: atualizado.cliente, valor: atualizado.valor, responsavel: atualizado.responsavel });
     }
     return { error: null };
   },

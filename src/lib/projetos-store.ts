@@ -17,6 +17,8 @@ export type Projeto = {
   nome: string;
   cliente: string;
   clienteId: string | null;
+  orcamentoId: string | null;
+  valorContrato: number;
   local: string;
   descricao: string;
   responsavel: string;
@@ -86,6 +88,8 @@ async function fetchAll() {
     projetos: (p.data ?? []).map((r: any) => ({
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
       clienteId: r.cliente_id ?? null,
+      orcamentoId: r.orcamento_id ?? null,
+      valorContrato: Number(r.valor_contrato ?? 0) || 0,
       local: r.local ?? "", descricao: r.descricao ?? "",
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
       prazo: r.prazo ?? "", status: r.status ?? "PLANEJAMENTO",
@@ -121,12 +125,18 @@ function uid(prefix: string) {
 }
 
 export const projetosActions = {
-  criarProjeto(input: Omit<Projeto, "id"> & { id?: string }) {
+  criarProjeto(input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato"> & { id?: string; orcamentoId?: string | null; valorContrato?: number }) {
     const id = input.id || uid("P");
-    state = { ...state, projetos: [...state.projetos, { ...input, id }] };
+    const completo: Projeto = {
+      ...input, id,
+      orcamentoId: input.orcamentoId ?? null,
+      valorContrato: input.valorContrato ?? 0,
+    };
+    state = { ...state, projetos: [...state.projetos, completo] };
     emit();
     void supabase.from("projetos").insert(upperizePayload({
       id, nome: input.nome, cliente: input.cliente, cliente_id: input.clienteId ?? null,
+      orcamento_id: input.orcamentoId ?? null, valor_contrato: input.valorContrato ?? 0,
       local: input.local, descricao: input.descricao, responsavel: input.responsavel,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
