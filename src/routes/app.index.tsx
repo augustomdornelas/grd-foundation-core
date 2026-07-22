@@ -250,22 +250,9 @@ function PainelHome() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Painel inicial</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Visão consolidada em tempo real</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-white p-2 shadow-sm">
-          <span className="text-xs font-semibold" style={{ color: NAVY }}>ANO:</span>
-          <select
-            value={ano}
-            onChange={e => setAno(Number(e.target.value))}
-            className="rounded-md border-0 bg-transparent text-sm font-bold outline-none"
-            style={{ color: NAVY }}
-          >
-            {anosDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
+      <div>
+        <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Painel inicial</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Visão consolidada em tempo real</p>
       </div>
 
       {/* SEÇÃO 1 — COMERCIAL */}
