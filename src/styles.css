@@ -109,3 +109,10 @@
 .app-layout select {
   text-transform: uppercase;
 }
+
+/* Garante que campos de e-mail e senha nunca sejam transformados */
+input[type="password"],
+input[type="email"] {
+  text-transform: none !important;
+}
+

@@ -60,7 +60,9 @@ function LoginPage() {
                 placeholder="seu.nome@grupogrd.com.br"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
+                style={{ textTransform: "none" }}
               />
+
             </div>
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
@@ -74,7 +76,9 @@ function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                style={{ textTransform: "none" }}
               />
+
             </div>
             {error && (
               <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
