@@ -85,6 +85,7 @@ function corBarra(pct: number): string {
 export function PrevisaoEntrada() {
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
   const [medicoes, setMedicoes] = useState<Medicao[]>([]);
+  const [projetos, setProjetos] = useState<{ id: string; orcamento_id: string | null; status: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -93,16 +94,19 @@ export function PrevisaoEntrada() {
   const [busca, setBusca] = useState("");
   const [sortKey, setSortKey] = useState<"cliente" | "obra" | "valor" | "faturado" | "saldo" | "pct">("cliente");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [iniciando, setIniciando] = useState<string | null>(null);
 
   useEffect(() => {
     async function carregar() {
       try {
-        const [{ data: orcs }, { data: meds }] = await Promise.all([
+        const [{ data: orcs }, { data: meds }, { data: prjs }] = await Promise.all([
           supabase.from("orcamentos").select("*").eq("status", "APROVADO"),
           supabase.from("medicoes").select("*"),
+          supabase.from("projetos").select("id, orcamento_id, status"),
         ]);
         setOrcamentos((orcs ?? []) as Orcamento[]);
         setMedicoes((meds ?? []) as Medicao[]);
+        setProjetos((prjs ?? []) as any);
       } catch (err) {
         console.error("[previsao] carregar:", err);
         setOrcamentos([]);
@@ -113,6 +117,31 @@ export function PrevisaoEntrada() {
     }
     void carregar();
   }, []);
+
+  async function iniciarObra(orc: Orcamento) {
+    setIniciando(orc.id);
+    try {
+      const { garantirProjetoDeOrcamento } = await import("@/lib/projeto-auto");
+      const projetoId = await garantirProjetoDeOrcamento({
+        id: orc.id, obra: orc.obra, cliente: orc.cliente, valor: orc.valor,
+        responsavel: (orc as any).responsavel ?? "",
+      });
+      if (!projetoId) { toast.error("Não foi possível criar o projeto vinculado."); return; }
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { error } = await supabase.from("projetos").update({
+        status: "EM ANDAMENTO", data_inicio: hoje,
+      }).eq("id", projetoId);
+      if (error) { toast.error(`Erro ao iniciar obra: ${error.message}`); return; }
+      setProjetos(list => {
+        const outros = list.filter(p => p.id !== projetoId);
+        return [...outros, { id: projetoId, orcamento_id: orc.id, status: "EM ANDAMENTO" }];
+      });
+      toast.success("Obra iniciada.");
+    } finally {
+      setIniciando(null);
+    }
+  }
+
 
   // -------------------- cálculos --------------------
   const resumo = useMemo(() => {
