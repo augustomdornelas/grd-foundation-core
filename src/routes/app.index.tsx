@@ -82,8 +82,6 @@ function receitaEmprestimo(e: Row): number {
 
 
 function PainelHome() {
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState<number>(anoAtual);
   const [loading, setLoading] = useState(true);
   const [orcamentos, setOrcamentos] = useState<Row[]>([]);
   const [projetos, setProjetos] = useState<Row[]>([]);
@@ -119,32 +117,23 @@ function PainelHome() {
     return () => { alive = false; };
   }, []);
 
-  const anosDisponiveis = useMemo(() => {
-    const set = new Set<number>([anoAtual]);
-    orcamentos.forEach(o => { if (o.data_emissao) set.add(new Date(o.data_emissao).getFullYear()); });
-    medicoes.forEach(m => { if (m.data) set.add(new Date(m.data).getFullYear()); });
-    return Array.from(set).sort((a, b) => b - a);
-  }, [orcamentos, medicoes, anoAtual]);
-
-  // === COMERCIAL ===
-  const orcAno = useMemo(() => orcamentos.filter(o => noAno(o.data_emissao, ano)), [orcamentos, ano]);
-  const totalOrc = orcAno.length;
-  const valorOrc = orcAno.reduce((a, o) => a + (Number(o.valor) || 0), 0);
-  const aprovados = orcAno.filter(o => o.status === "APROVADO");
+  // === COMERCIAL — sem filtro de período ===
+  const totalOrc = orcamentos.length;
+  const valorOrc = orcamentos.reduce((a, o) => a + (Number(o.valor) || 0), 0);
+  const aprovados = useMemo(() => orcamentos.filter(o => o.status === "APROVADO"), [orcamentos]);
   const valorAprovado = aprovados.reduce((a, o) => a + (Number(o.valor) || 0), 0);
   const taxaAprov = totalOrc > 0 ? (aprovados.length / totalOrc) * 100 : 0;
   const ticket = aprovados.length > 0 ? valorAprovado / aprovados.length : 0;
-  const emNeg = orcAno.filter(o => o.status === "EM NEGOCIAÇÃO");
+  const emNeg = orcamentos.filter(o => o.status === "EM NEGOCIAÇÃO");
   const valorEmNeg = emNeg.reduce((a, o) => a + (Number(o.valor) || 0), 0);
 
   // === OPERACIONAL ===
   const projAndamento = projetos.filter(p => p.status === "EM ANDAMENTO");
-  const projConcluidosAno = projetos.filter(p => p.status === "CONCLUÍDO" && (
-    noAno(p.data_inicio, ano) || noAno(p.prazo, ano) || noAno(p.created_at, ano)
-  ));
-  const medAno = useMemo(() => medicoes.filter(m => noAno(m.data, ano)), [medicoes, ano]);
-  const totalMed = medAno.length;
-  const faturado = medAno.filter(m => m.data_recebimento).reduce((a, m) => a + (Number(m.valor) || 0), 0);
+  const projConcluidos = projetos.filter(p => p.status === "CONCLUÍDO");
+  const totalMed = medicoes.length;
+  const faturado = medicoes
+    .filter(m => String(m.status || "").toUpperCase() === "RECEBIDA")
+    .reduce((a, m) => a + (Number(m.valor) || 0), 0);
   const saldoFaturar = Math.max(0, valorAprovado - faturado);
 
   // === EQUIPAMENTOS ===
@@ -152,42 +141,49 @@ function PainelHome() {
   const disponiveis = equipamentos.filter(e => e.status === "DISPONÍVEL").length;
   const alugados = equipamentos.filter(e => e.status === "ALUGADO").length;
   const emManut = equipamentos.filter(e => e.status === "MANUTENÇÃO").length;
-  const empAno = useMemo(() => emprestimos.filter(e => noAno(e.data_inicio, ano)), [emprestimos, ano]);
-  const receitaEq = empAno.reduce((a, e) => a + receitaEmprestimo(e), 0);
+  const receitaEq = emprestimos.reduce((a, e) => a + receitaEmprestimo(e), 0);
   const taxaUtil = totalEq > 0 ? (alugados / totalEq) * 100 : 0;
 
-  // === CHARTS ===
+  // === CHARTS — agrupados por mês/ano (sem filtro) ===
   const orcPorMes = useMemo(() => {
-    const arr = MESES.map((m, i) => ({ mes: m, qtd: 0, valor: 0, _i: i }));
-    orcAno.forEach(o => {
-      if (!o.data_emissao) return;
-      const i = new Date(o.data_emissao).getMonth();
-      arr[i].qtd += 1;
-      arr[i].valor += Number(o.valor) || 0;
+    const buckets = bucketsMensais(orcamentos, "data_emissao");
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), qtd: 0, valor: 0 }]));
+    orcamentos.forEach(o => {
+      const ym = ymOf(o.data_emissao); if (!ym) return;
+      const b = map.get(ym)!;
+      b.qtd += 1;
+      b.valor += Number(o.valor) || 0;
     });
-    return arr;
-  }, [orcAno]);
+    return Array.from(map.values());
+  }, [orcamentos]);
 
   const orcPorStatus = useMemo(() => {
     const map: Record<string, number> = {};
-    orcAno.forEach(o => { const s = o.status || "LEVANTAMENTO"; map[s] = (map[s] || 0) + 1; });
+    orcamentos.forEach(o => { const s = o.status || "LEVANTAMENTO"; map[s] = (map[s] || 0) + 1; });
     return Object.entries(map).map(([name, value]) => ({ name, value, color: ORC_COLORS[name] || "#94a3b8" }));
-  }, [orcAno]);
+  }, [orcamentos]);
 
   const previsaoVsFat = useMemo(() => {
-    const arr = MESES.map(m => ({ mes: m, previsto: 0, faturado: 0 }));
+    const bucketsSet = new Set<string>();
+    aprovados.forEach(o => { const ym = ymOf(o.data_emissao); if (ym) bucketsSet.add(ym); });
+    medicoes.forEach(m => {
+      const ym = ymOf(m.data_recebimento || m.data);
+      if (ym && String(m.status || "").toUpperCase() === "RECEBIDA") bucketsSet.add(ym);
+    });
+    const buckets = Array.from(bucketsSet).sort();
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), previsto: 0, faturado: 0 }]));
     aprovados.forEach(o => {
-      if (!o.data_emissao) return;
-      const i = new Date(o.data_emissao).getMonth();
-      arr[i].previsto += Number(o.valor) || 0;
+      const ym = ymOf(o.data_emissao); if (!ym) return;
+      map.get(ym)!.previsto += Number(o.valor) || 0;
     });
-    medAno.forEach(m => {
-      if (!m.data_recebimento) return;
-      const i = new Date(m.data_recebimento).getMonth();
-      arr[i].faturado += Number(m.valor) || 0;
+    medicoes.forEach(m => {
+      if (String(m.status || "").toUpperCase() !== "RECEBIDA") return;
+      const ym = ymOf(m.data_recebimento || m.data); if (!ym) return;
+      const b = map.get(ym); if (!b) return;
+      b.faturado += Number(m.valor) || 0;
     });
-    return arr;
-  }, [aprovados, medAno]);
+    return Array.from(map.values());
+  }, [aprovados, medicoes]);
 
   const projPorStatus = useMemo(() => {
     const map: Record<string, number> = {};
@@ -196,14 +192,14 @@ function PainelHome() {
   }, [projetos]);
 
   const receitaEqPorMes = useMemo(() => {
-    const arr = MESES.map(m => ({ mes: m, valor: 0 }));
-    empAno.forEach(e => {
-      if (!e.data_inicio) return;
-      const i = new Date(e.data_inicio).getMonth();
-      arr[i].valor += receitaEmprestimo(e);
+    const buckets = bucketsMensais(emprestimos, "data_inicio");
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), valor: 0 }]));
+    emprestimos.forEach(e => {
+      const ym = ymOf(e.data_inicio); if (!ym) return;
+      map.get(ym)!.valor += receitaEmprestimo(e);
     });
-    return arr;
-  }, [empAno]);
+    return Array.from(map.values());
+  }, [emprestimos]);
 
   const eqPorStatus = useMemo(() => {
     const map: Record<string, number> = { "DISPONÍVEL": 0, "ALUGADO": 0, "MANUTENÇÃO": 0 };
@@ -218,14 +214,14 @@ function PainelHome() {
   }, [aprovados]);
 
   const acumulado = useMemo(() => {
-    const arr = MESES.map(m => ({ mes: m, valor: 0 }));
+    const buckets = bucketsMensais(aprovados, "data_emissao");
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), valor: 0 }]));
     aprovados.forEach(o => {
-      if (!o.data_emissao) return;
-      const i = new Date(o.data_emissao).getMonth();
-      arr[i].valor += Number(o.valor) || 0;
+      const ym = ymOf(o.data_emissao); if (!ym) return;
+      map.get(ym)!.valor += Number(o.valor) || 0;
     });
     let acc = 0;
-    return arr.map(x => ({ mes: x.mes, acumulado: (acc += x.valor) }));
+    return Array.from(map.values()).map(x => ({ mes: x.mes, acumulado: (acc += x.valor) }));
   }, [aprovados]);
 
   // === TABELAS ===
