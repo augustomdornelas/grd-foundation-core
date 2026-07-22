@@ -1,14 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import { supabase } from "@/integrations/supabase/client";
 
-type Obra = {
-  id: string;
-  titulo: string;
-  descricao: string | null;
-  foto_url: string | null;
-};
+type Obra = { id: string; foto_url: string };
 
 const PAGE_SIZE = 6;
 
@@ -21,7 +16,7 @@ export function PortfolioGallery() {
     let alive = true;
     supabase
       .from("portfolio")
-      .select("id, titulo, descricao, foto_url")
+      .select("id, foto_url")
       .eq("ativo", true)
       .order("ordem", { ascending: true })
       .then(({ data }) => {
@@ -83,21 +78,14 @@ export function PortfolioGallery() {
                   <button
                     type="button"
                     onClick={() => setOpen(i)}
-                    className="group relative block w-full overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F37032]"
+                    className="group block w-full overflow-hidden rounded-xl shadow-md transition-shadow duration-300 hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F37032]"
                   >
                     <img
-                      src={obra.foto_url ?? ""}
-                      alt={obra.titulo}
+                      src={obra.foto_url}
+                      alt=""
                       loading="lazy"
                       className="w-full transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="pointer-events-none absolute inset-0 flex translate-y-full flex-col items-center justify-center gap-2 bg-[#213368]/70 p-4 text-center text-white transition-transform duration-300 ease-out group-hover:translate-y-0">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/95 text-[#213368] shadow-lg">
-                        <Search className="h-5 w-5" />
-                      </div>
-                      <div className="text-base font-bold">{obra.titulo}</div>
-                      {obra.descricao && <div className="text-xs opacity-90 line-clamp-2">{obra.descricao}</div>}
-                    </div>
                   </button>
                 </Reveal>
               );
@@ -171,23 +159,12 @@ export function PortfolioGallery() {
           >
             <ChevronRight className="h-7 w-7" />
           </button>
-          <div
-            className="flex max-h-[90vh] max-w-[92vw] flex-col items-center gap-4"
+          <img
+            src={obras[open].foto_url}
+            alt=""
             onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={obras[open].foto_url ?? ""}
-              alt={obras[open].titulo}
-              className="max-h-[75vh] rounded-lg object-contain shadow-2xl"
-            />
-            <div className="max-w-2xl rounded-lg bg-white/10 px-5 py-3 text-center text-white backdrop-blur">
-              <div className="text-lg font-bold">{obras[open].titulo}</div>
-              {obras[open].descricao && <div className="mt-1 text-sm opacity-90">{obras[open].descricao}</div>}
-            </div>
-          </div>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-medium text-white">
-            {open + 1} / {obras.length}
-          </div>
+            className="max-h-[90vh] max-w-[92vw] rounded-lg object-contain shadow-2xl"
+          />
         </div>
       )}
     </section>
