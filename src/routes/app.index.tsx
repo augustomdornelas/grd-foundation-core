@@ -285,7 +285,7 @@ function PainelHome() {
           <Kpi icon={<PackageCheck />} label="Disponíveis" value={String(disponiveis)} tone="green" />
           <Kpi icon={<PackageX />} label="Alugados" value={String(alugados)} tone="orange" />
           <Kpi icon={<Wrench />} label="Manutenção" value={String(emManut)} tone="red" />
-          <Kpi icon={<DollarSign />} label="Receita no ano" value={brl(receitaEq)} tone="green" />
+          <Kpi icon={<DollarSign />} label="Receita de aluguel" value={brl(receitaEq)} tone="green" />
           <Kpi icon={<Percent />} label="Taxa de utilização" value={`${taxaUtil.toFixed(1)}%`} />
         </div>
       </Section>
