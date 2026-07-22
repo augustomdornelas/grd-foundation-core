@@ -112,7 +112,8 @@
 
 /* Garante que campos de e-mail e senha nunca sejam transformados */
 input[type="password"],
-input[type="email"] {
+input[type="email"],
+input[type="text"][autocomplete="email"] {
   text-transform: none !important;
 }
 
