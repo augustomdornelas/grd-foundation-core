@@ -91,7 +91,7 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
         className={`relative hidden shrink-0 flex-col bg-[#213368] transition-[width] duration-300 ease-in-out md:flex ${collapsed ? "w-[64px]" : "w-64"}`}
       >
         <div className={`flex h-20 items-center border-b border-white/10 ${collapsed ? "justify-center px-2" : "px-5"}`}>
-          {collapsed ? <Logo variant="light" iconOnly /> : <Logo variant="light" />}
+          {collapsed ? <span className="text-xl font-black text-white">G</span> : <Logo variant="light" />}
         </div>
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           <SidebarNav collapsed={collapsed} />
