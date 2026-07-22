@@ -22,7 +22,22 @@ export const Route = createFileRoute("/app/")({ component: PainelHome });
 
 const NAVY = "#213368";
 const ORANGE = "#F37032";
-const MESES = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+const MESES_CURTOS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+function fmtMesAno(ym: string): string {
+  const [y, m] = ym.split("-");
+  return `${MESES_CURTOS[Number(m) - 1]}/${y.slice(2)}`;
+}
+function ymOf(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function bucketsMensais(items: Row[], dateKey: string): string[] {
+  const set = new Set<string>();
+  items.forEach(x => { const ym = ymOf(x[dateKey]); if (ym) set.add(ym); });
+  return Array.from(set).sort();
+}
 
 const ORC_COLORS: Record<string, string> = {
   "APROVADO": "#16a34a",
@@ -63,15 +78,10 @@ function receitaEmprestimo(e: Row): number {
   if (unidade.startsWith("sem")) return cp * Math.max(1, Math.ceil(dias / 7));
   return cp * dias;
 }
-function noAno(iso: string | null | undefined, ano: number): boolean {
-  if (!iso) return false;
-  const d = new Date(iso);
-  return d.getFullYear() === ano;
-}
+
+
 
 function PainelHome() {
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState<number>(anoAtual);
   const [loading, setLoading] = useState(true);
   const [orcamentos, setOrcamentos] = useState<Row[]>([]);
   const [projetos, setProjetos] = useState<Row[]>([]);
@@ -107,32 +117,23 @@ function PainelHome() {
     return () => { alive = false; };
   }, []);
 
-  const anosDisponiveis = useMemo(() => {
-    const set = new Set<number>([anoAtual]);
-    orcamentos.forEach(o => { if (o.data_emissao) set.add(new Date(o.data_emissao).getFullYear()); });
-    medicoes.forEach(m => { if (m.data) set.add(new Date(m.data).getFullYear()); });
-    return Array.from(set).sort((a, b) => b - a);
-  }, [orcamentos, medicoes, anoAtual]);
-
-  // === COMERCIAL ===
-  const orcAno = useMemo(() => orcamentos.filter(o => noAno(o.data_emissao, ano)), [orcamentos, ano]);
-  const totalOrc = orcAno.length;
-  const valorOrc = orcAno.reduce((a, o) => a + (Number(o.valor) || 0), 0);
-  const aprovados = orcAno.filter(o => o.status === "APROVADO");
+  // === COMERCIAL — sem filtro de período ===
+  const totalOrc = orcamentos.length;
+  const valorOrc = orcamentos.reduce((a, o) => a + (Number(o.valor) || 0), 0);
+  const aprovados = useMemo(() => orcamentos.filter(o => o.status === "APROVADO"), [orcamentos]);
   const valorAprovado = aprovados.reduce((a, o) => a + (Number(o.valor) || 0), 0);
   const taxaAprov = totalOrc > 0 ? (aprovados.length / totalOrc) * 100 : 0;
   const ticket = aprovados.length > 0 ? valorAprovado / aprovados.length : 0;
-  const emNeg = orcAno.filter(o => o.status === "EM NEGOCIAÇÃO");
+  const emNeg = orcamentos.filter(o => o.status === "EM NEGOCIAÇÃO");
   const valorEmNeg = emNeg.reduce((a, o) => a + (Number(o.valor) || 0), 0);
 
   // === OPERACIONAL ===
   const projAndamento = projetos.filter(p => p.status === "EM ANDAMENTO");
-  const projConcluidosAno = projetos.filter(p => p.status === "CONCLUÍDO" && (
-    noAno(p.data_inicio, ano) || noAno(p.prazo, ano) || noAno(p.created_at, ano)
-  ));
-  const medAno = useMemo(() => medicoes.filter(m => noAno(m.data, ano)), [medicoes, ano]);
-  const totalMed = medAno.length;
-  const faturado = medAno.filter(m => m.data_recebimento).reduce((a, m) => a + (Number(m.valor) || 0), 0);
+  const projConcluidos = projetos.filter(p => p.status === "CONCLUÍDO");
+  const totalMed = medicoes.length;
+  const faturado = medicoes
+    .filter(m => String(m.status || "").toUpperCase() === "RECEBIDA")
+    .reduce((a, m) => a + (Number(m.valor) || 0), 0);
   const saldoFaturar = Math.max(0, valorAprovado - faturado);
 
   // === EQUIPAMENTOS ===
@@ -140,42 +141,49 @@ function PainelHome() {
   const disponiveis = equipamentos.filter(e => e.status === "DISPONÍVEL").length;
   const alugados = equipamentos.filter(e => e.status === "ALUGADO").length;
   const emManut = equipamentos.filter(e => e.status === "MANUTENÇÃO").length;
-  const empAno = useMemo(() => emprestimos.filter(e => noAno(e.data_inicio, ano)), [emprestimos, ano]);
-  const receitaEq = empAno.reduce((a, e) => a + receitaEmprestimo(e), 0);
+  const receitaEq = emprestimos.reduce((a, e) => a + receitaEmprestimo(e), 0);
   const taxaUtil = totalEq > 0 ? (alugados / totalEq) * 100 : 0;
 
-  // === CHARTS ===
+  // === CHARTS — agrupados por mês/ano (sem filtro) ===
   const orcPorMes = useMemo(() => {
-    const arr = MESES.map((m, i) => ({ mes: m, qtd: 0, valor: 0, _i: i }));
-    orcAno.forEach(o => {
-      if (!o.data_emissao) return;
-      const i = new Date(o.data_emissao).getMonth();
-      arr[i].qtd += 1;
-      arr[i].valor += Number(o.valor) || 0;
+    const buckets = bucketsMensais(orcamentos, "data_emissao");
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), qtd: 0, valor: 0 }]));
+    orcamentos.forEach(o => {
+      const ym = ymOf(o.data_emissao); if (!ym) return;
+      const b = map.get(ym)!;
+      b.qtd += 1;
+      b.valor += Number(o.valor) || 0;
     });
-    return arr;
-  }, [orcAno]);
+    return Array.from(map.values());
+  }, [orcamentos]);
 
   const orcPorStatus = useMemo(() => {
     const map: Record<string, number> = {};
-    orcAno.forEach(o => { const s = o.status || "LEVANTAMENTO"; map[s] = (map[s] || 0) + 1; });
+    orcamentos.forEach(o => { const s = o.status || "LEVANTAMENTO"; map[s] = (map[s] || 0) + 1; });
     return Object.entries(map).map(([name, value]) => ({ name, value, color: ORC_COLORS[name] || "#94a3b8" }));
-  }, [orcAno]);
+  }, [orcamentos]);
 
   const previsaoVsFat = useMemo(() => {
-    const arr = MESES.map(m => ({ mes: m, previsto: 0, faturado: 0 }));
+    const bucketsSet = new Set<string>();
+    aprovados.forEach(o => { const ym = ymOf(o.data_emissao); if (ym) bucketsSet.add(ym); });
+    medicoes.forEach(m => {
+      const ym = ymOf(m.data_recebimento || m.data);
+      if (ym && String(m.status || "").toUpperCase() === "RECEBIDA") bucketsSet.add(ym);
+    });
+    const buckets = Array.from(bucketsSet).sort();
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), previsto: 0, faturado: 0 }]));
     aprovados.forEach(o => {
-      if (!o.data_emissao) return;
-      const i = new Date(o.data_emissao).getMonth();
-      arr[i].previsto += Number(o.valor) || 0;
+      const ym = ymOf(o.data_emissao); if (!ym) return;
+      map.get(ym)!.previsto += Number(o.valor) || 0;
     });
-    medAno.forEach(m => {
-      if (!m.data_recebimento) return;
-      const i = new Date(m.data_recebimento).getMonth();
-      arr[i].faturado += Number(m.valor) || 0;
+    medicoes.forEach(m => {
+      if (String(m.status || "").toUpperCase() !== "RECEBIDA") return;
+      const ym = ymOf(m.data_recebimento || m.data); if (!ym) return;
+      const b = map.get(ym); if (!b) return;
+      b.faturado += Number(m.valor) || 0;
     });
-    return arr;
-  }, [aprovados, medAno]);
+    return Array.from(map.values());
+  }, [aprovados, medicoes]);
 
   const projPorStatus = useMemo(() => {
     const map: Record<string, number> = {};
@@ -184,14 +192,14 @@ function PainelHome() {
   }, [projetos]);
 
   const receitaEqPorMes = useMemo(() => {
-    const arr = MESES.map(m => ({ mes: m, valor: 0 }));
-    empAno.forEach(e => {
-      if (!e.data_inicio) return;
-      const i = new Date(e.data_inicio).getMonth();
-      arr[i].valor += receitaEmprestimo(e);
+    const buckets = bucketsMensais(emprestimos, "data_inicio");
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), valor: 0 }]));
+    emprestimos.forEach(e => {
+      const ym = ymOf(e.data_inicio); if (!ym) return;
+      map.get(ym)!.valor += receitaEmprestimo(e);
     });
-    return arr;
-  }, [empAno]);
+    return Array.from(map.values());
+  }, [emprestimos]);
 
   const eqPorStatus = useMemo(() => {
     const map: Record<string, number> = { "DISPONÍVEL": 0, "ALUGADO": 0, "MANUTENÇÃO": 0 };
@@ -206,14 +214,14 @@ function PainelHome() {
   }, [aprovados]);
 
   const acumulado = useMemo(() => {
-    const arr = MESES.map(m => ({ mes: m, valor: 0 }));
+    const buckets = bucketsMensais(aprovados, "data_emissao");
+    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), valor: 0 }]));
     aprovados.forEach(o => {
-      if (!o.data_emissao) return;
-      const i = new Date(o.data_emissao).getMonth();
-      arr[i].valor += Number(o.valor) || 0;
+      const ym = ymOf(o.data_emissao); if (!ym) return;
+      map.get(ym)!.valor += Number(o.valor) || 0;
     });
     let acc = 0;
-    return arr.map(x => ({ mes: x.mes, acumulado: (acc += x.valor) }));
+    return Array.from(map.values()).map(x => ({ mes: x.mes, acumulado: (acc += x.valor) }));
   }, [aprovados]);
 
   // === TABELAS ===
@@ -242,28 +250,15 @@ function PainelHome() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Painel inicial</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Visão consolidada em tempo real</p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-white p-2 shadow-sm">
-          <span className="text-xs font-semibold" style={{ color: NAVY }}>ANO:</span>
-          <select
-            value={ano}
-            onChange={e => setAno(Number(e.target.value))}
-            className="rounded-md border-0 bg-transparent text-sm font-bold outline-none"
-            style={{ color: NAVY }}
-          >
-            {anosDisponiveis.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
+      <div>
+        <h2 className="text-2xl font-extrabold" style={{ color: NAVY }}>Painel inicial</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Visão consolidada em tempo real</p>
       </div>
 
       {/* SEÇÃO 1 — COMERCIAL */}
       <Section title="Comercial" icon={<FileText className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Kpi icon={<FileText />} label="Orçamentos no ano" value={String(totalOrc)} />
+          <Kpi icon={<FileText />} label="Total de orçamentos" value={String(totalOrc)} />
           <Kpi icon={<DollarSign />} label="Valor total orçado" value={brl(valorOrc)} />
           <Kpi icon={<CheckCircle2 />} label="Aprovados" value={`${aprovados.length} · ${brl(valorAprovado)}`} tone="green" />
           <Kpi icon={<Percent />} label="Taxa de aprovação" value={`${taxaAprov.toFixed(1)}%`} />
@@ -276,7 +271,7 @@ function PainelHome() {
       <Section title="Operacional" icon={<FolderKanban className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           <Kpi icon={<FolderKanban />} label="Projetos em andamento" value={String(projAndamento.length)} tone="orange" />
-          <Kpi icon={<CheckCircle2 />} label="Concluídos no ano" value={String(projConcluidosAno.length)} tone="green" />
+          <Kpi icon={<CheckCircle2 />} label="Projetos concluídos" value={String(projConcluidos.length)} tone="green" />
           <Kpi icon={<ClipboardList />} label="Medições lançadas" value={String(totalMed)} />
           <Kpi icon={<Wallet />} label="Faturado" value={brl(faturado)} tone="green" />
           <Kpi icon={<TrendingUp />} label="Saldo a faturar" value={brl(saldoFaturar)} />
@@ -290,7 +285,7 @@ function PainelHome() {
           <Kpi icon={<PackageCheck />} label="Disponíveis" value={String(disponiveis)} tone="green" />
           <Kpi icon={<PackageX />} label="Alugados" value={String(alugados)} tone="orange" />
           <Kpi icon={<Wrench />} label="Manutenção" value={String(emManut)} tone="red" />
-          <Kpi icon={<DollarSign />} label="Receita no ano" value={brl(receitaEq)} tone="green" />
+          <Kpi icon={<DollarSign />} label="Receita de aluguel" value={brl(receitaEq)} tone="green" />
           <Kpi icon={<Percent />} label="Taxa de utilização" value={`${taxaUtil.toFixed(1)}%`} />
         </div>
       </Section>
