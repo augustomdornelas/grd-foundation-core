@@ -274,6 +274,10 @@ export const orcamentosActions = {
       state = state.map(o => o.id === id ? fromRow(data as OrcamentoRow) : o);
       emit();
     }
+    const atualizado = state.find(o => o.id === id);
+    if (atualizado && atualizado.status === "APROVADO" && anterior.status !== "APROVADO") {
+      void garantirProjetoDeOrcamento({ id: atualizado.id, obra: atualizado.obra, cliente: atualizado.cliente, valor: atualizado.valor, responsavel: atualizado.responsavel });
+    }
     return { error: null };
   },
   duplicar(id: string) {
