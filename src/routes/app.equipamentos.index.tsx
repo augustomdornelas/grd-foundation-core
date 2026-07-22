@@ -586,7 +586,7 @@ function EquipamentosList() {
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
-              {STATUS.map(s => <SelectItem key={s} value={s}>{s === "ALUGADO" ? "Alugado" : s}</SelectItem>)}
+              {STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={catF} onValueChange={setCatF}>
@@ -692,7 +692,7 @@ function EquipamentosList() {
               <Label>Status inicial</Label>
               <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as EquipStatus })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "ALUGADO" ? "Alugado" : s}</SelectItem>)}</SelectContent>
+                <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="md:col-span-2">

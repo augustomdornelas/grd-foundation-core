@@ -1115,7 +1115,7 @@ function EditarDialog({ open, onOpenChange, equipamentoId }: { open: boolean; on
             <Label>Status</Label>
             <Select value={status} onValueChange={v => setStatus(v as EquipStatus)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "ALUGADO" ? "Alugado" : s}</SelectItem>)}</SelectContent>
+              <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
