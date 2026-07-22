@@ -103,15 +103,13 @@
   background-size: 32px 32px;
 }
 
-/* Uppercase geral no portal /app */
-.app-layout * {
+/* Uppercase geral em todo o portal /app */
+.app-layout,
+.app-layout *:not(input[type="password"]):not(input[type="email"]) {
   text-transform: uppercase;
 }
 
-/* Exceções obrigatórias */
-.app-layout input[type="password"],
-.app-layout input[type="email"],
-.app-layout input[type="text"][autocomplete="email"],
+/* Exceções obrigatórias (defesa em profundidade) */
 input[type="password"],
 input[type="email"],
 input[type="text"][autocomplete="email"] {
