@@ -78,11 +78,8 @@ function receitaEmprestimo(e: Row): number {
   if (unidade.startsWith("sem")) return cp * Math.max(1, Math.ceil(dias / 7));
   return cp * dias;
 }
-function noAno(iso: string | null | undefined, ano: number): boolean {
-  if (!iso) return false;
-  const d = new Date(iso);
-  return d.getFullYear() === ano;
-}
+
+
 
 function PainelHome() {
   const anoAtual = new Date().getFullYear();
