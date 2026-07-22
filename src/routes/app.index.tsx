@@ -223,7 +223,7 @@ function PainelHome() {
   const projEmObra = useMemo(() => projAndamento.slice(0, 5), [projAndamento]);
   const eqManut = useMemo(() => {
     const abertas = manutencoes.filter(m => m.aberta !== false && m.status !== "CONCLUÍDA");
-    return abertas.slice(0, 5).map(m => ({
+    return (abertas as Row[]).slice(0, 5).map((m: Row) => ({
       ...m, nomeEq: equipamentos.find(e => e.id === m.equipamento_id)?.nome || "—",
     }));
   }, [manutencoes, equipamentos]);
@@ -233,7 +233,7 @@ function PainelHome() {
       .filter(e => !e.data_devolucao_real && e.data_devolucao_prevista && e.data_devolucao_prevista >= hoje)
       .sort((a, b) => a.data_devolucao_prevista.localeCompare(b.data_devolucao_prevista))
       .slice(0, 5)
-      .map(e => ({ ...e, nomeEq: equipamentos.find(x => x.id === e.equipamento_id)?.nome || "—" }));
+      ]).map((e: Row) => ({ ...e, nomeEq: equipamentos.find(x => x.id === e.equipamento_id)?.nome || "—" }));
   }, [emprestimos, equipamentos]);
 
   if (loading) return <LoadingSkeleton />;
