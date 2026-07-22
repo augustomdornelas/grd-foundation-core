@@ -22,7 +22,22 @@ export const Route = createFileRoute("/app/")({ component: PainelHome });
 
 const NAVY = "#213368";
 const ORANGE = "#F37032";
-const MESES = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+const MESES_CURTOS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+function fmtMesAno(ym: string): string {
+  const [y, m] = ym.split("-");
+  return `${MESES_CURTOS[Number(m) - 1]}/${y.slice(2)}`;
+}
+function ymOf(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function bucketsMensais(items: Row[], dateKey: string): string[] {
+  const set = new Set<string>();
+  items.forEach(x => { const ym = ymOf(x[dateKey]); if (ym) set.add(ym); });
+  return Array.from(set).sort();
+}
 
 const ORC_COLORS: Record<string, string> = {
   "APROVADO": "#16a34a",
