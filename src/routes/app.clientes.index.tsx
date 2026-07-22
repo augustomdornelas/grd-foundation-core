@@ -199,7 +199,7 @@ function ClientesPage() {
             <Select value={filtroTipo} onValueChange={setFiltroTipo}>
               <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos tipos</SelectItem>
+                <SelectItem value="todos">Todos os tipos</SelectItem>
                 <SelectItem value="PF">Pessoa Física</SelectItem>
                 <SelectItem value="PJ">Pessoa Jurídica</SelectItem>
               </SelectContent>
@@ -207,7 +207,7 @@ function ClientesPage() {
             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
               <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos status</SelectItem>
+                <SelectItem value="todos">Todos os status</SelectItem>
                 <SelectItem value="ativo">Ativos</SelectItem>
                 <SelectItem value="inativo">Inativos</SelectItem>
               </SelectContent>
