@@ -258,7 +258,7 @@ function PainelHome() {
       {/* SEÇÃO 1 — COMERCIAL */}
       <Section title="Comercial" icon={<FileText className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Kpi icon={<FileText />} label="Orçamentos no ano" value={String(totalOrc)} />
+          <Kpi icon={<FileText />} label="Total de orçamentos" value={String(totalOrc)} />
           <Kpi icon={<DollarSign />} label="Valor total orçado" value={brl(valorOrc)} />
           <Kpi icon={<CheckCircle2 />} label="Aprovados" value={`${aprovados.length} · ${brl(valorAprovado)}`} tone="green" />
           <Kpi icon={<Percent />} label="Taxa de aprovação" value={`${taxaAprov.toFixed(1)}%`} />
@@ -271,7 +271,7 @@ function PainelHome() {
       <Section title="Operacional" icon={<FolderKanban className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
           <Kpi icon={<FolderKanban />} label="Projetos em andamento" value={String(projAndamento.length)} tone="orange" />
-          <Kpi icon={<CheckCircle2 />} label="Concluídos no ano" value={String(projConcluidosAno.length)} tone="green" />
+          <Kpi icon={<CheckCircle2 />} label="Projetos concluídos" value={String(projConcluidos.length)} tone="green" />
           <Kpi icon={<ClipboardList />} label="Medições lançadas" value={String(totalMed)} />
           <Kpi icon={<Wallet />} label="Faturado" value={brl(faturado)} tone="green" />
           <Kpi icon={<TrendingUp />} label="Saldo a faturar" value={brl(saldoFaturar)} />
