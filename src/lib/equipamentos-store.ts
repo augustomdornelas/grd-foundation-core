@@ -10,7 +10,7 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
 }
 
-export type EquipStatus = "Disponível" | "Emprestado" | "Manutenção";
+export type EquipStatus = "DISPONÍVEL" | "ALUGADO" | "MANUTENÇÃO";
 export type UnidadePeriodo = "dia" | "semana" | "mês";
 
 export type Equipamento = {
@@ -39,7 +39,7 @@ export type Emprestimo = {
   responsavelRg?: string;
   responsavelCargo?: string;
   dataInicio: string;
-  dataDevolucaoPrevista: string;
+  dataDevolucaoPREVISTA: string;
   dataDevolucaoReal?: string;
   custoPeriodo: number;
   unidade: UnidadePeriodo;
@@ -57,8 +57,8 @@ export type Emprestimo = {
   numeroTermoDevolucao?: string;
 };
 
-export type ManutencaoTipo = "Preventiva" | "Corretiva" | "Emergencial";
-export type ManutencaoStatus = "Aberta" | "Em andamento" | "Concluída";
+export type ManutencaoTipo = "PREVENTIVA" | "CORRETIVA" | "EMERGENCIAL";
+export type ManutencaoStatus = "ABERTA" | "EM ANDAMENTO" | "CONCLUÍDA";
 
 export type ManutencaoAnexo = {
   name: string;
@@ -81,7 +81,7 @@ export type Manutencao = {
   custo: number; // total = peças + mão de obra
   statusManut: ManutencaoStatus;
   observacoes?: string;
-  aberta: boolean; // derivado: status !== "Concluída"
+  aberta: boolean; // derivado: status !== "CONCLUÍDA"
   anexos: ManutencaoAnexo[];
 };
 
@@ -107,7 +107,7 @@ export function periodos(inicio: string, fim: string, unidade: UnidadePeriodo): 
   return Math.max(1, Math.ceil(dias / 30));
 }
 
-export function custoAtivoTotal(s: State): number {
+export function custoATIVOTotal(s: State): number {
   return s.emprestimos
     .filter(e => e.ativo)
     .reduce((a, e) => a + e.custoTotal, 0);
@@ -129,7 +129,7 @@ async function fetchAll() {
         categoria: r.categoria ?? "", descricao: r.descricao ?? "",
         valor: Number(r.valor ?? 0) || 0, custoPeriodo: Number(r.custo_periodo ?? 0) || 0,
         unidade: (r.unidade_periodo ?? r.unidade ?? "dia") as UnidadePeriodo,
-        status: (r.status ?? "Disponível") as EquipStatus,
+        status: (r.status ?? "DISPONÍVEL") as EquipStatus,
         localBase: r.local_base ?? "", localAtual: r.local_atual ?? "",
         responsavelAtual: r.responsavel_atual ?? undefined,
         fotoUrl: r.foto_url ?? undefined,
@@ -142,7 +142,7 @@ async function fetchAll() {
         responsavelRg: r.responsavel_rg ?? undefined,
         responsavelCargo: r.responsavel_cargo ?? undefined,
         dataInicio: r.data_inicio ?? "",
-        dataDevolucaoPrevista: r.data_devolucao_prevista ?? r.data_prevista ?? "",
+        dataDevolucaoPREVISTA: r.data_devolucao_prevista ?? r.data_prevista ?? "",
         dataDevolucaoReal: r.data_devolucao_real ?? r.data_real ?? undefined,
         custoPeriodo: Number(r.custo_periodo ?? 0) || 0,
         unidade: (r.unidade ?? "dia") as UnidadePeriodo,
@@ -161,11 +161,11 @@ async function fetchAll() {
         const pecas = Number(r.custo_pecas ?? 0) || 0;
         const mo = Number(r.custo_mao_obra ?? 0) || 0;
         const total = Number(r.custo ?? pecas + mo) || 0;
-        const status = (r.status ?? (r.aberta === false ? "Concluída" : "Aberta")) as ManutencaoStatus;
+        const status = (r.status ?? (r.aberta === false ? "CONCLUÍDA" : "ABERTA")) as ManutencaoStatus;
         return {
           id: r.id,
           equipamentoId: r.equipamento_id ?? "",
-          tipo: (r.tipo ?? "Preventiva") as ManutencaoTipo,
+          tipo: (r.tipo ?? "PREVENTIVA") as ManutencaoTipo,
           data: r.data ?? "",
           dataFim: r.data_fim ?? undefined,
           descricao: r.descricao ?? "",
@@ -175,7 +175,7 @@ async function fetchAll() {
           custo: total,
           statusManut: status,
           observacoes: r.observacoes ?? undefined,
-          aberta: r.aberta ?? (status !== "Concluída"),
+          aberta: r.aberta ?? (status !== "CONCLUÍDA"),
           anexos: Array.isArray(r.anexos) ? (r.anexos as ManutencaoAnexo[]) : [],
         };
       }),
@@ -290,7 +290,7 @@ export const equipActions = {
   },
   async registrarEmprestimo(input: Omit<Emprestimo, "id" | "custoTotal" | "ativo" | "dataDevolucaoReal">): Promise<string | null> {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("EM");
-    const qtd = periodos(input.dataInicio, input.dataDevolucaoPrevista, input.unidade);
+    const qtd = periodos(input.dataInicio, input.dataDevolucaoPREVISTA, input.unidade);
     const custoTotal = qtd * input.custoPeriodo;
    const emprestimoPayload = upperizePayload({
   equipamento_id: input.equipamentoId,
@@ -300,7 +300,7 @@ export const equipActions = {
       responsavel_rg: input.responsavelRg ?? null,
       responsavel_cargo: input.responsavelCargo ?? null,
       data_inicio: input.dataInicio,
-      data_devolucao_prevista: input.dataDevolucaoPrevista,
+      data_devolucao_prevista: input.dataDevolucaoPREVISTA,
       custo_periodo: input.custoPeriodo,
       unidade: input.unidade,
       observacoes: input.observacoes ?? null,
@@ -323,7 +323,7 @@ export const equipActions = {
       const updateEquipResult = await supabase
         .from("equipamentos")
         .update(upperizePayload({
-          status: "Emprestado",
+          status: "ALUGADO",
           local_atual: input.destino,
           responsavel_atual: input.responsavel,
         }) as any)
@@ -395,7 +395,7 @@ export const equipActions = {
       const updateEquipResult = await supabase
         .from("equipamentos")
         .update(upperizePayload({
-          status: "Disponível",
+          status: "DISPONÍVEL",
           local_atual: equip?.localBase ?? "",
           responsavel_atual: null,
         }) as any)
@@ -420,14 +420,14 @@ export const equipActions = {
   registrarManutencao(input: Omit<Manutencao, "id" | "aberta" | "custo" | "anexos"> & { custo?: number; anexos?: ManutencaoAnexo[] }) {
     const id = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : uid("MAN");
     const custo = (input.custoPecas || 0) + (input.custoMaoObra || 0);
-    const aberta = input.statusManut !== "Concluída";
+    const aberta = input.statusManut !== "CONCLUÍDA";
     const anexos = input.anexos ?? [];
     const novo: Manutencao = { ...input, id, custo, aberta, anexos };
     state = {
       ...state,
       manutencoes: [...state.manutencoes, novo],
       equipamentos: state.equipamentos.map(e =>
-        e.id === input.equipamentoId && aberta ? { ...e, status: "Manutenção" as EquipStatus } : e
+        e.id === input.equipamentoId && aberta ? { ...e, status: "MANUTENÇÃO" as EquipStatus } : e
       ),
     };
     emit();
@@ -439,7 +439,7 @@ export const equipActions = {
       status: input.statusManut, observacoes: input.observacoes ?? null, aberta, anexos,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     if (aberta) {
-      void supabase.from("equipamentos").update({ status: "Manutenção" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+      void supabase.from("equipamentos").update({ status: "MANUTENÇÃO" }).eq("id", input.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
     }
     return id;
   },
@@ -450,7 +450,7 @@ export const equipActions = {
         if (m.id !== id) return m;
         const merged = { ...m, ...patch };
         merged.custo = (merged.custoPecas || 0) + (merged.custoMaoObra || 0);
-        merged.aberta = merged.statusManut !== "Concluída";
+        merged.aberta = merged.statusManut !== "CONCLUÍDA";
         return merged;
       }),
     };
@@ -463,7 +463,7 @@ export const equipActions = {
     if (patch.oficina !== undefined) row.oficina = patch.oficina;
     if (patch.custoPecas !== undefined) row.custo_pecas = patch.custoPecas;
     if (patch.custoMaoObra !== undefined) row.custo_mao_obra = patch.custoMaoObra;
-    if (patch.statusManut !== undefined) { row.status = patch.statusManut; row.aberta = patch.statusManut !== "Concluída"; }
+    if (patch.statusManut !== undefined) { row.status = patch.statusManut; row.aberta = patch.statusManut !== "CONCLUÍDA"; }
     if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
     if (patch.anexos !== undefined) row.anexos = patch.anexos;
     const m = state.manutencoes.find(x => x.id === id);
@@ -475,13 +475,13 @@ export const equipActions = {
     if (!man) return;
     state = {
       ...state,
-      manutencoes: state.manutencoes.map(m => m.id === id ? { ...m, dataFim, aberta: false, statusManut: "Concluída" as ManutencaoStatus } : m),
+      manutencoes: state.manutencoes.map(m => m.id === id ? { ...m, dataFim, aberta: false, statusManut: "CONCLUÍDA" as ManutencaoStatus } : m),
       equipamentos: state.equipamentos.map(e =>
-        e.id === man.equipamentoId ? { ...e, status: "Disponível" as EquipStatus } : e
+        e.id === man.equipamentoId ? { ...e, status: "DISPONÍVEL" as EquipStatus } : e
       ),
     };
     emit();
-    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false, status: "Concluída" }).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
-    void supabase.from("equipamentos").update({ status: "Disponível" }).eq("id", man.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("manutencoes").update({ data_fim: dataFim, aberta: false, status: "CONCLUÍDA" }).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+    void supabase.from("equipamentos").update({ status: "DISPONÍVEL" }).eq("id", man.equipamentoId).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
 };

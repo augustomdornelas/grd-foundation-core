@@ -11,7 +11,7 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
 }
 
-export type MedStatus = "Lançada" | "Em aprovação" | "Recebida" | "Prevista";
+export type MedStatus = "LANÇADA" | "EM APROVAÇÃO" | "RECEBIDA" | "PREVISTA";
 
 export type Medicao = {
   id: string;
@@ -33,7 +33,7 @@ export type ResumoOrcamento = {
   saldo: number;
   pct: number;
   medicoes: Medicao[];
-  statusExec: "Aguardando início" | "Em execução" | "Concluído";
+  statusExec: "AGUARDANDO INÍCIO" | "EM EXECUÇÃO" | "CONCLUÍDO";
   proximaMedicao: string | null;
 };
 
@@ -65,7 +65,7 @@ async function fetchAll() {
       percentualFisico: Number(r?.percentual_fisico ?? 0) || 0,
       dataRecebimento: r?.data_recebimento ?? "",
       previsaoRecebimento: r?.data_recebimento ?? "",
-      status: (r?.status ?? "Lançada") as MedStatus,
+      status: (r?.status ?? "LANÇADA") as MedStatus,
       observacoes: r?.observacoes ?? "",
     }));
     emit();
@@ -98,14 +98,14 @@ export function resumoDoOrcamento(orcamento: Orcamento, medicoes: Medicao[]): Re
   const saldo = Math.max(0, orcamento.valor - faturado);
   const pct = orcamento.valor > 0 ? Math.min(100, Math.round((faturado / orcamento.valor) * 100)) : 0;
 
-  let statusExec: ResumoOrcamento["statusExec"] = "Aguardando início";
-  if (pct >= 100) statusExec = "Concluído";
-  else if (minhas.length > 0) statusExec = "Em execução";
+  let statusExec: ResumoOrcamento["statusExec"] = "AGUARDANDO INÍCIO";
+  if (pct >= 100) statusExec = "CONCLUÍDO";
+  else if (minhas.length > 0) statusExec = "EM EXECUÇÃO";
 
-  // Próxima medição prevista (status "Prevista" mais próxima no futuro)
+  // Próxima medição prevista (status "PREVISTA" mais próxima no futuro)
   const hoje = new Date().toISOString().slice(0, 10);
   const previstas = minhas
-    .filter(m => m.status === "Prevista" && m.previsaoRecebimento >= hoje)
+    .filter(m => m.status === "PREVISTA" && m.previsaoRecebimento >= hoje)
     .sort((a, b) => a.previsaoRecebimento.localeCompare(b.previsaoRecebimento));
   const proximaMedicao = previstas[0]?.previsaoRecebimento ?? null;
 

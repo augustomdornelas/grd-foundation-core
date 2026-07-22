@@ -10,7 +10,7 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
 }
 
-export type ProjetoStatus = "Planejamento" | "Em andamento" | "Paralisado" | "Concluído";
+export type ProjetoStatus = "PLANEJAMENTO" | "EM ANDAMENTO" | "PARALISADO" | "CONCLUÍDO";
 
 export type Projeto = {
   id: string;
@@ -44,7 +44,7 @@ export type NotaFiscal = {
   descricao: string;
   data: string;
   valor: number;
-  status: "Pendente" | "Pago" | "Cancelado";
+  status: "PENDENTE" | "PAGO" | "CANCELADO";
 };
 
 export type Medicao = {
@@ -55,7 +55,7 @@ export type Medicao = {
   data: string;
   pct: number;
   valor: number;
-  status: "Aprovada" | "Em análise" | "Enviada";
+  status: "APROVADA" | "EM ANÁLISE" | "ENVIADA";
 };
 
 type State = {
@@ -88,7 +88,7 @@ async function fetchAll() {
       clienteId: r.cliente_id ?? null,
       local: r.local ?? "", descricao: r.descricao ?? "",
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
-      prazo: r.prazo ?? "", status: r.status ?? "Planejamento",
+      prazo: r.prazo ?? "", status: r.status ?? "PLANEJAMENTO",
       progresso: r.progresso ?? 0, orcado: r.orcado ?? 0,
     })),
     custos: (c.data ?? []).map((r: any) => ({
@@ -99,12 +99,12 @@ async function fetchAll() {
     notas: (n.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? "",
       fornecedor: r.fornecedor ?? "", descricao: r.descricao ?? "",
-      data: r.data ?? "", valor: r.valor ?? 0, status: r.status ?? "Pendente",
+      data: r.data ?? "", valor: r.valor ?? 0, status: r.status ?? "PENDENTE",
     })),
     medicoes: (m.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? 0,
       periodo: r.periodo ?? "", data: r.data ?? "",
-      pct: r.pct ?? 0, valor: r.valor ?? 0, status: r.status ?? "Em análise",
+      pct: r.pct ?? 0, valor: r.valor ?? 0, status: r.status ?? "EM ANÁLISE",
     })),
   };
   emit();

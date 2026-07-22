@@ -179,8 +179,8 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
     const total = noPer.reduce((a, o) => a + o.valor, 0);
     const qtd = noPer.length;
     const ticket = qtd ? total / qtd : 0;
-    const valorAprovado = noPer.filter(o => o.status === "Aprovado").reduce((a, o) => a + o.valor, 0);
-    const conv = total > 0 ? (valorAprovado / total) * 100 : 0;
+    const valorAPROVADO = noPer.filter(o => o.status === "APROVADO").reduce((a, o) => a + o.valor, 0);
+    const conv = total > 0 ? (valorAPROVADO / total) * 100 : 0;
 
     // Variação geral do pipeline: mês atual vs mês anterior (sem filtro de status)
     const hojeVar = new Date();
@@ -341,7 +341,7 @@ function SecaoComercial({ periodo, showPrevisao }: { periodo: Periodo; showPrevi
 // Bloco resumo — Previsão de Entrada (painel /app)
 // ------------------------------------------------------------
 function PrevisaoEntradaResumo() {
-  const aprovados = useOrcamentos(s => s.filter(o => o.status === "Aprovado"));
+  const aprovados = useOrcamentos(s => s.filter(o => o.status === "APROVADO"));
   const medicoes = useMedicoes(s => s);
   const resumos = aprovados.map(o => resumoDoOrcamento(o, medicoes));
   const prevista = resumos.reduce((a, r) => a + r.orcamento.valor, 0);
@@ -357,7 +357,7 @@ function PrevisaoEntradaResumo() {
     const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
     const dNext = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, 1);
     const previsto = medicoes.filter(m => { const md = new Date(m.previsaoRecebimento); return md >= d && md < dNext; }).reduce((a, m) => a + m.valor, 0);
-    const realizado = medicoes.filter(m => { const md = new Date(m.data); return md >= d && md < dNext && m.status === "Recebida"; }).reduce((a, m) => a + m.valor, 0);
+    const realizado = medicoes.filter(m => { const md = new Date(m.data); return md >= d && md < dNext && m.status === "RECEBIDA"; }).reduce((a, m) => a + m.valor, 0);
     fluxo.push({ mes: NOMES_MES[d.getMonth()], previsto, realizado });
   }
 
@@ -366,7 +366,7 @@ function PrevisaoEntradaResumo() {
       <Card className="p-6">
         <div className="text-sm font-semibold text-muted-foreground">Previsão de entrada</div>
         <div className="mt-3 space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-muted-foreground">Prevista</span><span className="font-bold text-[#213368]">{brl(prevista)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">PREVISTA</span><span className="font-bold text-[#213368]">{brl(prevista)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Faturado</span><span className="font-bold text-[#F37032]">{brl(faturado)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Saldo</span><span className="font-bold text-[#213368]">{brl(saldo)}</span></div>
         </div>
@@ -426,15 +426,15 @@ function SecaoProjetos({ periodo }: { periodo: Periodo }) {
   const custos = useProjetosStore(s => s.custos);
 
   const dados = useMemo(() => {
-    const ativos = projetos.filter(p => p.status === "Em andamento" || p.status === "Planejamento");
+    const ativos = projetos.filter(p => p.status === "EM ANDAMENTO" || p.status === "PLANEJAMENTO");
     const valorTotal = ativos.reduce((a, p) => a + p.orcado, 0);
     const execMedia = ativos.length ? ativos.reduce((a, p) => a + p.progresso, 0) / ativos.length : 0;
-    const paralisados = projetos.filter(p => p.status === "Paralisado");
+    const paralisados = projetos.filter(p => p.status === "PARALISADO");
 
     // Prazo próximo (<= 30 dias)
     const hoje = new Date();
     const proximosPrazo = projetos
-      .filter(p => p.status !== "Concluído")
+      .filter(p => p.status !== "CONCLUÍDO")
       .map(p => ({ p, dias: Math.ceil((new Date(p.prazo).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) }))
       .filter(x => x.dias <= 30 && x.dias >= 0);
 
@@ -513,7 +513,7 @@ function SecaoProjetos({ periodo }: { periodo: Periodo }) {
             {dados.paralisados.map(p => (
               <Link key={p.id} to="/app/projetos/$id" params={{ id: p.id }} className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3 hover:bg-red-100">
                 <div className="text-sm font-semibold text-red-700">{p.nome}</div>
-                <StatusBadge status="Paralisado" />
+                <StatusBadge status="PARALISADO" />
               </Link>
             ))}
             {dados.proximosPrazo.map(({ p, dias }) => (
@@ -571,9 +571,9 @@ function SecaoEquipamentos({ periodo }: { periodo: Periodo }) {
   const emprestimos = useEquipStore(s => s.emprestimos);
 
   const dados = useMemo(() => {
-    const emUso = equipamentos.filter(e => e.status === "Emprestado").length;
-    const disponiveis = equipamentos.filter(e => e.status === "Disponível").length;
-    const manutencao = equipamentos.filter(e => e.status === "Manutenção").length;
+    const emUso = equipamentos.filter(e => e.status === "ALUGADO").length;
+    const disponiveis = equipamentos.filter(e => e.status === "DISPONÍVEL").length;
+    const manutencao = equipamentos.filter(e => e.status === "MANUTENÇÃO").length;
 
     const noPer = emprestimos.filter(e => noPeriodo(e.dataInicio, periodo));
     const custoPeriodoTotal = noPer.reduce((a, e) => a + e.custoTotal, 0);
@@ -591,7 +591,7 @@ function SecaoEquipamentos({ periodo }: { periodo: Periodo }) {
 
     // Devolução prevista próxima (<=15 dias, ativos)
     const proximas = emprestimos.filter(e => e.ativo).map(e => {
-      const dias = Math.ceil((new Date(e.dataDevolucaoPrevista).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+      const dias = Math.ceil((new Date(e.dataDevolucaoPREVISTA).getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
       return { emp: e, dias };
     }).filter(x => x.dias <= 15).sort((a, b) => a.dias - b.dias);
 
@@ -603,7 +603,7 @@ function SecaoEquipamentos({ periodo }: { periodo: Periodo }) {
   return (
     <Secao titulo="Equipamentos" subtitulo={`Frota, aluguéis e custos · ${PERIODO_LABEL[periodo]}`} icon={Wrench} modulo="equipamentos">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Em uso" value={String(dados.emUso)} icon={PackageX} />
+        <Kpi label="EM USO" value={String(dados.emUso)} icon={PackageX} />
         <Kpi label="Disponíveis" value={String(dados.disponiveis)} icon={PackageCheck} />
         <Kpi label="Em manutenção" value={String(dados.manutencao)} icon={Hammer} />
         <Kpi label="Custo de aluguéis no período" value={brl(dados.custoPeriodoTotal)} icon={DollarSign} />

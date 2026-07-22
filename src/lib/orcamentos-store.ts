@@ -14,12 +14,12 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
 }
 
 export type OrcStatus =
-  | "Levantamento"
-  | "Aguardando Retorno"
-  | "Em negociação"
-  | "Não aprovado"
-  | "Cancelado"
-  | "Aprovado";
+  | "LEVANTAMENTO"
+  | "AGUARDANDO RETORNO"
+  | "EM NEGOCIAÇÃO"
+  | "NÃO APROVADO"
+  | "CANCELADO"
+  | "APROVADO";
 
 export type TipoServico =
     | "Engenharia e Constru\u00e7\u00e3o"
@@ -71,12 +71,12 @@ export const TIPOS_SERVICO: TipoServico[] = [
   ];
 
 export const STATUS_LIST: OrcStatus[] = [
-    "Levantamento",
-    "Aguardando Retorno",
-    "Em negociação",
-    "Não aprovado",
-    "Cancelado",
-    "Aprovado",
+    "LEVANTAMENTO",
+    "AGUARDANDO RETORNO",
+    "EM NEGOCIAÇÃO",
+    "NÃO APROVADO",
+    "CANCELADO",
+    "APROVADO",
   ];
 
 export const RESPONSAVEIS = [
@@ -87,12 +87,12 @@ export const RESPONSAVEIS = [
   ];
 
 export const STATUS_COLORS: Record<OrcStatus, string> = {
-    "Levantamento": "#94A3B8",
-    "Aguardando Retorno": "#F59E0B",
-    "Em negociação": "#3B82F6",
-    "Não aprovado": "#DC2626",
-    "Cancelado": "#475569",
-    "Aprovado": "#16A34A",
+    "LEVANTAMENTO": "#94A3B8",
+    "AGUARDANDO RETORNO": "#F59E0B",
+    "EM NEGOCIAÇÃO": "#3B82F6",
+    "NÃO APROVADO": "#DC2626",
+    "CANCELADO": "#475569",
+    "APROVADO": "#16A34A",
 };
 
 
@@ -133,7 +133,7 @@ function fromRow(r: OrcamentoRow): Orcamento {
           responsavel: r.responsavel ?? "",
           data: r.data_emissao ?? "",
           validade: r.prazo_validade ?? "",
-          status: (r.status as OrcStatus) ?? "Levantamento",
+          status: (r.status as OrcStatus) ?? "LEVANTAMENTO",
 
           probabilidade: Number(r.probabilidade ?? 0) || 0,
           observacoes: r.observacoes ?? "",
@@ -275,11 +275,11 @@ export const orcamentosActions = {
     const orig = state.find(o => o.id === id);
     if (!orig) return;
     const numero = proximoNumero();
-    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "Levantamento", autor: orig.responsavel }];
+    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "LEVANTAMENTO", autor: orig.responsavel }];
     const input = {
       ...orig,
       data: new Date().toISOString().slice(0, 10),
-      status: "Levantamento" as OrcStatus,
+      status: "LEVANTAMENTO" as OrcStatus,
     };
 
     const tempId = uid();

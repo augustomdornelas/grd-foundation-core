@@ -47,7 +47,7 @@ export const Route = createFileRoute("/app/equipamentos/")({
   },
 });
 
-const STATUS: EquipStatus[] = ["Disponível", "Emprestado", "Manutenção"];
+const STATUS: EquipStatus[] = ["DISPONÍVEL", "ALUGADO", "MANUTENÇÃO"];
 const UNIDADES: UnidadePeriodo[] = ["dia", "semana", "mês"];
 
 export function iconeCategoria(cat: string) {
@@ -72,7 +72,7 @@ type FormEq = {
 const novoForm = (categoria = ""): FormEq => ({
   nome: "", codigo: "", categoria, descricao: "",
   valor: "", custoPeriodo: "", unidade: "dia",
-  status: "Disponível", localBase: "", fotoUrl: "",
+  status: "DISPONÍVEL", localBase: "", fotoUrl: "",
 });
 
 type Grupo = { id: string; nome: string };
@@ -210,9 +210,9 @@ function EquipamentosList() {
     const roi = valorFrota > 0 ? (liquidoFrota / valorFrota) * 100 : 0;
     return {
       total: equipamentos.length,
-      emUso: equipamentos.filter(e => e.status === "Emprestado").length,
-      disp: equipamentos.filter(e => e.status === "Disponível").length,
-      manut: equipamentos.filter(e => e.status === "Manutenção").length,
+      emUso: equipamentos.filter(e => e.status === "ALUGADO").length,
+      disp: equipamentos.filter(e => e.status === "DISPONÍVEL").length,
+      manut: equipamentos.filter(e => e.status === "MANUTENÇÃO").length,
       receita, custoManut, roi, valorFrota,
     };
   }, [equipamentos, emprestimos, manutencoes]);
@@ -220,9 +220,9 @@ function EquipamentosList() {
   const charts = useMemo(() => {
     // 1. Status pie
     const statusMap: Record<EquipStatus, { name: string; value: number; color: string }> = {
-      "Disponível": { name: "Disponível", value: 0, color: "#16a34a" },
-      "Emprestado": { name: "Alugado", value: 0, color: "#F37032" },
-      "Manutenção": { name: "Em Manutenção", value: 0, color: "#dc2626" },
+      "DISPONÍVEL": { name: "DISPONÍVEL", value: 0, color: "#16a34a" },
+      "ALUGADO": { name: "Alugado", value: 0, color: "#F37032" },
+      "MANUTENÇÃO": { name: "Em MANUTENÇÃO", value: 0, color: "#dc2626" },
     };
     equipamentos.forEach(e => { if (statusMap[e.status]) statusMap[e.status].value += 1; });
     const porStatus = Object.values(statusMap).filter(s => s.value > 0);
@@ -239,7 +239,7 @@ function EquipamentosList() {
 
     // 3. Receita diária potencial por categoria (custoPeriodo dos disponíveis)
     const receitaCatMap = new Map<string, number>();
-    equipamentos.filter(e => e.status === "Disponível").forEach(e => {
+    equipamentos.filter(e => e.status === "DISPONÍVEL").forEach(e => {
       const c = e.categoria || "Sem categoria";
       let diario = e.custoPeriodo || 0;
       if (e.unidade === "semana") diario = diario / 7;
@@ -266,8 +266,8 @@ function EquipamentosList() {
       const c = e.categoria || "Sem categoria";
       if (!acMap.has(c)) acMap.set(c, { categoria: c, alugados: 0, disponiveis: 0 });
       const row = acMap.get(c)!;
-      if (e.status === "Emprestado") row.alugados += 1;
-      else if (e.status === "Disponível") row.disponiveis += 1;
+      if (e.status === "ALUGADO") row.alugados += 1;
+      else if (e.status === "DISPONÍVEL") row.disponiveis += 1;
     });
     const alugadosVsDisp = Array.from(acMap.values()).sort((a, b) => (b.alugados + b.disponiveis) - (a.alugados + a.disponiveis));
 
@@ -396,7 +396,7 @@ function EquipamentosList() {
               </div>
               <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-[#F37032]" />
             </div>
-            {e.status === "Disponível" && (
+            {e.status === "DISPONÍVEL" && (
               <Button
                 type="button"
                 size="sm"
@@ -473,7 +473,7 @@ function EquipamentosList() {
       {/* KPIs */}
       <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
         <KpiCard label="Total" value={String(kpis.total)} color="#213368" />
-        <KpiCard label="Em uso" value={String(kpis.emUso)} color="#213368" />
+        <KpiCard label="EM USO" value={String(kpis.emUso)} color="#213368" />
         <KpiCard label="Disponíveis" value={String(kpis.disp)} color="#16a34a" />
         <KpiCard label="Em manutenção" value={String(kpis.manut)} color="#d97706" />
         <KpiCard label="Valor total da frota" value={brl(kpis.valorFrota)} color="#213368" icon={DollarSign} />
@@ -586,7 +586,7 @@ function EquipamentosList() {
             <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os status</SelectItem>
-              {STATUS.map(s => <SelectItem key={s} value={s}>{s === "Emprestado" ? "Alugado" : s}</SelectItem>)}
+              {STATUS.map(s => <SelectItem key={s} value={s}>{s === "ALUGADO" ? "Alugado" : s}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={catF} onValueChange={setCatF}>
@@ -692,7 +692,7 @@ function EquipamentosList() {
               <Label>Status inicial</Label>
               <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as EquipStatus })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "Emprestado" ? "Alugado" : s}</SelectItem>)}</SelectContent>
+                <SelectContent>{STATUS.map(s => <SelectItem key={s} value={s}>{s === "ALUGADO" ? "Alugado" : s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="md:col-span-2">

@@ -26,12 +26,12 @@ const BRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 
 const STATUS_COLORS: Record<string, string> = {
-  "Aprovado": "#213368",
-  "Em negociação": "#F37032",
-  "Aguardando Retorno": "#f59e0b",
-  "Levantamento": "#64748b",
-  "Não aprovado": "#dc2626",
-  "Cancelado": "#94a3b8",
+  "APROVADO": "#213368",
+  "EM NEGOCIAÇÃO": "#F37032",
+  "AGUARDANDO RETORNO": "#f59e0b",
+  "LEVANTAMENTO": "#64748b",
+  "NÃO APROVADO": "#dc2626",
+  "CANCELADO": "#94a3b8",
 };
 
 function ClienteDetalhe() {
@@ -70,8 +70,8 @@ function ClienteDetalhe() {
 
   const kpis = useMemo(() => {
     const total = orcamentos.reduce((a, o) => a + Number(o.valor ?? 0), 0);
-    const aprovado = orcamentos.filter(o => o.status === "Aprovado").reduce((a, o) => a + Number(o.valor ?? 0), 0);
-    const negociacao = orcamentos.filter(o => o.status === "Em negociação").reduce((a, o) => a + Number(o.valor ?? 0), 0);
+    const aprovado = orcamentos.filter(o => o.status === "APROVADO").reduce((a, o) => a + Number(o.valor ?? 0), 0);
+    const negociacao = orcamentos.filter(o => o.status === "EM NEGOCIAÇÃO").reduce((a, o) => a + Number(o.valor ?? 0), 0);
     const ticket = orcamentos.length ? total / orcamentos.length : 0;
     return { total, aprovado, negociacao, ticket };
   }, [orcamentos]);
@@ -102,7 +102,7 @@ function ClienteDetalhe() {
     for (const e of emprestimos) {
       evts.push({ ts: e.created_at, tipo: "emprestimo", titulo: `Aluguel: ${equipamentos[e.equipamento_id] ?? e.equipamento_id}`, sub: `Destino ${e.destino} — ${BRL(Number(e.custo_total ?? 0))}` });
       if (e.data_devolucao_real) {
-        evts.push({ ts: e.data_devolucao_real, tipo: "devolucao", titulo: `Devolução: ${equipamentos[e.equipamento_id] ?? e.equipamento_id}`, sub: `Devolvido em ${fmtDate(e.data_devolucao_real)}` });
+        evts.push({ ts: e.data_devolucao_real, tipo: "devolucao", titulo: `Devolução: ${equipamentos[e.equipamento_id] ?? e.equipamento_id}`, sub: `DEVOLVIDO em ${fmtDate(e.data_devolucao_real)}` });
       }
     }
     return evts.sort((a, b) => (b.ts ?? "").localeCompare(a.ts ?? ""));
@@ -118,8 +118,8 @@ function ClienteDetalhe() {
 
   const kpiCards = [
     { label: "Total em orçamentos", value: BRL(kpis.total), icon: FileText, tone: "#213368" },
-    { label: "Aprovados", value: BRL(kpis.aprovado), icon: DollarSign, tone: "#213368" },
-    { label: "Em negociação", value: BRL(kpis.negociacao), icon: Handshake, tone: "#F37032" },
+    { label: "APROVADOs", value: BRL(kpis.aprovado), icon: DollarSign, tone: "#213368" },
+    { label: "EM NEGOCIAÇÃO", value: BRL(kpis.negociacao), icon: Handshake, tone: "#F37032" },
     { label: "Ticket médio", value: BRL(kpis.ticket), icon: Calculator, tone: "#F37032" },
   ];
 
@@ -141,8 +141,8 @@ function ClienteDetalhe() {
             <Badge variant="outline">{cliente.tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}</Badge>
             {cliente.colaborador_grd && <Badge style={{ background: "#F37032" }} className="text-white">Colaborador GRD</Badge>}
             {cliente.ativo
-              ? <Badge style={{ background: "#213368" }} className="text-white">Ativo</Badge>
-              : <Badge variant="secondary">Inativo</Badge>}
+              ? <Badge style={{ background: "#213368" }} className="text-white">ATIVO</Badge>
+              : <Badge variant="secondary">INATIVO</Badge>}
           </div>
         </CardContent>
       </Card>
@@ -242,8 +242,8 @@ function ClienteDetalhe() {
                     <td className="py-2 pr-3">{BRL(Number(e.custo_total ?? 0))}</td>
                     <td className="py-2 pr-3">
                       {e.data_devolucao_real
-                        ? <Badge style={{ background: "#213368" }} className="text-white">Devolvido</Badge>
-                        : <Badge style={{ background: "#F37032" }} className="text-white">Em uso</Badge>}
+                        ? <Badge style={{ background: "#213368" }} className="text-white">DEVOLVIDO</Badge>
+                        : <Badge style={{ background: "#F37032" }} className="text-white">EM USO</Badge>}
                     </td>
                   </tr>
                 ))}

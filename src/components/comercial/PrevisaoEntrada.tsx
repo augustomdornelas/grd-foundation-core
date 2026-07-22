@@ -37,7 +37,7 @@ type Orcamento = {
   status: string;
 };
 
-type MedStatus = "Lançada" | "Em aprovação" | "Recebida";
+type MedStatus = "LANÇADA" | "EM APROVAÇÃO" | "RECEBIDA";
 
 type Medicao = {
   id: string;
@@ -68,9 +68,9 @@ function mesLabel(iso: string | null | undefined): string | null {
 }
 
 function statusExecucao(pct: number): { label: string; color: string } {
-  if (pct >= 100) return { label: "Concluído", color: "#16A34A" };
-  if (pct > 0) return { label: "Em execução", color: LARANJA };
-  return { label: "Aguardando início", color: "#94A3B8" };
+  if (pct >= 100) return { label: "CONCLUÍDO", color: "#16A34A" };
+  if (pct > 0) return { label: "EM EXECUÇÃO", color: LARANJA };
+  return { label: "AGUARDANDO INÍCIO", color: "#94A3B8" };
 }
 
 function corBarra(pct: number): string {
@@ -98,7 +98,7 @@ export function PrevisaoEntrada() {
     async function carregar() {
       try {
         const [{ data: orcs }, { data: meds }] = await Promise.all([
-          supabase.from("orcamentos").select("*").eq("status", "Aprovado"),
+          supabase.from("orcamentos").select("*").eq("status", "APROVADO"),
           supabase.from("medicoes").select("*"),
         ]);
         setOrcamentos((orcs ?? []) as Orcamento[]);
@@ -621,7 +621,7 @@ function MedicaoModal({
   const [valor, setValor] = useState<number>(0);
   const [descricao, setDescricao] = useState("");
   const [dataRecebimento, setDataRecebimento] = useState<string>("");
-  const [status, setStatus] = useState<MedStatus>("Lançada");
+  const [status, setStatus] = useState<MedStatus>("LANÇADA");
   const [observacoes, setObservacoes] = useState("");
   const [salvando, setSalvando] = useState(false);
 
@@ -640,7 +640,7 @@ function MedicaoModal({
       setValor(0);
       setDescricao("");
       setDataRecebimento("");
-      setStatus("Lançada");
+      setStatus("LANÇADA");
       setObservacoes("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -731,9 +731,9 @@ function MedicaoModal({
               <Select value={status} onValueChange={(v) => setStatus(v as MedStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Lançada">Lançada</SelectItem>
-                  <SelectItem value="Em aprovação">Em aprovação</SelectItem>
-                  <SelectItem value="Recebida">Recebida</SelectItem>
+                  <SelectItem value="LANÇADA">LANÇADA</SelectItem>
+                  <SelectItem value="EM APROVAÇÃO">EM APROVAÇÃO</SelectItem>
+                  <SelectItem value="RECEBIDA">RECEBIDA</SelectItem>
                 </SelectContent>
               </Select>
             </div>

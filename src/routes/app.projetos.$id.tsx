@@ -30,7 +30,7 @@ export const Route = createFileRoute("/app/projetos/$id")({
 });
 
 const hoje = () => new Date().toISOString().slice(0, 10);
-const STATUS_OPTIONS: ProjetoStatus[] = ["Planejamento", "Em andamento", "Paralisado", "Concluído"];
+const STATUS_OPTIONS: ProjetoStatus[] = ["PLANEJAMENTO", "EM ANDAMENTO", "PARALISADO", "CONCLUÍDO"];
 
 function ProjetoDetalhe() {
   const { id } = Route.useParams();
@@ -47,8 +47,8 @@ function ProjetoDetalhe() {
   const [editOpen, setEditOpen] = useState(false);
 
   const [custo, setCusto] = useState({ data: hoje(), descricao: "", categoria: "Insumo" as const, valor: "" });
-  const [nota, setNota] = useState({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "Pendente" as const });
-  const [med, setMed] = useState({ data: hoje(), periodo: "", pct: "", valor: "", status: "Enviada" as const });
+  const [nota, setNota] = useState({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "PENDENTE" as const });
+  const [med, setMed] = useState({ data: hoje(), periodo: "", pct: "", valor: "", status: "ENVIADA" as const });
   const [edit, setEdit] = useState({
     nome: p.nome, cliente: p.cliente, clienteId: p.clienteId as string | null,
     local: p.local, descricao: p.descricao, responsavel: p.responsavel,
@@ -101,7 +101,7 @@ function ProjetoDetalhe() {
     if (!nota.numero.trim() || !nota.fornecedor.trim() || !valor) return toast.error("Preencha número, fornecedor e valor");
     projetosActions.adicionarNota({ projetoId: id, numero: nota.numero, fornecedor: nota.fornecedor, descricao: nota.descricao, data: nota.data, valor, status: nota.status });
     toast.success("Nota lançada");
-    setNota({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "Pendente" });
+    setNota({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "PENDENTE" });
     setNotaOpen(false);
   };
   const submitMed = () => {
@@ -111,7 +111,7 @@ function ProjetoDetalhe() {
     const numero = (r.medicoes.length || 0) + 1;
     projetosActions.adicionarMedicao({ projetoId: id, numero, data: med.data, periodo: med.periodo, pct, valor, status: med.status });
     toast.success("Medição registrada");
-    setMed({ data: hoje(), periodo: "", pct: "", valor: "", status: "Enviada" });
+    setMed({ data: hoje(), periodo: "", pct: "", valor: "", status: "ENVIADA" });
     setMedOpen(false);
   };
   const submitEdit = () => {
@@ -318,7 +318,7 @@ function ProjetoDetalhe() {
                       <Label>Status</Label>
                       <Select value={nota.status} onValueChange={v => setNota({ ...nota, status: v as typeof nota.status })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{["Pendente", "Pago", "Cancelado"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                        <SelectContent>{["PENDENTE", "PAGO", "CANCELADO"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -366,7 +366,7 @@ function ProjetoDetalhe() {
                       <Label>Status</Label>
                       <Select value={med.status} onValueChange={v => setMed({ ...med, status: v as typeof med.status })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{["Enviada", "Em análise", "Aprovada"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                        <SelectContent>{["ENVIADA", "EM ANÁLISE", "APROVADA"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
