@@ -19,10 +19,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 const heroImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/01_hero.jpg";
 const empresaImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/02_empresa.jpg";
-import portEngenharia from "@/assets/port_engenharia.jpg.asset.json";
-import portCorporativas from "@/assets/port_corporativas.jpg.asset.json";
-import portReformas from "@/assets/port_reformas.jpg.asset.json";
-import portCamara from "@/assets/port_camara.jpg.asset.json";
 
 export const Route = createFileRoute("/")({ component: Home });
 
