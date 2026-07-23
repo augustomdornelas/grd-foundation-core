@@ -553,19 +553,22 @@ function EquipamentosList() {
           ) : <Vazio />}
         </ChartCard>
 
-        <ChartCard title="Equipamentos por Local">
-          {charts.porLocal.length > 0 ? (
+        <ChartCard title="Receita Potencial vs Gerada (Últimos 7 Dias)">
+          {charts.receitaPotVsGer.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.porLocal}>
+              <BarChart data={charts.receitaPotVsGer}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                <XAxis dataKey="local" stroke="#6E7280" fontSize={11} />
-                <YAxis stroke="#6E7280" fontSize={11} allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="qtd" name="Equipamentos" fill="#213368" radius={[6, 6, 0, 0]} />
+                <XAxis dataKey="dia" stroke="#6E7280" fontSize={11} />
+                <YAxis stroke="#6E7280" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(1)}k`} />
+                <Tooltip formatter={(v: number) => brl(v)} />
+                <Legend />
+                <Bar dataKey="potencial" name="Receita Potencial" fill="#213368" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="gerada" name="Receita Gerada" fill="#F37032" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <Vazio />}
         </ChartCard>
+
 
         <ChartCard title="Alugados vs Disponíveis por Categoria">
           {charts.alugadosVsDisp.length > 0 ? (
