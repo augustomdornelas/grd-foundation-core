@@ -267,6 +267,22 @@ function CatalogPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!zoomFoto} onOpenChange={(o) => !o && setZoomFoto(null)}>
+        <DialogContent className="max-w-5xl bg-black/95 border-none p-0 [&>button]:hidden">
+          <button
+            type="button"
+            aria-label="Fechar"
+            onClick={() => setZoomFoto(null)}
+            className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          {zoomFoto && (
+            <img src={zoomFoto} alt="Foto ampliada" className="max-h-[90vh] w-full object-contain" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
