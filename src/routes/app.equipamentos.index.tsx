@@ -105,6 +105,7 @@ function EquipamentosList() {
 
   const [locais, setLocais] = useState<Local[]>([]);
   const [openLocais, setOpenLocais] = useState(false);
+  const [openRelatorio, setOpenRelatorio] = useState(false);
   const [novoLocalNome, setNovoLocalNome] = useState("");
   const [novoLocalTipo, setNovoLocalTipo] = useState<LocalTipo>("Base");
   const [editLocalId, setEditLocalId] = useState<string | null>(null);
