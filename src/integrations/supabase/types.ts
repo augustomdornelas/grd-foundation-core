@@ -221,6 +221,27 @@ export type Database = {
             referencedRelation: "equipamentos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamento_payback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamentos_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamentos_ociosos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       equipamentos: {
@@ -362,6 +383,27 @@ export type Database = {
             columns: ["equipamento_id"]
             isOneToOne: false
             referencedRelation: "equipamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manutencoes_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamento_payback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manutencoes_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamentos_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manutencoes_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamentos_ociosos"
             referencedColumns: ["id"]
           },
         ]
@@ -639,10 +681,178 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_destino_locacoes: {
+        Row: {
+          destino: string | null
+          prazo_medio_dias: number | null
+          primeira_locacao: string | null
+          qtd_equipamentos: number | null
+          qtd_locacoes: number | null
+          receita: number | null
+          ticket_medio: number | null
+          total_dias: number | null
+          ultima_movimentacao: string | null
+        }
+        Relationships: []
+      }
+      vw_equipamento_payback: {
+        Row: {
+          categoria: string | null
+          classe: string | null
+          codigo: string | null
+          id: string | null
+          nome: string | null
+          payback_real_meses: number | null
+          payback_teorico_meses: number | null
+          pct_recuperado: number | null
+          receita_historica: number | null
+          valor: number | null
+        }
+        Relationships: []
+      }
+      vw_equipamentos_base: {
+        Row: {
+          categoria: string | null
+          codigo: string | null
+          custo_periodo: number | null
+          diaria_eq: number | null
+          equiv_mensal: number | null
+          id: string | null
+          locacoes_historico: number | null
+          nome: string | null
+          primeira_locacao: string | null
+          receita_historica: number | null
+          status: string | null
+          unidade_periodo: string | null
+          valor: number | null
+        }
+        Insert: {
+          categoria?: string | null
+          codigo?: string | null
+          custo_periodo?: never
+          diaria_eq?: never
+          equiv_mensal?: never
+          id?: string | null
+          locacoes_historico?: never
+          nome?: string | null
+          primeira_locacao?: never
+          receita_historica?: never
+          status?: string | null
+          unidade_periodo?: never
+          valor?: never
+        }
+        Update: {
+          categoria?: string | null
+          codigo?: string | null
+          custo_periodo?: never
+          diaria_eq?: never
+          equiv_mensal?: never
+          id?: string | null
+          locacoes_historico?: never
+          nome?: string | null
+          primeira_locacao?: never
+          receita_historica?: never
+          status?: string | null
+          unidade_periodo?: never
+          valor?: never
+        }
+        Relationships: []
+      }
+      vw_equipamentos_ociosos: {
+        Row: {
+          categoria: string | null
+          codigo: string | null
+          custo_oportunidade_mensal: number | null
+          custo_periodo: number | null
+          id: string | null
+          nome: string | null
+          primeira_locacao: string | null
+          ultima_devolucao: string | null
+          unidade_periodo: string | null
+          valor: number | null
+        }
+        Insert: {
+          categoria?: string | null
+          codigo?: string | null
+          custo_oportunidade_mensal?: never
+          custo_periodo?: never
+          id?: string | null
+          nome?: string | null
+          primeira_locacao?: never
+          ultima_devolucao?: never
+          unidade_periodo?: never
+          valor?: never
+        }
+        Update: {
+          categoria?: string | null
+          codigo?: string | null
+          custo_oportunidade_mensal?: never
+          custo_periodo?: never
+          id?: string | null
+          nome?: string | null
+          primeira_locacao?: never
+          ultima_devolucao?: never
+          unidade_periodo?: never
+          valor?: never
+        }
+        Relationships: []
+      }
+      vw_locacoes_detalhe: {
+        Row: {
+          categoria: string | null
+          custo_periodo: number | null
+          data_devolucao_prevista: string | null
+          data_devolucao_real: string | null
+          data_inicio: string | null
+          destino: string | null
+          diaria_eq: number | null
+          dias_locacao: number | null
+          equipamento: string | null
+          equipamento_id: string | null
+          id: string | null
+          receita_total: number | null
+          responsavel: string | null
+          status_locacao: string | null
+          unidade: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamento_payback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamentos_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emprestimos_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_equipamentos_ociosos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      fn_diaria_eq: {
+        Args: { custo: number; unidade: string }
+        Returns: number
+      }
+      fn_fator_mensal: { Args: { unidade: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never
