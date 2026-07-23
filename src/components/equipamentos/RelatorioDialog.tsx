@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -47,6 +47,8 @@ const fmtDate = (d: Date | string | null | undefined) => {
 };
 const normStatus = (s: string | null | undefined) =>
   (s ?? "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+const normDestino = (s: string | null | undefined) =>
+  (s ?? "").toString().trim() || "SEM DESTINO";
 
 function parseMask(v: string): Date | null {
   const t = v.trim();
@@ -61,20 +63,6 @@ function maskDate(v: string): string {
   return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
 }
 
-/** custo_periodo → equivalente mensal (dia×30, semana×4.29, mês×1) */
-function equivMensal(cp: number, unidade: string): number {
-  const u = (unidade || "dia").toLowerCase();
-  if (u.startsWith("mês") || u.startsWith("mes")) return cp;
-  if (u.startsWith("sem")) return cp * 4.29;
-  return cp * 30;
-}
-/** custo_periodo → diária equivalente */
-function diariaEq(cp: number, unidade: string): number {
-  const u = (unidade || "dia").toLowerCase();
-  if (u.startsWith("mês") || u.startsWith("mes")) return cp / 30;
-  if (u.startsWith("sem")) return cp / 7;
-  return cp;
-}
 /** intersecção de dias entre [aI,aF] e [bI,bF] */
 function intersecDias(aI: Date, aF: Date, bI: Date, bF: Date): number {
   const i = new Date(Math.max(aI.getTime(), bI.getTime()));
@@ -84,13 +72,13 @@ function intersecDias(aI: Date, aF: Date, bI: Date, bF: Date): number {
 }
 
 // ---------- Types ----------
-type Secao = "capa" | "frota" | "equipamentos" | "payback" | "clientes" | "manutencoes" | "ociosos";
+type Secao = "capa" | "frota" | "equipamentos" | "payback" | "destinos" | "manutencoes" | "ociosos";
 const SECOES: { key: Secao; label: string }[] = [
   { key: "capa", label: "CAPA E SUMÁRIO EXECUTIVO" },
   { key: "frota", label: "FROTA POR STATUS E CATEGORIA" },
   { key: "equipamentos", label: "DETALHAMENTO POR EQUIPAMENTO" },
   { key: "payback", label: "ANÁLISE DE PAYBACK E RENTABILIDADE" },
-  { key: "clientes", label: "RELATÓRIO POR CLIENTE" },
+  { key: "destinos", label: "RELATÓRIO POR DESTINO/OBRA" },
   { key: "manutencoes", label: "MANUTENÇÕES" },
   { key: "ociosos", label: "EQUIPAMENTOS OCIOSOS" },
 ];
@@ -115,8 +103,8 @@ type ReportData = {
     paybackReal: number; paybackTeorico: number; classe: "PAGO" | "SAUDÁVEL" | "ATENÇÃO" | "CRÍTICO";
   }>;
   classCount: Record<"PAGO" | "SAUDÁVEL" | "ATENÇÃO" | "CRÍTICO", number>;
-  clientes: Array<{
-    id: string; nome: string; qtdEquip: number; qtdLoc: number; totalDias: number;
+  destinos: Array<{
+    destino: string; qtdEquip: number; qtdLoc: number; totalDias: number;
     receita: number; ticket: number; prazoMedio: number;
     itens: Array<{ equip: string; saida: Date; prevista: Date | null; real: Date | null; status: string }>;
   }>;
@@ -130,15 +118,17 @@ type ReportData = {
   erros: string[];
 };
 
-// ---------- Data loader ----------
+// ---------- Data loader (via views) ----------
 async function coletar(
   inicio: Date, fim: Date,
-  categoriasSel: Set<string>, clientesSel: Set<string>,
+  categoriasSel: Set<string>, destinosSel: Set<string>,
   usuario: string,
 ): Promise<ReportData> {
   const erros: string[] = [];
   const dias = Math.max(1, differenceInCalendarDays(fim, inicio) + 1);
   const meses = Math.max(1, differenceInCalendarMonths(fim, inicio) + 1);
+  const iniISO = format(inicio, "yyyy-MM-dd");
+  const fimISO = format(fim, "yyyy-MM-dd");
 
   const safe = async <T,>(nome: string, p: PromiseLike<{ data: T | null; error: any }>): Promise<T[]> => {
     try {
@@ -148,62 +138,58 @@ async function coletar(
     } catch (e: any) { erros.push(nome); toast.error(`Falha ao carregar ${nome}: ${e?.message ?? e}`); return []; }
   };
 
-  const [equipamentos, emprestimos, manutencoes, clientesTb, categoriasTb] = await Promise.all([
-    safe<any>("equipamentos", supabase.from("equipamentos").select("*")),
-    safe<any>("aluguéis", supabase.from("emprestimos").select("*")),
-    safe<any>("manutenções", supabase.from("manutencoes").select("*")),
-    safe<any>("clientes", supabase.from("clientes").select("*")),
-    safe<any>("categorias", supabase.from("categorias_equipamentos").select("*")),
+  // Views + tabelas complementares
+  const [base, paybackVw, locDet, ociososVw, manutencoes] = await Promise.all([
+    safe<any>("frota", supabase.from("vw_equipamentos_base" as any).select("*")),
+    safe<any>("payback", supabase.from("vw_equipamento_payback" as any).select("*")),
+    safe<any>("locações", supabase.from("vw_locacoes_detalhe" as any)
+      .select("*")
+      .lte("data_inicio", fimISO)
+      .or(`data_devolucao_real.is.null,data_devolucao_real.gte.${iniISO}`)),
+    safe<any>("ociosos", supabase.from("vw_equipamentos_ociosos" as any).select("*")),
+    safe<any>("manutenções", supabase.from("manutencoes").select("*").gte("data", iniISO).lte("data", fimISO)),
   ]);
 
   const filtroCat = (c: string) => categoriasSel.size === 0 || categoriasSel.has(c ?? "");
-  const equipFilt = equipamentos.filter((e) => filtroCat(e.categoria));
-  const equipIds = new Set(equipFilt.map((e) => e.id));
+  const filtroDest = (d: string) => destinosSel.size === 0 || destinosSel.has(normDestino(d));
 
-  const empPeriodo = emprestimos.filter((e) => {
-    if (!equipIds.has(e.equipamento_id)) return false;
-    if (clientesSel.size > 0 && !clientesSel.has(e.cliente_id ?? "")) return false;
-    const di = e.data_inicio ? new Date(e.data_inicio) : null;
-    const df = e.data_devolucao_real ? new Date(e.data_devolucao_real) : fim;
-    if (!di) return false;
-    return di <= fim && df >= inicio;
-  });
+  const baseFilt = base.filter((e) => filtroCat(e.categoria));
+  const equipIds = new Set(baseFilt.map((e) => e.id));
+  const equipById = new Map(baseFilt.map((e) => [e.id, e]));
 
-  const manutPeriodo = manutencoes.filter((m) => {
-    if (!equipIds.has(m.equipamento_id)) return false;
-    const d = m.data ? new Date(m.data) : null;
-    return d ? d >= inicio && d <= fim : false;
-  });
+  const locPeriodo = locDet.filter((l) =>
+    equipIds.has(l.equipamento_id) && filtroDest(l.destino),
+  );
 
   // Frota / resumo
-  const valorFrota = equipFilt.reduce((s, e) => s + Number(e.valor ?? 0), 0);
+  const valorFrota = baseFilt.reduce((s, e) => s + Number(e.valor ?? 0), 0);
   let disp = 0, alug = 0, manut = 0;
-  equipFilt.forEach((e) => {
-    const s = normStatus(e.status);
-    if (s.includes("dispon")) disp++;
-    else if (s.includes("alug") || s.includes("empre")) alug++;
-    else if (s.includes("manut")) manut++;
+  baseFilt.forEach((e) => {
+    const st = normStatus(e.status);
+    if (st.includes("dispon")) disp++;
+    else if (st.includes("alug") || st.includes("empre")) alug++;
+    else if (st.includes("manut")) manut++;
   });
 
-  // Receita e custo por equipamento
+  // Receita e uso por equipamento (dentro do período, respeitando intersecção)
   const receitaPorEq = new Map<string, number>();
   const diasPorEq = new Map<string, number>();
   const locPorEq = new Map<string, number>();
-  empPeriodo.forEach((e) => {
-    const di = new Date(e.data_inicio);
-    const df = e.data_devolucao_real ? new Date(e.data_devolucao_real) : fim;
+  locPeriodo.forEach((l) => {
+    if (!l.data_inicio) return;
+    const di = new Date(l.data_inicio);
+    const df = l.data_devolucao_real ? new Date(l.data_devolucao_real) : fim;
     const d = intersecDias(inicio, fim, di, df);
     if (d <= 0) return;
-    const eq = equipFilt.find((x) => x.id === e.equipamento_id);
-    const diaria = diariaEq(Number(e.custo_periodo ?? eq?.custo_periodo ?? 0), e.unidade ?? eq?.unidade_periodo ?? "dia");
-    receitaPorEq.set(e.equipamento_id, (receitaPorEq.get(e.equipamento_id) ?? 0) + diaria * d);
-    diasPorEq.set(e.equipamento_id, (diasPorEq.get(e.equipamento_id) ?? 0) + d);
-    locPorEq.set(e.equipamento_id, (locPorEq.get(e.equipamento_id) ?? 0) + 1);
+    const diaria = Number(l.diaria_eq ?? 0);
+    receitaPorEq.set(l.equipamento_id, (receitaPorEq.get(l.equipamento_id) ?? 0) + diaria * d);
+    diasPorEq.set(l.equipamento_id, (diasPorEq.get(l.equipamento_id) ?? 0) + d);
+    locPorEq.set(l.equipamento_id, (locPorEq.get(l.equipamento_id) ?? 0) + 1);
   });
 
   const custoManutPorEq = new Map<string, number>();
   const diasParadoPorEq = new Map<string, number>();
-  manutPeriodo.forEach((m) => {
+  manutencoes.filter((m) => equipIds.has(m.equipamento_id)).forEach((m) => {
     const c = Number(m.custo ?? (Number(m.custo_pecas ?? 0) + Number(m.custo_mao_obra ?? 0)));
     custoManutPorEq.set(m.equipamento_id, (custoManutPorEq.get(m.equipamento_id) ?? 0) + c);
     if (m.data && m.data_fim) {
@@ -216,27 +202,24 @@ async function coletar(
   const custoManutTotal = Array.from(custoManutPorEq.values()).reduce((s, v) => s + v, 0);
   const liquidoTotal = receitaTotal - custoManutTotal;
 
-  // ROI médio: receita histórica / valor de cada equip
-  const receitaHistPorEq = new Map<string, number>();
-  emprestimos.filter((e) => equipIds.has(e.equipamento_id)).forEach((e) => {
-    receitaHistPorEq.set(e.equipamento_id, (receitaHistPorEq.get(e.equipamento_id) ?? 0) + Number(e.custo_total ?? 0));
-  });
-  const rois = equipFilt
+  // ROI médio via view payback
+  const paybackById = new Map(paybackVw.map((p) => [p.id, p]));
+  const rois = baseFilt
     .filter((e) => Number(e.valor ?? 0) > 0)
-    .map((e) => ((receitaHistPorEq.get(e.id) ?? 0) / Number(e.valor)) * 100);
+    .map((e) => Number(paybackById.get(e.id)?.pct_recuperado ?? 0));
   const roiMedio = rois.length ? rois.reduce((s, v) => s + v, 0) / rois.length : 0;
 
   // Frota por categoria
   const catMap = new Map<string, { total: number; disp: number; alug: number; manut: number; valor: number }>();
-  equipFilt.forEach((e) => {
+  baseFilt.forEach((e) => {
     const cat = e.categoria || "SEM CATEGORIA";
     const cur = catMap.get(cat) ?? { total: 0, disp: 0, alug: 0, manut: 0, valor: 0 };
     cur.total++;
     cur.valor += Number(e.valor ?? 0);
-    const s = normStatus(e.status);
-    if (s.includes("dispon")) cur.disp++;
-    else if (s.includes("alug") || s.includes("empre")) cur.alug++;
-    else if (s.includes("manut")) cur.manut++;
+    const st = normStatus(e.status);
+    if (st.includes("dispon")) cur.disp++;
+    else if (st.includes("alug") || st.includes("empre")) cur.alug++;
+    else if (st.includes("manut")) cur.manut++;
     catMap.set(cat, cur);
   });
   const frota = Array.from(catMap.entries()).map(([categoria, v]) => ({
@@ -244,7 +227,7 @@ async function coletar(
   })).sort((a, b) => b.valor - a.valor);
 
   // Detalhamento
-  const equipamentosDet = equipFilt.map((e) => {
+  const equipamentosDet = baseFilt.map((e) => {
     const rec = receitaPorEq.get(e.id) ?? 0;
     const cm = custoManutPorEq.get(e.id) ?? 0;
     const d = diasPorEq.get(e.id) ?? 0;
@@ -262,57 +245,50 @@ async function coletar(
     };
   }).sort((a, b) => b.liquido - a.liquido);
 
-  // Payback
-  const payback = equipFilt.map((e) => {
-    const valor = Number(e.valor ?? 0);
-    const receitaHist = receitaHistPorEq.get(e.id) ?? 0;
-    const primeira = emprestimos.filter((x) => x.equipamento_id === e.id && x.data_inicio)
-      .map((x) => new Date(x.data_inicio).getTime()).sort()[0];
-    const mesesHist = primeira
-      ? Math.max(1, differenceInCalendarMonths(new Date(), new Date(primeira)) + 1) : 1;
-    const receitaMediaMes = receitaHist / mesesHist;
-    const paybackReal = receitaMediaMes > 0 ? valor / receitaMediaMes : 0;
-    const em = equivMensal(Number(e.custo_periodo ?? 0), e.unidade_periodo ?? "dia");
-    const paybackTeorico = em > 0 ? valor / em : 0;
-    const pctRecup = valor > 0 ? Math.min(100, (receitaHist / valor) * 100) : 0;
-    let classe: ReportData["payback"][number]["classe"];
-    if (receitaHist >= valor && valor > 0) classe = "PAGO";
-    else if (receitaHist <= 0 || paybackReal > 60) classe = "CRÍTICO";
-    else if (paybackReal <= 30) classe = "SAUDÁVEL";
-    else classe = "ATENÇÃO";
+  // Payback — direto da view
+  const payback = baseFilt.map((e) => {
+    const p = paybackById.get(e.id);
+    const classe = ((p?.classe ?? "CRÍTICO") as string).toUpperCase() as ReportData["payback"][number]["classe"];
     return {
-      codigo: e.codigo ?? "", nome: e.nome ?? "", valor,
-      receitaHist, pctRecup, paybackReal, paybackTeorico, classe,
+      codigo: e.codigo ?? "", nome: e.nome ?? "",
+      valor: Number(p?.valor ?? e.valor ?? 0),
+      receitaHist: Number(p?.receita_historica ?? 0),
+      pctRecup: Number(p?.pct_recuperado ?? 0),
+      paybackReal: Number(p?.payback_real_meses ?? 0),
+      paybackTeorico: Number(p?.payback_teorico_meses ?? 0),
+      classe,
     };
   }).sort((a, b) => a.pctRecup - b.pctRecup);
 
   const classCount: ReportData["classCount"] = { PAGO: 0, "SAUDÁVEL": 0, "ATENÇÃO": 0, "CRÍTICO": 0 };
   payback.forEach((p) => classCount[p.classe]++);
 
-  // Clientes
-  const clienteMap = new Map<string, ReportData["clientes"][number]>();
-  empPeriodo.forEach((e) => {
-    const cid = e.cliente_id ?? "sem-id";
-    const nomeCli = clientesTb.find((c) => c.id === cid)?.nome ?? e.destino ?? e.responsavel ?? "SEM CLIENTE";
-    const equipObj = equipFilt.find((x) => x.id === e.equipamento_id);
-    const di = new Date(e.data_inicio);
-    const df = e.data_devolucao_real ? new Date(e.data_devolucao_real) : fim;
+  // Destinos (agrega do detalhe já filtrado pelo período)
+  const destMap = new Map<string, ReportData["destinos"][number]>();
+  locPeriodo.forEach((l) => {
+    const dest = normDestino(l.destino);
+    const di = l.data_inicio ? new Date(l.data_inicio) : null;
+    if (!di) return;
+    const df = l.data_devolucao_real ? new Date(l.data_devolucao_real) : fim;
     const d = intersecDias(inicio, fim, di, df);
-    const diaria = diariaEq(Number(e.custo_periodo ?? equipObj?.custo_periodo ?? 0), e.unidade ?? equipObj?.unidade_periodo ?? "dia");
+    const diaria = Number(l.diaria_eq ?? 0);
     const receita = diaria * Math.max(0, d);
-    const cur: ReportData["clientes"][number] = clienteMap.get(cid) ?? { id: cid, nome: nomeCli, qtdEquip: 0, qtdLoc: 0, totalDias: 0, receita: 0, ticket: 0, prazoMedio: 0, itens: [] };
+    const cur: ReportData["destinos"][number] = destMap.get(dest) ?? {
+      destino: dest, qtdEquip: 0, qtdLoc: 0, totalDias: 0, receita: 0, ticket: 0, prazoMedio: 0, itens: [],
+    };
     cur.qtdLoc++;
     cur.totalDias += d;
     cur.receita += receita;
-    const prevista = e.data_devolucao_prevista ? new Date(e.data_devolucao_prevista) : null;
-    const real = e.data_devolucao_real ? new Date(e.data_devolucao_real) : null;
-    let status = "EM ABERTO";
-    if (real) status = "DEVOLVIDO";
-    else if (prevista && prevista < new Date()) status = "EM ATRASO";
-    cur.itens.push({ equip: equipObj?.nome ?? "-", saida: di, prevista, real, status });
-    clienteMap.set(cid, cur);
+    cur.itens.push({
+      equip: l.equipamento ?? equipById.get(l.equipamento_id)?.nome ?? "-",
+      saida: di,
+      prevista: l.data_devolucao_prevista ? new Date(l.data_devolucao_prevista) : null,
+      real: l.data_devolucao_real ? new Date(l.data_devolucao_real) : null,
+      status: (l.status_locacao ?? "EM ABERTO").toString().toUpperCase(),
+    });
+    destMap.set(dest, cur);
   });
-  const clientes = Array.from(clienteMap.values()).map((c) => {
+  const destinos = Array.from(destMap.values()).map((c) => {
     const equipsUnicos = new Set(c.itens.map((i) => i.equip));
     const prazos = c.itens.filter((i) => i.real).map((i) => differenceInCalendarDays(i.real!, i.saida));
     return {
@@ -324,8 +300,8 @@ async function coletar(
   }).sort((a, b) => b.receita - a.receita);
 
   // Manutenções
-  const manutRows = manutPeriodo.map((m) => {
-    const eq = equipFilt.find((x) => x.id === m.equipamento_id);
+  const manutRows = manutencoes.filter((m) => equipIds.has(m.equipamento_id)).map((m) => {
+    const eq = equipById.get(m.equipamento_id);
     const custo = Number(m.custo ?? (Number(m.custo_pecas ?? 0) + Number(m.custo_mao_obra ?? 0)));
     const diasP = m.data && m.data_fim ? Math.max(0, differenceInCalendarDays(new Date(m.data_fim), new Date(m.data))) : 0;
     return {
@@ -341,39 +317,36 @@ async function coletar(
   const equipsComManut = new Set(manutRows.map((m) => m.equip)).size;
   const custoMedioM = equipsComManut ? custoTotalM / equipsComManut : 0;
   const acumPorEq = new Map<string, { valor: number; custo: number }>();
-  manutPeriodo.forEach((m) => {
-    const eq = equipFilt.find((x) => x.id === m.equipamento_id);
+  manutencoes.filter((m) => equipIds.has(m.equipamento_id)).forEach((m) => {
+    const eq = equipById.get(m.equipamento_id);
     if (!eq) return;
     const cur = acumPorEq.get(eq.id) ?? { valor: Number(eq.valor ?? 0), custo: 0 };
     cur.custo += Number(m.custo ?? (Number(m.custo_pecas ?? 0) + Number(m.custo_mao_obra ?? 0)));
     acumPorEq.set(eq.id, cur);
   });
   const topRazao = Array.from(acumPorEq.entries()).map(([id, v]) => {
-    const eq = equipFilt.find((x) => x.id === id);
+    const eq = equipById.get(id);
     return { equip: eq?.nome ?? "-", custoAcum: v.custo, valor: v.valor, razao: v.valor > 0 ? (v.custo / v.valor) * 100 : 0 };
   }).sort((a, b) => b.custoAcum - a.custoAcum).slice(0, 10);
 
-  // Ociosos
-  const alugadosPeriodo = new Set(empPeriodo.map((e) => e.equipamento_id));
-  const ociosos = equipFilt.filter((e) => !alugadosPeriodo.has(e.id)).map((e) => {
-    const em = equivMensal(Number(e.custo_periodo ?? 0), e.unidade_periodo ?? "dia");
-    return {
-      codigo: e.codigo ?? "", nome: e.nome ?? "", categoria: e.categoria ?? "",
-      valor: Number(e.valor ?? 0), oportunidade: em * meses,
-    };
-  }).sort((a, b) => b.valor - a.valor);
+  // Ociosos — usa view + aplica filtro de categoria + recalcula oportunidade pelos meses do período
+  const ociosos = ociososVw.filter((o) => filtroCat(o.categoria)).map((o) => ({
+    codigo: o.codigo ?? "", nome: o.nome ?? "", categoria: o.categoria ?? "",
+    valor: Number(o.valor ?? 0),
+    oportunidade: Number(o.custo_oportunidade_mensal ?? 0) * meses,
+  })).sort((a, b) => b.valor - a.valor);
   const ociososTotal = ociosos.reduce((s, v) => s + v.valor, 0);
 
   return {
     periodo: { inicio, fim, dias, meses },
     usuario, geradoEm: new Date(),
     resumo: {
-      total: equipFilt.length, valorFrota, disp, alug, manut,
+      total: baseFilt.length, valorFrota, disp, alug, manut,
       receitaPeriodo: receitaTotal, custoManutPeriodo: custoManutTotal,
       liquido: liquidoTotal, roiMedio,
     },
     frota, equipamentos: equipamentosDet, payback, classCount,
-    clientes, manutencoes: manutRows,
+    destinos, manutencoes: manutRows,
     manutAgreg: { custoTotal: custoTotalM, custoMedio: custoMedioM, topRazao },
     ociosos, ociososTotal, erros,
   };
@@ -558,18 +531,18 @@ function RelatorioPDF({ data, secoes }: { data: ReportData; secoes: Set<Secao> }
         </Page>
       )}
 
-      {/* CLIENTES */}
-      {secoes.has("clientes") && (
+      {/* DESTINOS */}
+      {secoes.has("destinos") && (
         <Page size="A4" orientation="landscape" style={s.page}>
-          <HeaderPDF titulo="Relatório por Cliente" />
+          <HeaderPDF titulo="Relatório por Destino/Obra" />
           <FooterPDF />
-          <Text style={s.h1}>RELATÓRIO POR CLIENTE</Text>
-          {data.clientes.length === 0 ? (
+          <Text style={s.h1}>RELATÓRIO POR DESTINO/OBRA</Text>
+          {data.destinos.length === 0 ? (
             <Text style={s.empty}>NENHUM REGISTRO NO PERÍODO SELECIONADO</Text>
           ) : (
-            data.clientes.map((c, i) => (
+            data.destinos.map((c, i) => (
               <View key={i} wrap={false} style={{ marginBottom: 10 }}>
-                <Text style={[s.h2, { marginBottom: 2 }]}>{(c.nome || "-").toUpperCase()}</Text>
+                <Text style={[s.h2, { marginBottom: 2 }]}>{(c.destino || "-").toUpperCase()}</Text>
                 <Text style={s.small}>
                   EQUIPAMENTOS: {c.qtdEquip} · LOCAÇÕES: {c.qtdLoc} · DIAS: {c.totalDias} · RECEITA: {brl(c.receita)} · TICKET MÉDIO: {brl(c.ticket)} · PRAZO MÉDIO: {c.prazoMedio.toFixed(1)} DIAS
                 </Text>
@@ -644,7 +617,6 @@ function gerarExcel(data: ReportData, secoes: Set<Secao>, nome: string) {
   const addSheet = (title: string, rows: any[][], colWidths?: number[]) => {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     if (rows[0]) {
-      // bold headers
       for (let c = 0; c < rows[0].length; c++) {
         const addr = XLSX.utils.encode_cell({ r: 0, c });
         if (ws[addr]) ws[addr].s = { font: { bold: true } };
@@ -695,17 +667,17 @@ function gerarExcel(data: ReportData, secoes: Set<Secao>, nome: string) {
       ]),
     ], [12, 30, 14, 16, 14, 16, 18, 12]);
   }
-  if (secoes.has("clientes")) {
-    addSheet("CLIENTES", [
-      ["CLIENTE", "QTD EQUIP.", "LOCAÇÕES", "DIAS TOTAL", "RECEITA", "TICKET MÉDIO", "PRAZO MÉDIO (DIAS)"],
-      ...data.clientes.map((c) => [
-        c.nome.toUpperCase(), c.qtdEquip, c.qtdLoc, c.totalDias, c.receita, Number(c.ticket.toFixed(2)), Number(c.prazoMedio.toFixed(1)),
+  if (secoes.has("destinos")) {
+    addSheet("DESTINOS", [
+      ["DESTINO/OBRA", "QTD EQUIP.", "LOCAÇÕES", "DIAS TOTAL", "RECEITA", "TICKET MÉDIO", "PRAZO MÉDIO (DIAS)"],
+      ...data.destinos.map((c) => [
+        c.destino.toUpperCase(), c.qtdEquip, c.qtdLoc, c.totalDias, c.receita, Number(c.ticket.toFixed(2)), Number(c.prazoMedio.toFixed(1)),
       ]),
       [],
-      ["CLIENTE", "EQUIPAMENTO", "SAÍDA", "PREVISTA", "REAL", "STATUS"],
-      ...data.clientes.flatMap((c) =>
+      ["DESTINO/OBRA", "EQUIPAMENTO", "SAÍDA", "PREVISTA", "REAL", "STATUS"],
+      ...data.destinos.flatMap((c) =>
         c.itens.map((i) => [
-          c.nome.toUpperCase(), (i.equip || "").toUpperCase(),
+          c.destino.toUpperCase(), (i.equip || "").toUpperCase(),
           fmtDate(i.saida), fmtDate(i.prevista), fmtDate(i.real), i.status,
         ]),
       ),
@@ -748,9 +720,9 @@ export function RelatorioDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const [ini, setIni] = useState(format(inicioAno, "dd/MM/yyyy"));
   const [fim, setFim] = useState(format(hoje, "dd/MM/yyyy"));
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
-  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
+  const [destinos, setDestinos] = useState<string[]>([]);
   const [catSel, setCatSel] = useState<Set<string>>(new Set());
-  const [cliSel, setCliSel] = useState<Set<string>>(new Set());
+  const [destSel, setDestSel] = useState<Set<string>>(new Set());
   const [secoes, setSecoes] = useState<Set<Secao>>(new Set(SECOES.map((s) => s.key)));
   const [formato, setFormato] = useState<"pdf" | "xlsx">("pdf");
   const [gerando, setGerando] = useState(false);
@@ -758,18 +730,19 @@ export function RelatorioDialog({ open, onOpenChange }: { open: boolean; onOpenC
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [cats, clis] = await Promise.all([
+      const [cats, dests] = await Promise.all([
         supabase.from("categorias_equipamentos").select("id,nome").order("nome"),
-        supabase.from("clientes").select("id,nome").order("nome"),
+        supabase.from("vw_destino_locacoes" as any).select("destino").order("destino"),
       ]);
       setCategorias((cats.data ?? []) as any);
-      setClientes((clis.data ?? []) as any);
+      const uniq = Array.from(new Set(((dests.data ?? []) as any[]).map((d) => normDestino(d.destino)))).sort();
+      setDestinos(uniq);
     })();
   }, [open]);
 
   const toggle = <T,>(set: Set<T>, v: T) => {
     const n = new Set(set);
-    n.has(v) ? n.delete(v) : n.add(v);
+    if (n.has(v)) n.delete(v); else n.add(v);
     return n;
   };
 
@@ -783,7 +756,7 @@ export function RelatorioDialog({ open, onOpenChange }: { open: boolean; onOpenC
     setGerando(true);
     try {
       const catNomes = new Set(categorias.filter((c) => catSel.has(c.id)).map((c) => c.nome));
-      const data = await coletar(di, df, catNomes, cliSel, usuario?.nome ?? "USUÁRIO");
+      const data = await coletar(di, df, catNomes, destSel, usuario?.nome ?? "USUÁRIO");
       const stamp = format(new Date(), "dd-MM-yyyy");
       if (formato === "pdf") {
         const blob = await pdf(<RelatorioPDF data={data} secoes={secoes} />).toBlob();
@@ -845,19 +818,19 @@ export function RelatorioDialog({ open, onOpenChange }: { open: boolean; onOpenC
               </div>
             </div>
 
-            {/* Clientes */}
+            {/* Destinos */}
             <div>
               <Label className="mb-2 block">
-                CLIENTES ({cliSel.size === 0 ? "TODOS" : `${cliSel.size} SELECIONADOS`})
+                DESTINOS/OBRAS ({destSel.size === 0 ? "TODOS" : `${destSel.size} SELECIONADOS`})
               </Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-32 overflow-y-auto border rounded p-2">
-                {clientes.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                    <Checkbox checked={cliSel.has(c.id)} onCheckedChange={() => setCliSel((s) => toggle(s, c.id))} />
-                    {c.nome}
+                {destinos.map((d) => (
+                  <label key={d} className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Checkbox checked={destSel.has(d)} onCheckedChange={() => setDestSel((s) => toggle(s, d))} />
+                    {d}
                   </label>
                 ))}
-                {clientes.length === 0 && <p className="text-xs text-muted-foreground">Nenhum cliente cadastrado</p>}
+                {destinos.length === 0 && <p className="text-xs text-muted-foreground">Nenhum destino registrado</p>}
               </div>
             </div>
 
