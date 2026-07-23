@@ -488,6 +488,9 @@ function EquipamentosList() {
           <Button variant="outline" onClick={() => setOpenLocais(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
             <MapPinned className="mr-1 h-4 w-4" /> Gerenciar Locais
           </Button>
+          <Button variant="outline" onClick={() => setOpenRelatorio(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
+            <FileText className="mr-1 h-4 w-4" /> Gerar Relatório
+          </Button>
           <Button onClick={() => abrirNovo()} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Plus className="mr-1 h-4 w-4" /> Novo equipamento
           </Button>
