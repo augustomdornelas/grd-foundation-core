@@ -300,7 +300,7 @@ async function coletar(
     const d = intersecDias(inicio, fim, di, df);
     const diaria = diariaEq(Number(e.custo_periodo ?? equipObj?.custo_periodo ?? 0), e.unidade ?? equipObj?.unidade_periodo ?? "dia");
     const receita = diaria * Math.max(0, d);
-    const cur = clienteMap.get(cid) ?? { id: cid, nome: nomeCli, qtdEquip: 0, qtdLoc: 0, totalDias: 0, receita: 0, ticket: 0, prazoMedio: 0, itens: [] };
+    const cur: ReportData["clientes"][number] = clienteMap.get(cid) ?? { id: cid, nome: nomeCli, qtdEquip: 0, qtdLoc: 0, totalDias: 0, receita: 0, ticket: 0, prazoMedio: 0, itens: [] };
     cur.qtdLoc++;
     cur.totalDias += d;
     cur.receita += receita;
