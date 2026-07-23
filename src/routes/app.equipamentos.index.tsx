@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   Plus, Search, MapPin, User, ArrowRight, Package, Wrench, Zap, Truck, Hammer,
   Drill, Cog, HardHat, Fuel, Boxes, TrendingUp, TrendingDown, ChevronDown, ChevronRight, FolderPlus,
-  MapPinned, Trash2, Pencil, DollarSign, PackageOpen,
+  MapPinned, Trash2, Pencil, DollarSign, PackageOpen, FileText,
 } from "lucide-react";
 import {
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
@@ -25,6 +25,7 @@ import {
   type EquipStatus, type UnidadePeriodo,
 } from "@/lib/equipamentos-store";
 import { EmprestimoDialog } from "@/components/equipamentos/EmprestimoDialog";
+import { RelatorioDialog } from "@/components/equipamentos/RelatorioDialog";
 
 export const Route = createFileRoute("/app/equipamentos/")({
   component: EquipamentosList,
@@ -104,6 +105,7 @@ function EquipamentosList() {
 
   const [locais, setLocais] = useState<Local[]>([]);
   const [openLocais, setOpenLocais] = useState(false);
+  const [openRelatorio, setOpenRelatorio] = useState(false);
   const [novoLocalNome, setNovoLocalNome] = useState("");
   const [novoLocalTipo, setNovoLocalTipo] = useState<LocalTipo>("Base");
   const [editLocalId, setEditLocalId] = useState<string | null>(null);
@@ -486,6 +488,9 @@ function EquipamentosList() {
           <Button variant="outline" onClick={() => setOpenLocais(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
             <MapPinned className="mr-1 h-4 w-4" /> Gerenciar Locais
           </Button>
+          <Button variant="outline" onClick={() => setOpenRelatorio(true)} className="border-[#213368] text-[#213368] hover:bg-[#213368] hover:text-white">
+            <FileText className="mr-1 h-4 w-4" /> Gerar Relatório
+          </Button>
           <Button onClick={() => abrirNovo()} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
             <Plus className="mr-1 h-4 w-4" /> Novo equipamento
           </Button>
@@ -815,6 +820,8 @@ function EquipamentosList() {
           equipamentoId={empEquipId}
         />
       )}
+
+      <RelatorioDialog open={openRelatorio} onOpenChange={setOpenRelatorio} />
     </div>
   );
 }
