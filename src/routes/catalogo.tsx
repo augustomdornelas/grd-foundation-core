@@ -15,7 +15,7 @@ export const Route = createFileRoute("/catalogo")({
   component: CatalogPage,
 });
 
-const WHATSAPP_BASE = "https://wa.me/5514996004194?text=";
+const WHATSAPP_BASE = "https://wa.me/5514997562761?text=";
 const WHATSAPP_URL = WHATSAPP_BASE + encodeURIComponent("Olá! Gostaria de solicitar um orçamento de locação de equipamentos.");
 
 const SUPA = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/catalogo-categorias";
