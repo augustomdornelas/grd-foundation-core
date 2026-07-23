@@ -79,12 +79,12 @@ function CatalogPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [openCat, setOpenCat] = useState<string | null>(null);
+  const [zoomFoto, setZoomFoto] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
       .from("equipamentos")
       .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
-      .eq("status", "DISPONÍVEL")
       .eq("exibir_catalogo", true)
       .then(({ data }) => {
         setRows((data ?? []) as Row[]);
