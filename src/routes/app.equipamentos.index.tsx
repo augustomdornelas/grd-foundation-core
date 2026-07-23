@@ -250,15 +250,36 @@ function EquipamentosList() {
       .map(([categoria, valor]) => ({ categoria, valor: Math.round(valor) }))
       .sort((a, b) => b.valor - a.valor);
 
-    // 4. Equipamentos por local
-    const localMap = new Map<string, number>();
-    equipamentos.forEach(e => {
-      const l = e.localAtual || e.localBase || "Sem local";
-      localMap.set(l, (localMap.get(l) || 0) + 1);
-    });
-    const porLocal = Array.from(localMap.entries())
-      .map(([local, qtd]) => ({ local, qtd }))
-      .sort((a, b) => b.qtd - a.qtd);
+    // 4. Receita Potencial vs Gerada (últimos 7 dias)
+     const receitaDiariaEquip = (e: typeof equipamentos[number]) => {
+      let d = e.custoPeriodo || 0;
+      if (e.unidade === "semana") d = d / 7;
+      else if (e.unidade === "mês") d = d / 30;
+      return d;
+    };
+    const potencialDia = equipamentos.reduce((a, e) => a + receitaDiariaEquip(e), 0);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dias7: { dia: string; potencial: number; gerada: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoje); d.setDate(hoje.getDate() - i);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      let gerada = 0;
+      emprestimos.forEach(emp => {
+        if (!emp.dataInicio) return;
+        const ini = new Date(emp.dataInicio); ini.setHours(0, 0, 0, 0);
+        if (isNaN(ini.getTime()) || ini > d) return;
+        const fimStr = emp.dataDevolucaoReal;
+        if (fimStr) {
+          const fim = new Date(fimStr); fim.setHours(0, 0, 0, 0);
+          if (isNaN(fim.getTime()) || fim < d) return;
+        }
+        const eq = equipamentos.find(x => x.id === emp.equipamentoId);
+        if (eq) gerada += receitaDiariaEquip(eq);
+      });
+      dias7.push({ dia: `${dd}/${mm}`, potencial: Math.round(potencialDia), gerada: Math.round(gerada) });
+    }
+    const receitaPotVsGer = dias7;
 
     // 5. Alugados vs Disponíveis por categoria
     const acMap = new Map<string, { categoria: string; alugados: number; disponiveis: number }>();
@@ -282,7 +303,8 @@ function EquipamentosList() {
       }
     });
 
-    return { porStatus, valorPorCategoria, receitaPorCategoria, porLocal, alugadosVsDisp, evolucao };
+    return { porStatus, valorPorCategoria, receitaPorCategoria, receitaPotVsGer, alugadosVsDisp, evolucao };
+
   }, [equipamentos, emprestimos]);
 
   const abrirNovo = (categoria = "") => { setEditId(null); setForm(novoForm(categoria)); setOpenEq(true); };
