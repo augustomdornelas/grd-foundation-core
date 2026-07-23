@@ -820,6 +820,8 @@ function EquipamentosList() {
           equipamentoId={empEquipId}
         />
       )}
+
+      <RelatorioDialog open={openRelatorio} onOpenChange={setOpenRelatorio} />
     </div>
   );
 }
