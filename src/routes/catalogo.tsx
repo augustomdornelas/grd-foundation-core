@@ -197,7 +197,8 @@ function CatalogPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {equipsPorCategoria.map((eq) => {
-                const link = WHATSAPP_BASE + encodeURIComponent(`Olá! Tenho interesse em alugar: ${eq.nome}`);
+                const nomeExibido = displayName(eq);
+                const link = WHATSAPP_BASE + encodeURIComponent(`Olá! Tenho interesse em alugar: ${nomeExibido}`);
                 const alugado = eq.status === "Emprestado";
                 const disponivel = eq.status === "Disponível";
                 return (
@@ -210,7 +211,7 @@ function CatalogPage() {
                           className="group relative h-full w-full cursor-pointer"
                           aria-label="Ampliar foto"
                         >
-                          <img src={eq.foto_url} alt={eq.nome} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                          <img src={eq.foto_url} alt={nomeExibido} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                           <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                             <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
                           </span>
