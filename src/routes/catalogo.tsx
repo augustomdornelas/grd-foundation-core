@@ -34,7 +34,7 @@ const DESCRICOES: Record<string, string> = {
   "JARDINAGEM": "Roçadeiras, sopradores e equipamentos para manutenção de áreas verdes",
   "LIMPEZA": "Lavadoras de alta pressão e equipamentos para limpeza industrial",
   "OUTROS": "Máquinas de solda, transformadores, refletores, cortadores e ferramentas diversas",
-  "VEÍCULOS E OUTROS": "Veículos utilitários e equipamentos diversos para apoio às obras",
+  "VEICULOS": "Veículos utilitários e equipamentos para apoio às obras",
 };
 
 const FOTOS: Record<string, string> = {
@@ -110,11 +110,7 @@ function CatalogPage() {
     const set = new Set<string>();
     for (const r of rows) {
       const catRaw = (r.categoria || "OUTROS").trim().toUpperCase();
-      const nk = normalize(catRaw);
-      if (nk === "VEICULO") continue;
-      // Agrupar apenas VEÍCULOS como "VEÍCULOS E OUTROS"; OUTROS agora é categoria própria
-      const display = nk === "VEICULOS" ? "VEÍCULOS E OUTROS" : catRaw;
-      set.add(display);
+      set.add(catRaw);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [rows]);
@@ -122,11 +118,7 @@ function CatalogPage() {
   const equipsPorCategoria = useMemo(() => {
     if (!openCat) return [];
     const nk = normalize(openCat);
-    return rows.filter(r => {
-      const rk = normalize(r.categoria || "OUTROS");
-      if (nk === "VEICULOS E OUTROS") return rk === "VEICULOS";
-      return rk === nk;
-    });
+    return rows.filter(r => normalize(r.categoria || "OUTROS") === nk);
   }, [openCat, rows]);
 
   return (
@@ -160,8 +152,8 @@ function CatalogPage() {
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {categorias.map((cat) => {
               const key = normalize(cat);
-              const desc = DESCRICOES[cat] || DESCRICOES[key] || "Equipamentos disponíveis para locação";
-              const catFoto = catFotos[key] || (key === "VEICULOSEOUTROS" ? catFotos["VEICULOS"] : null);
+              const desc = DESCRICOES[key] || "Equipamentos disponíveis para locação";
+              const catFoto = catFotos[key] || null;
               return (
                 <button
                   key={cat}
