@@ -69,7 +69,7 @@ function CatalogoAdminPage() {
       .from("equipamentos")
       .update({ catalogo_nome: novo })
       .eq("id", row.id)
-      .select("id, nome, catalogo_nome, categoria")
+      .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
       .single();
     setSavingId(null);
     if (error || !data) {
