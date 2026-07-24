@@ -59,25 +59,24 @@ function CatalogoAdminPage() {
     setRows(prev => prev.map(r => r.id === id ? { ...r, catalogo_nome: value } : r));
   };
 
-  const handleSaveCatalogoNome = async (row: Row, valueAtBlur: string) => {
+  const handleSaveCatalogoNome = async (equipamentoId: string, valueAtBlur: string) => {
     const trimmed = valueAtBlur.trim();
     const novo = trimmed === "" ? null : trimmed;
-    if ((row.catalogo_nome ?? null) === novo) return;
-    setSavingId(row.id);
+    setSavingId(equipamentoId);
     const { data, error } = await supabase
       .from("equipamentos")
       .update({ catalogo_nome: novo })
-      .eq("id", row.id)
-      .select("id, nome, catalogo_nome, categoria")
+      .eq("id", equipamentoId)
+      .select()
       .single();
     setSavingId(null);
     if (error || !data) {
       console.error(error);
-      toast.error("ERRO AO SALVAR");
+      toast.error(error?.message ?? "ERRO AO SALVAR");
       return;
     }
-    setRows(prev => prev.map(r => r.id === row.id ? (data as Row) : r));
-    toast.success("NOME ATUALIZADO");
+    setRows(prev => prev.map(r => r.id === equipamentoId ? (data as Row) : r));
+    toast.success("Salvo");
   };
 
   return (
@@ -120,7 +119,7 @@ function CatalogoAdminPage() {
                           placeholder="—"
                           disabled={savingId === r.id}
                           onChange={e => handleChangeCatalogoNome(r.id, e.target.value)}
-                          onBlur={e => handleSaveCatalogoNome(r, e.target.value)}
+                          onBlur={e => handleSaveCatalogoNome(r.id, e.target.value)}
                         />
                       </TableCell>
                       <TableCell>{r.categoria ?? "—"}</TableCell>
