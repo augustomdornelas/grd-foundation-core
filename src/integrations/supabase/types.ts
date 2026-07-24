@@ -17,16 +17,19 @@ export type Database = {
       categorias_equipamentos: {
         Row: {
           created_at: string
+          foto_url: string | null
           id: string
           nome: string
         }
         Insert: {
           created_at?: string
+          foto_url?: string | null
           id?: string
           nome: string
         }
         Update: {
           created_at?: string
+          foto_url?: string | null
           id?: string
           nome?: string
         }
