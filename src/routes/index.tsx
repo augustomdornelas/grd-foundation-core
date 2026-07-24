@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const heroImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/01_hero.jpg";
 const empresaImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/02_empresa.jpg";
@@ -48,8 +50,8 @@ const diferenciais = [
 const contatoSchema = z.object({
   nome: z.string().trim().min(2, "Informe seu nome").max(100),
   email: z.string().trim().email("E-mail inválido").max(255),
-  telefone: z.string().trim().min(8, "Telefone inválido").max(20),
-  mensagem: z.string().trim().min(10, "Descreva um pouco mais").max(1000),
+  telefone: z.string().trim().max(20).optional().or(z.literal("")),
+  mensagem: z.string().trim().min(2, "Escreva sua mensagem").max(1000),
 });
 
 function scrollToId(id: string) {
@@ -296,7 +298,7 @@ function ContatoForm() {
   const update = (k: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues(v => ({ ...v, [k]: e.target.value }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = contatoSchema.safeParse(values);
     if (!parsed.success) {
@@ -307,10 +309,20 @@ function ContatoForm() {
     }
     setErrors({});
     setStatus("sending");
-    setTimeout(() => {
-      setStatus("sent");
-      setValues({ nome: "", email: "", telefone: "", mensagem: "" });
-    }, 700);
+    const { error } = await supabase.from("contatos").insert({
+      nome: parsed.data.nome,
+      email: parsed.data.email,
+      telefone: parsed.data.telefone || null,
+      mensagem: parsed.data.mensagem,
+      status: "NOVO",
+    });
+    if (error) {
+      setStatus("idle");
+      toast.error("Não foi possível enviar sua mensagem. Tente novamente ou ligue (14) 3261-4194.");
+      return;
+    }
+    setStatus("sent");
+    setValues({ nome: "", email: "", telefone: "", mensagem: "" });
   };
 
   if (status === "sent") {
