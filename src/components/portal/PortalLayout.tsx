@@ -1,5 +1,5 @@
 import { Link, useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, BriefcaseBusiness, TrendingUp, FolderKanban, Wrench, Users, Mail, Users2, Search, LogOut, User as UserIcon, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, BriefcaseBusiness, TrendingUp, FolderKanban, Wrench, Users, Mail, Users2, BookImage, Search, LogOut, User as UserIcon, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,6 +16,7 @@ const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: b
   { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
   { to: "/app/equipamentos", label: "Equipamentos", icon: Wrench, exact: false, perm: "equipamentos" },
   { to: "/app/clientes", label: "Clientes", icon: Users, exact: false },
+  { to: "/app/catalogo-admin", label: "Catálogo", icon: BookImage, exact: false },
   { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
   { to: "/app/admin", label: "Admin", icon: Users2, exact: false, perm: "admin" },
 ];
