@@ -1,0 +1,1 @@
+ALTER TABLE public.categorias_equipamentos ADD COLUMN IF NOT EXISTS foto_url text;
