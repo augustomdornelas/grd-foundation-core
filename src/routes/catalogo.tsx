@@ -49,8 +49,8 @@ const FOTOS: Record<string, string> = {
   "FURACAO E DEMOLICAO": `${SUPA}/demolicão.jpg`,
   "JARDINAGEM": `${SUPA}/jardinagem.jpg`,
   "LIMPEZA": `${SUPA}/limpeza.jpg`,
-  "OUTROS": `${SUPA}/veiculos.png`,
-  "VEICULOS E OUTROS": `${SUPA}/veiculos.png`,
+  "OUTROS": `${SUPA}/outros.png`,
+  "VEICULOS": `${SUPA}/veiculos.png`,
 };
 
 function normalize(s: string) {
