@@ -50,8 +50,8 @@ const diferenciais = [
 const contatoSchema = z.object({
   nome: z.string().trim().min(2, "Informe seu nome").max(100),
   email: z.string().trim().email("E-mail inválido").max(255),
-  telefone: z.string().trim().min(8, "Telefone inválido").max(20),
-  mensagem: z.string().trim().min(10, "Descreva um pouco mais").max(1000),
+  telefone: z.string().trim().max(20).optional().or(z.literal("")),
+  mensagem: z.string().trim().min(2, "Escreva sua mensagem").max(1000),
 });
 
 function scrollToId(id: string) {
