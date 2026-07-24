@@ -22,6 +22,10 @@ function normalize(s: string) {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 }
 
+function displayName(eq: Row) {
+  return (eq.catalogo_nome || eq.nome || "").toUpperCase().trim();
+}
+
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -53,6 +57,7 @@ function CatalogPage() {
   const [loading, setLoading] = useState(true);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [zoomFoto, setZoomFoto] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     Promise.all([
