@@ -231,7 +231,7 @@ function CatalogPage() {
                       )}
                     </div>
                     <div className="p-4 flex-1 flex flex-col gap-2">
-                      <h4 className="font-bold text-[#213368] text-sm uppercase">{eq.nome}</h4>
+                      <h4 className="font-bold text-[#213368] text-sm uppercase">{nomeExibido}</h4>
                       {eq.descricao && (
                         <p className="text-xs text-gray-600 leading-relaxed flex-1">{eq.descricao}</p>
                       )}
