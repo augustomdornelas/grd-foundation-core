@@ -298,7 +298,7 @@ function ContatoForm() {
   const update = (k: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues(v => ({ ...v, [k]: e.target.value }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = contatoSchema.safeParse(values);
     if (!parsed.success) {
@@ -309,10 +309,20 @@ function ContatoForm() {
     }
     setErrors({});
     setStatus("sending");
-    setTimeout(() => {
-      setStatus("sent");
-      setValues({ nome: "", email: "", telefone: "", mensagem: "" });
-    }, 700);
+    const { error } = await supabase.from("contatos").insert({
+      nome: parsed.data.nome,
+      email: parsed.data.email,
+      telefone: parsed.data.telefone || null,
+      mensagem: parsed.data.mensagem,
+      status: "NOVO",
+    });
+    if (error) {
+      setStatus("idle");
+      toast.error("Não foi possível enviar sua mensagem. Tente novamente ou ligue (14) 3261-4194.");
+      return;
+    }
+    setStatus("sent");
+    setValues({ nome: "", email: "", telefone: "", mensagem: "" });
   };
 
   if (status === "sent") {
