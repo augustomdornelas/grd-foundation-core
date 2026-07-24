@@ -39,8 +39,11 @@ function CatalogoAdminPage() {
       if (error) {
         console.error(error);
         setRows([]);
+        setOriginals({});
       } else {
-        setRows((data ?? []) as Row[]);
+        const raw = (data ?? []) as Row[];
+        setOriginals(Object.fromEntries(raw.map(r => [r.id, r.catalogo_nome ?? null])));
+        setRows(raw.map(r => ({ ...r, catalogo_nome: r.catalogo_nome?.trim() || r.nome })));
       }
       setLoading(false);
     })();
