@@ -105,6 +105,43 @@ function CatalogoAdminPage() {
   return (
     <div className="space-y-6">
       <Card>
+        <CardHeader>
+          <CardTitle className="text-[#213368]">Grupos do catálogo ({grupos.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {grupos.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">Nenhum grupo cadastrado</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {grupos.map(g => {
+                const qtd = contagemPorGrupo.get((g.nome ?? "").trim().toUpperCase()) ?? 0;
+                return (
+                  <div key={g.id} className="overflow-hidden rounded-lg border bg-white">
+                    {g.foto_url ? (
+                      <img
+                        src={g.foto_url}
+                        alt={g.nome}
+                        className="aspect-[4/3] w-full rounded-t-lg object-cover"
+                      />
+                    ) : (
+                      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 rounded-t-lg bg-gray-100 text-muted-foreground">
+                        <ImageOff className="h-8 w-8" />
+                        <span className="text-xs">Sem foto</span>
+                      </div>
+                    )}
+                    <div className="p-3">
+                      <div className="font-semibold text-[#213368]">{g.nome}</div>
+                      <div className="text-xs text-muted-foreground">{qtd} equipamento{qtd === 1 ? "" : "s"}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-[#213368]">Equipamentos no catálogo público ({filtrados.length})</CardTitle>
           <div className="relative w-full md:w-80">
