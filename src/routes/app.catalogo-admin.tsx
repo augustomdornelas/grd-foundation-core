@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search } from "lucide-react";
+import { ImageOff, Search } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/catalogo-admin")({
@@ -16,6 +16,7 @@ type Row = {
   id: string;
   nome: string;
   catalogo_nome: string | null;
+  catalogo_foto_url: string | null;
   categoria: string | null;
 };
 
@@ -31,7 +32,7 @@ function CatalogoAdminPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from("equipamentos")
-        .select("id, nome, catalogo_nome, categoria")
+        .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
         .eq("exibir_catalogo", true)
         .order("nome", { ascending: true });
       if (cancel) return;
@@ -68,7 +69,7 @@ function CatalogoAdminPage() {
       .from("equipamentos")
       .update({ catalogo_nome: novo })
       .eq("id", row.id)
-      .select("id, nome, catalogo_nome, categoria")
+      .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
       .single();
     setSavingId(null);
     if (error || !data) {
@@ -100,6 +101,7 @@ function CatalogoAdminPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#213368]/5">
+                  <TableHead className="text-[#213368] font-bold w-16">Foto</TableHead>
                   <TableHead className="text-[#213368] font-bold">Nome interno</TableHead>
                   <TableHead className="text-[#213368] font-bold">Nome no catálogo</TableHead>
                   <TableHead className="text-[#213368] font-bold">Categoria</TableHead>
@@ -107,12 +109,25 @@ function CatalogoAdminPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
                 ) : filtrados.length === 0 ? (
-                  <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Nenhum equipamento encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum equipamento encontrado</TableCell></TableRow>
                 ) : (
                   filtrados.map(r => (
                     <TableRow key={r.id}>
+                      <TableCell>
+                        {r.catalogo_foto_url ? (
+                          <img
+                            src={r.catalogo_foto_url}
+                            alt={r.catalogo_nome ?? r.nome}
+                            className="h-12 w-12 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded bg-gray-200">
+                            <ImageOff className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{r.nome}</TableCell>
                       <TableCell>
                         <Input
