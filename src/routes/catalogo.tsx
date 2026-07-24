@@ -33,6 +33,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 type Row = {
   id: string;
   nome: string;
+  catalogo_nome: string | null;
   categoria: string;
   descricao: string | null;
   foto_url: string | null;
@@ -57,7 +58,7 @@ function CatalogPage() {
     Promise.all([
       supabase
         .from("equipamentos")
-        .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
+        .select("id, nome, catalogo_nome, categoria, descricao, foto_url, status, exibir_catalogo")
         .eq("exibir_catalogo", true),
       supabase.from("categorias_equipamentos").select("id, nome, foto_url").order("nome"),
     ]).then(([equipRes, catRes]) => {
