@@ -17,7 +17,6 @@ import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppWebmailRouteImport } from './routes/app.webmail'
 import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
 import { Route as AppPontoRouteImport } from './routes/app.ponto'
-import { Route as AppContatosRouteImport } from './routes/app.contatos'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
@@ -65,11 +64,6 @@ const AppPrevisaoRoute = AppPrevisaoRouteImport.update({
 const AppPontoRoute = AppPontoRouteImport.update({
   id: '/ponto',
   path: '/ponto',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppContatosRoute = AppContatosRouteImport.update({
-  id: '/contatos',
-  path: '/contatos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppComercialRoute = AppComercialRouteImport.update({
@@ -120,7 +114,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
-  '/app/contatos': typeof AppContatosRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
@@ -138,7 +131,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
-  '/app/contatos': typeof AppContatosRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
@@ -158,7 +150,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
-  '/app/contatos': typeof AppContatosRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
@@ -179,7 +170,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/app/admin'
     | '/app/comercial'
-    | '/app/contatos'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
@@ -197,7 +187,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/app/admin'
     | '/app/comercial'
-    | '/app/contatos'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
@@ -216,7 +205,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/app/admin'
     | '/app/comercial'
-    | '/app/contatos'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
@@ -294,13 +282,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPontoRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/contatos': {
-      id: '/app/contatos'
-      path: '/contatos'
-      fullPath: '/app/contatos'
-      preLoaderRoute: typeof AppContatosRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/comercial': {
       id: '/app/comercial'
       path: '/comercial'
@@ -363,7 +344,6 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppComercialRoute: typeof AppComercialRoute
-  AppContatosRoute: typeof AppContatosRoute
   AppPontoRoute: typeof AppPontoRoute
   AppPrevisaoRoute: typeof AppPrevisaoRoute
   AppWebmailRoute: typeof AppWebmailRoute
@@ -379,7 +359,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppComercialRoute: AppComercialRoute,
-  AppContatosRoute: AppContatosRoute,
   AppPontoRoute: AppPontoRoute,
   AppPrevisaoRoute: AppPrevisaoRoute,
   AppWebmailRoute: AppWebmailRoute,

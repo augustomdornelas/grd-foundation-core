@@ -1,41 +1,51 @@
+## Objetivo
 
-## Diagnóstico
+No `/app`, mostrar todos os KPIs, gráficos e tabelas com **todos os dados**, sem filtro de ano/período.
 
-Acabei de testar os dois endereços:
+## Mudanças em `src/routes/app.index.tsx`
 
-- `https://grd-foundation-core.lovable.app` → **HTTP 200 (site funcionando)**
-- `https://grupogrdbrasil.com.br` → **HTTP 500 (Cloudflare/Lovable)**
+1. **Remover UI de ano**
+   - Excluir o estado `ano` / `anoAtual` / `setAno`, o `useMemo` `anosDisponiveis` e o bloco `<select>` de ano no header. Manter só o título "Painel inicial".
 
-Ou seja, **o site publicado está no ar e funcionando**. O que está quebrado é apenas o **roteamento do domínio customizado** `grupogrdbrasil.com.br` até este projeto. A tela "This page didn't load" que você viu é a página de erro do Lovable quando o domínio chega até a infra mas não encontra o projeto correto (normalmente porque o domínio está vinculado a outro projeto Lovable, ou foi removido, ou o DNS ainda aponta para o lugar antigo).
+2. **Remover filtros por ano**
+   - Excluir o helper `noAno` (não será mais usado).
+   - `orcAno` → passa a ser `orcamentos` direto.
+   - `medAno` → passa a ser `medicoes` direto.
+   - `empAno` → passa a ser `emprestimos` direto.
+   - `projConcluidosAno` → `projetos.filter(p => p.status === "CONCLUÍDO")`.
+   - Atualizar todos os `useMemo` dependentes para as novas variáveis (`orcPorMes`, `orcPorStatus`, `previsaoVsFat`, `receitaEqPorMes`, `topClientes`, `acumulado`, `medAno` usos, etc.).
 
-Isso **não é um bug de código** — o `.lovable.app` responde 200. É configuração de domínio no painel do Lovable + DNS no registrador.
+3. **KPIs — recalcular sem filtro**
+   - `totalOrc = orcamentos.length`
+   - `valorOrc = SUM(orcamentos.valor)`
+   - `aprovados = orcamentos.filter(status === "APROVADO")`, `valorAprovado = SUM`
+   - `taxaAprov = aprovados / totalOrc * 100`
+   - `ticket = valorAprovado / aprovados.length`
+   - `emNeg = orcamentos.filter(status === "EM NEGOCIAÇÃO")`
+   - `projAndamento = projetos.filter(status === "EM ANDAMENTO")`
+   - **Faturado**: usar `medicoes.filter(m => m.status === "RECEBIDA")` somando `valor` (conforme especificado pelo usuário; antes usava `data_recebimento`).
+   - `saldoFaturar = max(0, valorAprovado − faturado)`
+   - Equipamentos: sem alteração (já não filtram por ano) — `receitaEq` passa a somar todos os empréstimos.
 
-## O que precisa ser feito (você, no painel)
+4. **Rótulos**
+   - Trocar "Orçamentos no ano" → "Total de orçamentos".
+   - Trocar "Concluídos no ano" → "Projetos concluídos".
+   - Trocar "Receita no ano" → "Receita de aluguel".
 
-Não consigo alterar vinculação de domínio nem DNS pelo código. Os passos:
+5. **Gráficos**
+   - `orcPorMes`, `previsaoVsFat`, `receitaEqPorMes`, `acumulado`: agrupar por `YYYY-MM` (rótulo tipo `MMM/AA`) somando todos os anos em ordem cronológica, em vez do array fixo de 12 meses do ano selecionado. Isso preserva o histórico completo sem filtro.
+   - `orcPorStatus`, `projPorStatus`, `eqPorStatus`, `topClientes`: já são agregações totais — só remover a dependência de `orcAno`/`aprovados` filtrados.
 
-1. **Project Settings → Project → Domains** neste projeto (GRD Horizon).
-2. Se `grupogrdbrasil.com.br` **não aparecer** na lista: clique em **Connect Domain**, digite `grupogrdbrasil.com.br` e siga o fluxo. Se disser que o domínio já está em outro projeto, vai pedir para provar propriedade (registro TXT `_lovable`). Faça isso.
-3. Adicione também `www.grupogrdbrasil.com.br` como entrada separada.
-4. No seu registrador (Registro.br / Cloudflare / etc.), confirme:
-   - `A  @   185.158.133.1`
-   - `A  www 185.158.133.1`
-   - `TXT _lovable  <valor que o Lovable mostrar>`
-   - Remova qualquer A/CNAME antigo apontando para outro lugar.
-5. Aguarde o status ir para **Active** (pode levar minutos a algumas horas).
+6. **Tabelas**
+   - `ultimosOrc`, `projEmObra`, `eqManut`, `proxDevolucoes`: manter a lógica atual (não dependem de ano).
 
-Se estiver em Cloudflare com proxy laranja, marque **"Domain uses Cloudflare or a similar proxy"** no diálogo (usa CNAME em vez de A).
+## Fora de escopo
 
-## Sobre "corrigir tudo que fez de errado"
+- Nenhuma outra rota é alterada.
+- Nenhuma mudança de schema, RLS ou stores.
 
-Revisando o que alterei em código relacionado a este problema, foi só o `src/integrations/supabase/client.ts` — deixei URL e chave anônima fixadas no projeto onde estão de fato todas as suas tabelas, buckets e dados (`fpuwyndpmcgwkuaqbcvm`). É o motivo do `.lovable.app` estar retornando 200 e o app carregar dados normalmente. **Não vou reverter isso**, porque reverter faria o app voltar a apontar para o projeto Cloud vazio e quebraria login, catálogo, equipamentos, orçamentos, tudo.
+## Verificação
 
-## O que farei quando você aprovar
-
-Nada em código — não há nada a corrigir no repositório para este problema específico. Vou apenas:
-
-- Confirmar mais uma vez, via `curl`, que `grd-foundation-core.lovable.app` continua 200.
-- Te orientar em tempo real enquanto você faz os passos 1–5 acima, se quiser.
-- Depois que o DNS propagar, testar `https://grupogrdbrasil.com.br/` de novo e confirmar 200.
-
-Se preferir, posso em vez disso investigar outra hipótese: você tem alguma ideia de qual projeto Lovable pode estar segurando esse domínio hoje (algum projeto antigo/deletado com o mesmo nome)? Isso acelera o passo 2.
+- Build passa (`tsgo` roda no harness).
+- `/app` abre sem o dropdown de ano, com números batendo com `SELECT count(*), sum(valor) FROM orcamentos` etc.
+- Gráficos mensais mostram série completa histórica em ordem cronológica.

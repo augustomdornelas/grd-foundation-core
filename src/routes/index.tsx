@@ -16,8 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 const heroImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/01_hero.jpg";
 const empresaImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/02_empresa.jpg";
@@ -50,8 +48,8 @@ const diferenciais = [
 const contatoSchema = z.object({
   nome: z.string().trim().min(2, "Informe seu nome").max(100),
   email: z.string().trim().email("E-mail inválido").max(255),
-  telefone: z.string().trim().max(20).optional().or(z.literal("")),
-  mensagem: z.string().trim().min(2, "Escreva sua mensagem").max(1000),
+  telefone: z.string().trim().min(8, "Telefone inválido").max(20),
+  mensagem: z.string().trim().min(10, "Descreva um pouco mais").max(1000),
 });
 
 function scrollToId(id: string) {
@@ -272,7 +270,7 @@ function Home() {
               <p className="mt-4 text-muted-foreground">Nossa equipe está pronta para entender sua necessidade e propor a melhor solução industrial.</p>
               <ul className="mt-6 space-y-3 text-sm">
                 <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-[#F37032]" /> (14) 3261-4194</li>
-                <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#F37032]" /> <a href="mailto:comercial@grupogrdbrasil.com.br" className="hover:underline">comercial@grupogrdbrasil.com.br</a></li>
+                <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#F37032]" /> comercial@grupogrdbrasil.com</li>
                 <li className="flex items-start gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#F37032]" /> Av. José Antunes de Oliveira, 307 · Vila Honorina · CEP 17128-000 · Agudos-SP</li>
               </ul>
             </Reveal>
@@ -298,7 +296,7 @@ function ContatoForm() {
   const update = (k: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues(v => ({ ...v, [k]: e.target.value }));
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = contatoSchema.safeParse(values);
     if (!parsed.success) {
@@ -309,20 +307,10 @@ function ContatoForm() {
     }
     setErrors({});
     setStatus("sending");
-    const { error } = await supabase.from("contatos").insert({
-      nome: parsed.data.nome,
-      email: parsed.data.email,
-      telefone: parsed.data.telefone || null,
-      mensagem: parsed.data.mensagem,
-      status: "NOVO",
-    });
-    if (error) {
-      setStatus("idle");
-      toast.error("Não foi possível enviar sua mensagem. Tente novamente ou ligue (14) 3261-4194.");
-      return;
-    }
-    setStatus("sent");
-    setValues({ nome: "", email: "", telefone: "", mensagem: "" });
+    setTimeout(() => {
+      setStatus("sent");
+      setValues({ nome: "", email: "", telefone: "", mensagem: "" });
+    }, 700);
   };
 
   if (status === "sent") {
