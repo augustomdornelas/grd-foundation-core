@@ -19,8 +19,11 @@ type Row = {
   categoria: string | null;
 };
 
+type Grupo = { id: string; nome: string; count: number };
+
 function CatalogoAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -29,18 +32,32 @@ function CatalogoAdminPage() {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("equipamentos")
-        .select("id, nome, catalogo_nome, categoria")
-        .eq("exibir_catalogo", true)
-        .order("nome", { ascending: true });
+      const [eqRes, catRes, allEqRes] = await Promise.all([
+        supabase
+          .from("equipamentos")
+          .select("id, nome, catalogo_nome, categoria")
+          .eq("exibir_catalogo", true)
+          .order("nome", { ascending: true }),
+        supabase.from("categorias_equipamentos").select("id, nome").order("nome", { ascending: true }),
+        supabase.from("equipamentos").select("categoria"),
+      ]);
       if (cancel) return;
-      if (error) {
-        console.error(error);
+      if (eqRes.error) {
+        console.error(eqRes.error);
         setRows([]);
       } else {
-        setRows((data ?? []) as Row[]);
+        setRows((eqRes.data ?? []) as Row[]);
       }
+      const counts = new Map<string, number>();
+      for (const r of (allEqRes.data ?? []) as { categoria: string | null }[]) {
+        const k = (r.categoria ?? "").trim().toLowerCase();
+        if (!k) continue;
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+      const gs = ((catRes.data ?? []) as { id: string; nome: string }[])
+        .map(c => ({ id: c.id, nome: c.nome, count: counts.get((c.nome ?? "").trim().toLowerCase()) ?? 0 }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      setGrupos(gs);
       setLoading(false);
     })();
     return () => { cancel = true; };
@@ -82,6 +99,29 @@ function CatalogoAdminPage() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-[#213368]">GRUPOS DO CATÁLOGO ({grupos.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Carregando...</div>
+          ) : grupos.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">Nenhum grupo encontrado</div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {grupos.map(g => (
+                <div key={g.id} className="rounded-lg border p-4 bg-white">
+                  <div className="font-bold text-[#213368] uppercase">{g.nome}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {g.count} {g.count === 1 ? "equipamento" : "equipamentos"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-[#213368]">Equipamentos no catálogo público ({filtrados.length})</CardTitle>
