@@ -64,8 +64,20 @@ function CatalogoAdminPage() {
   };
 
   const handleSaveCatalogoNome = async (equipamentoId: string, valueAtBlur: string) => {
+    const row = rows.find(r => r.id === equipamentoId);
+    if (!row) return;
+
     const trimmed = valueAtBlur.trim();
-    const novo = trimmed === "" ? null : trimmed;
+    const original = originals[equipamentoId] ?? null;
+
+    const isUnchanged =
+      trimmed === (original ?? "") ||
+      (original === null && trimmed === row.nome);
+
+    if (isUnchanged) return;
+
+    const novo = trimmed === "" || trimmed === row.nome ? null : trimmed;
+
     setSavingId(equipamentoId);
     const { data, error } = await supabase
       .from("equipamentos")
@@ -79,7 +91,10 @@ function CatalogoAdminPage() {
       toast.error(error?.message ?? "ERRO AO SALVAR");
       return;
     }
-    setRows(prev => prev.map(r => r.id === equipamentoId ? (data as Row) : r));
+
+    const updated = data as Row;
+    setOriginals(prev => ({ ...prev, [equipamentoId]: updated.catalogo_nome ?? null }));
+    setRows(prev => prev.map(r => r.id === equipamentoId ? { ...updated, catalogo_nome: updated.catalogo_nome?.trim() || updated.nome } : r));
     toast.success("Salvo");
   };
 
