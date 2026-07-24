@@ -270,7 +270,7 @@ function Home() {
               <p className="mt-4 text-muted-foreground">Nossa equipe está pronta para entender sua necessidade e propor a melhor solução industrial.</p>
               <ul className="mt-6 space-y-3 text-sm">
                 <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-[#F37032]" /> (14) 3261-4194</li>
-                <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#F37032]" /> comercial@grupogrdbrasil.com</li>
+                <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-[#F37032]" /> <a href="mailto:comercial@grupogrdbrasil.com.br" className="hover:underline">comercial@grupogrdbrasil.com.br</a></li>
                 <li className="flex items-start gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#F37032]" /> Av. José Antunes de Oliveira, 307 · Vila Honorina · CEP 17128-000 · Agudos-SP</li>
               </ul>
             </Reveal>
