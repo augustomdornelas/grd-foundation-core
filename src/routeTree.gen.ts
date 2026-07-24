@@ -18,6 +18,7 @@ import { Route as AppWebmailRouteImport } from './routes/app.webmail'
 import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
 import { Route as AppPontoRouteImport } from './routes/app.ponto'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
+import { Route as AppCatalogoAdminRouteImport } from './routes/app.catalogo-admin'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
 import { Route as AppEquipamentosIndexRouteImport } from './routes/app.equipamentos.index'
@@ -71,6 +72,11 @@ const AppComercialRoute = AppComercialRouteImport.update({
   path: '/comercial',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCatalogoAdminRoute = AppCatalogoAdminRouteImport.update({
+  id: '/catalogo-admin',
+  path: '/catalogo-admin',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/catalogo': typeof CatalogoRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
@@ -130,6 +137,7 @@ export interface FileRoutesByTo {
   '/catalogo': typeof CatalogoRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/catalogo': typeof CatalogoRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/login'
     | '/app/admin'
+    | '/app/catalogo-admin'
     | '/app/comercial'
     | '/app/ponto'
     | '/app/previsao'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/login'
     | '/app/admin'
+    | '/app/catalogo-admin'
     | '/app/comercial'
     | '/app/ponto'
     | '/app/previsao'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/catalogo'
     | '/login'
     | '/app/admin'
+    | '/app/catalogo-admin'
     | '/app/comercial'
     | '/app/ponto'
     | '/app/previsao'
@@ -289,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComercialRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/catalogo-admin': {
+      id: '/app/catalogo-admin'
+      path: '/catalogo-admin'
+      fullPath: '/app/catalogo-admin'
+      preLoaderRoute: typeof AppCatalogoAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/admin': {
       id: '/app/admin'
       path: '/admin'
@@ -343,6 +362,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppCatalogoAdminRoute: typeof AppCatalogoAdminRoute
   AppComercialRoute: typeof AppComercialRoute
   AppPontoRoute: typeof AppPontoRoute
   AppPrevisaoRoute: typeof AppPrevisaoRoute
@@ -358,6 +378,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppCatalogoAdminRoute: AppCatalogoAdminRoute,
   AppComercialRoute: AppComercialRoute,
   AppPontoRoute: AppPontoRoute,
   AppPrevisaoRoute: AppPrevisaoRoute,
