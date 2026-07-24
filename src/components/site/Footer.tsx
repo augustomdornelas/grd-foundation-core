@@ -27,7 +27,7 @@ export function Footer() {
           <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Contato</h4>
           <ul className="space-y-2 text-sm text-white/70">
             <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-[#F37032]" /> (14) 3261-4194</li>
-            <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-[#F37032]" /> comercial@grupogrdbrasil.com</li>
+            <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-[#F37032]" /> <a href="mailto:comercial@grupogrdbrasil.com.br" className="hover:text-[#F37032] hover:underline">comercial@grupogrdbrasil.com.br</a></li>
             <li className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#F37032]" /> Av. José Antunes de Oliveira, 307 · Agudos-SP</li>
           </ul>
           <div className="mt-5 flex gap-3">
