@@ -22,6 +22,10 @@ function normalize(s: string) {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 }
 
+function displayName(eq: Row) {
+  return (eq.catalogo_nome || eq.nome || "").toUpperCase().trim();
+}
+
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -33,6 +37,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 type Row = {
   id: string;
   nome: string;
+  catalogo_nome: string | null;
   categoria: string;
   descricao: string | null;
   foto_url: string | null;
@@ -52,12 +57,13 @@ function CatalogPage() {
   const [loading, setLoading] = useState(true);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [zoomFoto, setZoomFoto] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     Promise.all([
       supabase
         .from("equipamentos")
-        .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
+        .select("id, nome, catalogo_nome, categoria, descricao, foto_url, status, exibir_catalogo")
         .eq("exibir_catalogo", true),
       supabase.from("categorias_equipamentos").select("id, nome, foto_url").order("nome"),
     ]).then(([equipRes, catRes]) => {
@@ -67,11 +73,25 @@ function CatalogPage() {
     });
   }, []);
 
+  const ns = normalize(search);
+  const filteredRows = useMemo(() => {
+    if (!ns) return rows;
+    return rows.filter(r => normalize(displayName(r)).includes(ns) || normalize(r.nome).includes(ns));
+  }, [rows, ns]);
+
+  const filteredCategorias = useMemo(() => {
+    if (!ns) return categorias;
+    return categorias.filter(cat => {
+      if (normalize(cat.nome).includes(ns)) return true;
+      return rows.some(r => normalize(r.categoria || "") === normalize(cat.nome) && (normalize(displayName(r)).includes(ns) || normalize(r.nome).includes(ns)));
+    });
+  }, [categorias, rows, ns]);
+
   const equipsPorCategoria = useMemo(() => {
     if (!openCat) return [];
     const nk = normalize(openCat);
-    return rows.filter(r => normalize(r.categoria || "") === nk);
-  }, [openCat, rows]);
+    return filteredRows.filter(r => normalize(r.categoria || "") === nk);
+  }, [openCat, filteredRows]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] font-[Montserrat,system-ui,sans-serif]">
@@ -96,13 +116,23 @@ function CatalogPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
+        <div className="mb-8 max-w-xl">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar equipamento..."
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-[#213368] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F37032]"
+          />
+        </div>
+
         {loading ? (
           <p className="text-center text-[#213368] font-semibold py-12">Carregando catálogo...</p>
-        ) : categorias.length === 0 ? (
+        ) : filteredCategorias.length === 0 ? (
           <p className="text-center text-gray-500 py-12">Nenhuma categoria disponível no momento.</p>
         ) : (
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {categorias.map((cat) => {
+            {filteredCategorias.map((cat) => {
               const nomeUpper = (cat.nome || "").toUpperCase();
               return (
                 <button
@@ -167,7 +197,8 @@ function CatalogPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {equipsPorCategoria.map((eq) => {
-                const link = WHATSAPP_BASE + encodeURIComponent(`Olá! Tenho interesse em alugar: ${eq.nome}`);
+                const nomeExibido = displayName(eq);
+                const link = WHATSAPP_BASE + encodeURIComponent(`Olá! Tenho interesse em alugar: ${nomeExibido}`);
                 const alugado = eq.status === "Emprestado";
                 const disponivel = eq.status === "Disponível";
                 return (
@@ -180,7 +211,7 @@ function CatalogPage() {
                           className="group relative h-full w-full cursor-pointer"
                           aria-label="Ampliar foto"
                         >
-                          <img src={eq.foto_url} alt={eq.nome} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                          <img src={eq.foto_url} alt={nomeExibido} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                           <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                             <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
                           </span>
@@ -200,7 +231,7 @@ function CatalogPage() {
                       )}
                     </div>
                     <div className="p-4 flex-1 flex flex-col gap-2">
-                      <h4 className="font-bold text-[#213368] text-sm uppercase">{eq.nome}</h4>
+                      <h4 className="font-bold text-[#213368] text-sm uppercase">{nomeExibido}</h4>
                       {eq.descricao && (
                         <p className="text-xs text-gray-600 leading-relaxed flex-1">{eq.descricao}</p>
                       )}
