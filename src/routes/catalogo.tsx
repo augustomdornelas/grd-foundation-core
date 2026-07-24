@@ -73,11 +73,25 @@ function CatalogPage() {
     });
   }, []);
 
+  const ns = normalize(search);
+  const filteredRows = useMemo(() => {
+    if (!ns) return rows;
+    return rows.filter(r => normalize(displayName(r)).includes(ns) || normalize(r.nome).includes(ns));
+  }, [rows, ns]);
+
+  const filteredCategorias = useMemo(() => {
+    if (!ns) return categorias;
+    return categorias.filter(cat => {
+      if (normalize(cat.nome).includes(ns)) return true;
+      return rows.some(r => normalize(r.categoria || "") === normalize(cat.nome) && (normalize(displayName(r)).includes(ns) || normalize(r.nome).includes(ns)));
+    });
+  }, [categorias, rows, ns]);
+
   const equipsPorCategoria = useMemo(() => {
     if (!openCat) return [];
     const nk = normalize(openCat);
-    return rows.filter(r => normalize(r.categoria || "") === nk);
-  }, [openCat, rows]);
+    return filteredRows.filter(r => normalize(r.categoria || "") === nk);
+  }, [openCat, filteredRows]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] font-[Montserrat,system-ui,sans-serif]">
