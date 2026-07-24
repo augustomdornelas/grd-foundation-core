@@ -1,1 +1,0 @@
-ALTER TABLE public.equipamentos ADD COLUMN IF NOT EXISTS catalogo_foto_url TEXT;

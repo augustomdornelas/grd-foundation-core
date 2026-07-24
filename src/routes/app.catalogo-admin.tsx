@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ImageOff, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/catalogo-admin")({
@@ -16,19 +16,11 @@ type Row = {
   id: string;
   nome: string;
   catalogo_nome: string | null;
-  catalogo_foto_url: string | null;
   categoria: string | null;
-};
-
-type Grupo = {
-  id: string;
-  nome: string;
-  foto_url: string | null;
 };
 
 function CatalogoAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
-  const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -37,36 +29,22 @@ function CatalogoAdminPage() {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const [eqRes, catRes] = await Promise.all([
-        supabase
-          .from("equipamentos")
-          .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
-          .eq("exibir_catalogo", true)
-          .order("nome", { ascending: true }),
-        supabase
-          .from("categorias_equipamentos")
-          .select("id, nome, foto_url")
-          .order("nome", { ascending: true }),
-      ]);
+      const { data, error } = await supabase
+        .from("equipamentos")
+        .select("id, nome, catalogo_nome, categoria")
+        .eq("exibir_catalogo", true)
+        .order("nome", { ascending: true });
       if (cancel) return;
-      if (eqRes.error) { console.error(eqRes.error); setRows([]); }
-      else setRows((eqRes.data ?? []) as Row[]);
-      if (catRes.error) { console.error(catRes.error); setGrupos([]); }
-      else setGrupos((catRes.data ?? []) as Grupo[]);
+      if (error) {
+        console.error(error);
+        setRows([]);
+      } else {
+        setRows((data ?? []) as Row[]);
+      }
       setLoading(false);
     })();
     return () => { cancel = true; };
   }, []);
-
-  const contagemPorGrupo = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of rows) {
-      const key = (r.categoria ?? "").trim().toUpperCase();
-      if (!key) continue;
-      map.set(key, (map.get(key) ?? 0) + 1);
-    }
-    return map;
-  }, [rows]);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -90,7 +68,7 @@ function CatalogoAdminPage() {
       .from("equipamentos")
       .update({ catalogo_nome: novo })
       .eq("id", row.id)
-      .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
+      .select("id, nome, catalogo_nome, categoria")
       .single();
     setSavingId(null);
     if (error || !data) {
@@ -104,43 +82,6 @@ function CatalogoAdminPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-[#213368]">Grupos do catálogo ({grupos.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {grupos.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">Nenhum grupo cadastrado</div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {grupos.map(g => {
-                const qtd = contagemPorGrupo.get((g.nome ?? "").trim().toUpperCase()) ?? 0;
-                return (
-                  <div key={g.id} className="overflow-hidden rounded-lg border bg-white">
-                    {g.foto_url ? (
-                      <img
-                        src={g.foto_url}
-                        alt={g.nome}
-                        className="aspect-[4/3] w-full rounded-t-lg object-cover"
-                      />
-                    ) : (
-                      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 rounded-t-lg bg-gray-100 text-muted-foreground">
-                        <ImageOff className="h-8 w-8" />
-                        <span className="text-xs">Sem foto</span>
-                      </div>
-                    )}
-                    <div className="p-3">
-                      <div className="font-semibold text-[#213368]">{g.nome}</div>
-                      <div className="text-xs text-muted-foreground">{qtd} equipamento{qtd === 1 ? "" : "s"}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-[#213368]">Equipamentos no catálogo público ({filtrados.length})</CardTitle>
@@ -159,7 +100,6 @@ function CatalogoAdminPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#213368]/5">
-                  <TableHead className="text-[#213368] font-bold w-16">Foto</TableHead>
                   <TableHead className="text-[#213368] font-bold">Nome interno</TableHead>
                   <TableHead className="text-[#213368] font-bold">Nome no catálogo</TableHead>
                   <TableHead className="text-[#213368] font-bold">Categoria</TableHead>
@@ -167,25 +107,12 @@ function CatalogoAdminPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
                 ) : filtrados.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum equipamento encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Nenhum equipamento encontrado</TableCell></TableRow>
                 ) : (
                   filtrados.map(r => (
                     <TableRow key={r.id}>
-                      <TableCell>
-                        {r.catalogo_foto_url ? (
-                          <img
-                            src={r.catalogo_foto_url}
-                            alt={r.catalogo_nome ?? r.nome}
-                            className="h-12 w-12 rounded object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded bg-gray-200">
-                            <ImageOff className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                        )}
-                      </TableCell>
                       <TableCell className="font-medium">{r.nome}</TableCell>
                       <TableCell>
                         <Input

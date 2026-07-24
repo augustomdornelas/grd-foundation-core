@@ -17,19 +17,16 @@ export type Database = {
       categorias_equipamentos: {
         Row: {
           created_at: string
-          foto_url: string | null
           id: string
           nome: string
         }
         Insert: {
           created_at?: string
-          foto_url?: string | null
           id?: string
           nome: string
         }
         Update: {
           created_at?: string
-          foto_url?: string | null
           id?: string
           nome?: string
         }
@@ -285,7 +282,6 @@ export type Database = {
       }
       equipamentos: {
         Row: {
-          catalogo_foto_url: string | null
           catalogo_nome: string | null
           categoria: string
           codigo: string
@@ -305,7 +301,6 @@ export type Database = {
           valor: number
         }
         Insert: {
-          catalogo_foto_url?: string | null
           catalogo_nome?: string | null
           categoria?: string
           codigo: string
@@ -325,7 +320,6 @@ export type Database = {
           valor?: number
         }
         Update: {
-          catalogo_foto_url?: string | null
           catalogo_nome?: string | null
           categoria?: string
           codigo?: string
