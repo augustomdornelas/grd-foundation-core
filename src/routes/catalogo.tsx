@@ -116,13 +116,23 @@ function CatalogPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
+        <div className="mb-8 max-w-xl">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar equipamento..."
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-[#213368] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F37032]"
+          />
+        </div>
+
         {loading ? (
           <p className="text-center text-[#213368] font-semibold py-12">Carregando catálogo...</p>
-        ) : categorias.length === 0 ? (
+        ) : filteredCategorias.length === 0 ? (
           <p className="text-center text-gray-500 py-12">Nenhuma categoria disponível no momento.</p>
         ) : (
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {categorias.map((cat) => {
+            {filteredCategorias.map((cat) => {
               const nomeUpper = (cat.nome || "").toUpperCase();
               return (
                 <button
