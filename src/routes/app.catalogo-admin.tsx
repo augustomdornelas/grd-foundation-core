@@ -28,6 +28,7 @@ type Grupo = {
 
 function CatalogoAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -36,22 +37,36 @@ function CatalogoAdminPage() {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("equipamentos")
-        .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
-        .eq("exibir_catalogo", true)
-        .order("nome", { ascending: true });
+      const [eqRes, catRes] = await Promise.all([
+        supabase
+          .from("equipamentos")
+          .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
+          .eq("exibir_catalogo", true)
+          .order("nome", { ascending: true }),
+        supabase
+          .from("categorias_equipamentos")
+          .select("id, nome, foto_url")
+          .order("nome", { ascending: true }),
+      ]);
       if (cancel) return;
-      if (error) {
-        console.error(error);
-        setRows([]);
-      } else {
-        setRows((data ?? []) as Row[]);
-      }
+      if (eqRes.error) { console.error(eqRes.error); setRows([]); }
+      else setRows((eqRes.data ?? []) as Row[]);
+      if (catRes.error) { console.error(catRes.error); setGrupos([]); }
+      else setGrupos((catRes.data ?? []) as Grupo[]);
       setLoading(false);
     })();
     return () => { cancel = true; };
   }, []);
+
+  const contagemPorGrupo = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = (r.categoria ?? "").trim().toUpperCase();
+      if (!key) continue;
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  }, [rows]);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
