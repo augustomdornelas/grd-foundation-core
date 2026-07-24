@@ -282,6 +282,7 @@ export type Database = {
       }
       equipamentos: {
         Row: {
+          catalogo_nome: string | null
           categoria: string
           codigo: string
           created_at: string
@@ -300,6 +301,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          catalogo_nome?: string | null
           categoria?: string
           codigo: string
           created_at?: string
@@ -318,6 +320,7 @@ export type Database = {
           valor?: number
         }
         Update: {
+          catalogo_nome?: string | null
           categoria?: string
           codigo?: string
           created_at?: string
