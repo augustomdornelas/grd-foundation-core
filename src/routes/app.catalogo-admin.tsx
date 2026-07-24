@@ -16,6 +16,7 @@ type Row = {
   id: string;
   nome: string;
   catalogo_nome: string | null;
+  catalogo_foto_url: string | null;
   categoria: string | null;
 };
 
