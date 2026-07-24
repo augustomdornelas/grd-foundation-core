@@ -115,6 +115,19 @@ function CatalogoAdminPage() {
                 ) : (
                   filtrados.map(r => (
                     <TableRow key={r.id}>
+                      <TableCell>
+                        {r.catalogo_foto_url ? (
+                          <img
+                            src={r.catalogo_foto_url}
+                            alt={r.catalogo_nome ?? r.nome}
+                            className="h-12 w-12 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded bg-gray-200">
+                            <ImageOff className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{r.nome}</TableCell>
                       <TableCell>
                         <Input
