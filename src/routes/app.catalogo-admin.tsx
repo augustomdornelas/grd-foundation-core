@@ -20,6 +20,12 @@ type Row = {
   categoria: string | null;
 };
 
+type Grupo = {
+  id: string;
+  nome: string;
+  foto_url: string | null;
+};
+
 function CatalogoAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
