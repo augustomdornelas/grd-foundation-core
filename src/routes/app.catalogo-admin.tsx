@@ -109,9 +109,9 @@ function CatalogoAdminPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Carregando...</TableCell></TableRow>
                 ) : filtrados.length === 0 ? (
-                  <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">Nenhum equipamento encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum equipamento encontrado</TableCell></TableRow>
                 ) : (
                   filtrados.map(r => (
                     <TableRow key={r.id}>
