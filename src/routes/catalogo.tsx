@@ -75,21 +75,35 @@ type Row = {
   exibir_catalogo: boolean | null;
 };
 
+type Categoria = {
+  id: string;
+  nome: string;
+  foto_url: string | null;
+};
+
 function CatalogPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [catFotos, setCatFotos] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [zoomFoto, setZoomFoto] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("equipamentos")
-      .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
-      .eq("exibir_catalogo", true)
-      .then(({ data }) => {
-        setRows((data ?? []) as Row[]);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase
+        .from("equipamentos")
+        .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
+        .eq("exibir_catalogo", true),
+      supabase.from("categorias_equipamentos").select("id, nome, foto_url"),
+    ]).then(([equipRes, catRes]) => {
+      setRows((equipRes.data ?? []) as Row[]);
+      const map: Record<string, string> = {};
+      for (const c of (catRes.data ?? []) as Categoria[]) {
+        if (c.foto_url) map[normalize(c.nome)] = c.foto_url;
+      }
+      setCatFotos(map);
+      setLoading(false);
+    });
   }, []);
 
   const categorias = useMemo(() => {
