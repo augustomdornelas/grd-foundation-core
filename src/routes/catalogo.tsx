@@ -161,29 +161,28 @@ function CatalogPage() {
             {categorias.map((cat) => {
               const key = normalize(cat);
               const desc = DESCRICOES[cat] || DESCRICOES[key] || "Equipamentos disponíveis para locação";
-              const foto = FOTOS[key];
+              const catFoto = catFotos[key] || (key === "VEICULOSEOUTROS" ? catFotos["VEICULOS"] : null);
               return (
                 <button
                   key={cat}
                   onClick={() => setOpenCat(cat)}
-                  className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer text-left"
-                  style={{ height: 220 }}
+                  className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer text-left aspect-[4/3] w-full"
                 >
-                  {foto ? (
+                  {catFoto ? (
                     <img
-                      src={foto}
+                      src={catFoto}
                       alt={cat}
                       loading="lazy"
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 rounded-xl"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#213368]">
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#213368] rounded-xl">
                       <svg className="h-16 w-16 text-white/40" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1 .1-1.4z" />
                       </svg>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/50 group-hover:bg-[#213368]/85 transition-colors duration-300" />
+                  <div className="absolute inset-0 bg-black/50 group-hover:bg-[#213368]/85 transition-colors duration-300 rounded-xl" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center">
                     <h3 className="text-lg md:text-xl font-extrabold text-white uppercase tracking-wide drop-shadow">
                       {cat}
