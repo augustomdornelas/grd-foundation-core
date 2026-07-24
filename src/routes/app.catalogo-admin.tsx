@@ -100,6 +100,29 @@ function CatalogoAdminPage() {
   return (
     <div className="space-y-6">
       <Card>
+        <CardHeader>
+          <CardTitle className="text-[#213368]">GRUPOS DO CATÁLOGO ({grupos.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Carregando...</div>
+          ) : grupos.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">Nenhum grupo encontrado</div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {grupos.map(g => (
+                <div key={g.id} className="rounded-lg border p-4 bg-white">
+                  <div className="font-bold text-[#213368] uppercase">{g.nome}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {g.count} {g.count === 1 ? "equipamento" : "equipamentos"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
         <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <CardTitle className="text-[#213368]">Equipamentos no catálogo público ({filtrados.length})</CardTitle>
           <div className="relative w-full md:w-80">
