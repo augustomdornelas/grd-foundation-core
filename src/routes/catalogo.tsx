@@ -18,41 +18,6 @@ export const Route = createFileRoute("/catalogo")({
 const WHATSAPP_BASE = "https://wa.me/5514997562761?text=";
 const WHATSAPP_URL = WHATSAPP_BASE + encodeURIComponent("Olá! Gostaria de solicitar um orçamento de locação de equipamentos.");
 
-const SUPA = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/catalogo-categorias";
-
-const DESCRICOES: Record<string, string> = {
-  "ACABAMENTO": "Lixadeiras, espátulas, rolos e ferramentas para acabamento fino",
-  "ANDAIME": "Andaimes tubulares e fachadeiros para trabalho em altura com segurança",
-  "COMPACTAÇÃO": "Placas vibratórias e compactadores para solo e pavimentação",
-  "CONTAINER": "Containers para escritório, almoxarifado e vestiário em obra",
-  "CORTE E CONCRETO": "Cortadoras de piso, betoneiras e equipamentos para concreto",
-  "ELÉTRICO, ÁGUA E AR": "Compressores, geradores, bombas e equipamentos elétricos",
-  "ESCORAS": "Escoras metálicas e escoramento para lajes e estruturas",
-  "FERRAMENTAS A BATERIA": "Parafusadeiras, furadeiras e ferramentas sem fio de alta performance",
-  "FERRAMENTAS ELÉTRICAS": "Furadeiras, esmerilhadeiras, serras e ferramentas elétricas em geral",
-  "FURAÇÃO E DEMOLIÇÃO": "Marteletes, rompedores e equipamentos para demolição e furação",
-  "JARDINAGEM": "Roçadeiras, sopradores e equipamentos para manutenção de áreas verdes",
-  "LIMPEZA": "Lavadoras de alta pressão e equipamentos para limpeza industrial",
-  "OUTROS": "Máquinas de solda, transformadores, refletores, cortadores e ferramentas diversas",
-  "VEICULOS": "Veículos utilitários e equipamentos para apoio às obras",
-};
-
-const FOTOS: Record<string, string> = {
-  "ANDAIME": `${SUPA}/andaime.jpg`,
-  "COMPACTACAO": `${SUPA}/compactacao.jpg`,
-  "CONTAINER": `${SUPA}/container.png`,
-  "CORTE E CONCRETO": `${SUPA}/corte_e_concreto.webp`,
-  "ELETRICO, AGUA E AR": `${SUPA}/eletrico_agua_e_ar.png`,
-  "ESCORAS": `${SUPA}/escoras.jpg`,
-  "FERRAMENTAS A BATERIA": `${SUPA}/ferramentas_a_bateria.jpg`,
-  "FERRAMENTAS ELETRICAS": `${SUPA}/ferramenta_eletrica.webp`,
-  "FURACAO E DEMOLICAO": `${SUPA}/demolicão.jpg`,
-  "JARDINAGEM": `${SUPA}/jardinagem.jpg`,
-  "LIMPEZA": `${SUPA}/limpeza.jpg`,
-  "OUTROS": `${SUPA}/outros.png`,
-  "VEICULOS": `${SUPA}/veiculos.png`,
-};
-
 function normalize(s: string) {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 }
@@ -83,7 +48,7 @@ type Categoria = {
 
 function CatalogPage() {
   const [rows, setRows] = useState<Row[]>([]);
-  const [catFotos, setCatFotos] = useState<Record<string, string>>({});
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [loading, setLoading] = useState(true);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [zoomFoto, setZoomFoto] = useState<string | null>(null);
@@ -94,31 +59,18 @@ function CatalogPage() {
         .from("equipamentos")
         .select("id, nome, categoria, descricao, foto_url, status, exibir_catalogo")
         .eq("exibir_catalogo", true),
-      supabase.from("categorias_equipamentos").select("id, nome, foto_url"),
+      supabase.from("categorias_equipamentos").select("id, nome, foto_url").order("nome"),
     ]).then(([equipRes, catRes]) => {
       setRows((equipRes.data ?? []) as Row[]);
-      const map: Record<string, string> = {};
-      for (const c of (catRes.data ?? []) as Categoria[]) {
-        if (c.foto_url) map[normalize(c.nome)] = c.foto_url;
-      }
-      setCatFotos(map);
+      setCategorias((catRes.data ?? []) as Categoria[]);
       setLoading(false);
     });
   }, []);
 
-  const categorias = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) {
-      const catRaw = (r.categoria || "OUTROS").trim().toUpperCase();
-      set.add(catRaw);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [rows]);
-
   const equipsPorCategoria = useMemo(() => {
     if (!openCat) return [];
     const nk = normalize(openCat);
-    return rows.filter(r => normalize(r.categoria || "OUTROS") === nk);
+    return rows.filter(r => normalize(r.categoria || "") === nk);
   }, [openCat, rows]);
 
   return (
@@ -151,38 +103,35 @@ function CatalogPage() {
         ) : (
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {categorias.map((cat) => {
-              const key = normalize(cat);
-              const desc = DESCRICOES[key] || "Equipamentos disponíveis para locação";
-              const catFoto = catFotos[key] || null;
+              const nomeUpper = (cat.nome || "").toUpperCase();
               return (
                 <button
-                  key={cat}
-                  onClick={() => setOpenCat(cat)}
+                  key={cat.id}
+                  onClick={() => setOpenCat(cat.nome)}
                   className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer text-left aspect-[4/3] w-full"
                 >
-                  {catFoto ? (
-                    <img
-                      src={catFoto}
-                      alt={cat}
-                      loading="lazy"
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 rounded-xl"
-                    />
+                  {cat.foto_url ? (
+                    <>
+                      <img
+                        src={cat.foto_url}
+                        alt={nomeUpper}
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110 rounded-xl"
+                      />
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-transparent to-black/60" />
+                      <div className="absolute inset-x-0 bottom-0 px-5 pb-4">
+                        <h3 className="text-lg md:text-xl font-extrabold text-white uppercase tracking-wide drop-shadow">
+                          {nomeUpper}
+                        </h3>
+                      </div>
+                    </>
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#213368] rounded-xl">
-                      <svg className="h-16 w-16 text-white/40" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1 .1-1.4z" />
-                      </svg>
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-400 rounded-xl px-4">
+                      <h3 className="text-lg md:text-xl font-extrabold text-white uppercase tracking-wide text-center drop-shadow">
+                        {nomeUpper}
+                      </h3>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/50 group-hover:bg-[#213368]/85 transition-colors duration-300 rounded-xl" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center">
-                    <h3 className="text-lg md:text-xl font-extrabold text-white uppercase tracking-wide drop-shadow">
-                      {cat}
-                    </h3>
-                    <p className="mt-3 text-sm text-white leading-relaxed max-h-0 overflow-hidden opacity-0 group-hover:max-h-40 group-hover:opacity-100 transition-all duration-300">
-                      {desc}
-                    </p>
-                  </div>
                 </button>
               );
             })}
