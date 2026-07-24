@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const heroImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/01_hero.jpg";
 const empresaImg = "https://fpuwyndpmcgwkuaqbcvm.supabase.co/storage/v1/object/public/portfolio/02_empresa.jpg";
