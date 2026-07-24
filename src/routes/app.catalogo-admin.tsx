@@ -32,7 +32,7 @@ function CatalogoAdminPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from("equipamentos")
-        .select("id, nome, catalogo_nome, categoria")
+        .select("id, nome, catalogo_nome, catalogo_foto_url, categoria")
         .eq("exibir_catalogo", true)
         .order("nome", { ascending: true });
       if (cancel) return;
