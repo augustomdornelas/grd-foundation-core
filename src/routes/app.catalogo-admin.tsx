@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/catalogo-admin")({
   component: CatalogoAdminPage,
@@ -22,6 +23,7 @@ function CatalogoAdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -52,6 +54,31 @@ function CatalogoAdminPage() {
       (r.catalogo_nome ?? "").toLowerCase().includes(q)
     );
   }, [rows, busca]);
+
+  const handleChangeCatalogoNome = (id: string, value: string) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, catalogo_nome: value } : r));
+  };
+
+  const handleSaveCatalogoNome = async (row: Row, valueAtBlur: string) => {
+    const trimmed = valueAtBlur.trim();
+    const novo = trimmed === "" ? null : trimmed;
+    if ((row.catalogo_nome ?? null) === novo) return;
+    setSavingId(row.id);
+    const { data, error } = await supabase
+      .from("equipamentos")
+      .update({ catalogo_nome: novo })
+      .eq("id", row.id)
+      .select("id, nome, catalogo_nome, categoria")
+      .single();
+    setSavingId(null);
+    if (error || !data) {
+      console.error(error);
+      toast.error("ERRO AO SALVAR");
+      return;
+    }
+    setRows(prev => prev.map(r => r.id === row.id ? (data as Row) : r));
+    toast.success("NOME ATUALIZADO");
+  };
 
   return (
     <div className="space-y-6">
@@ -87,7 +114,15 @@ function CatalogoAdminPage() {
                   filtrados.map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{r.nome}</TableCell>
-                      <TableCell>{r.catalogo_nome?.trim() ? r.catalogo_nome : "—"}</TableCell>
+                      <TableCell>
+                        <Input
+                          value={r.catalogo_nome ?? ""}
+                          placeholder="—"
+                          disabled={savingId === r.id}
+                          onChange={e => handleChangeCatalogoNome(r.id, e.target.value)}
+                          onBlur={e => handleSaveCatalogoNome(r, e.target.value)}
+                        />
+                      </TableCell>
                       <TableCell>{r.categoria ?? "—"}</TableCell>
                     </TableRow>
                   ))
