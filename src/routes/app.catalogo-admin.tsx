@@ -24,6 +24,7 @@ function CatalogoAdminPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [originals, setOriginals] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     let cancel = false;
@@ -38,8 +39,11 @@ function CatalogoAdminPage() {
       if (error) {
         console.error(error);
         setRows([]);
+        setOriginals({});
       } else {
-        setRows((data ?? []) as Row[]);
+        const raw = (data ?? []) as Row[];
+        setOriginals(Object.fromEntries(raw.map(r => [r.id, r.catalogo_nome ?? null])));
+        setRows(raw.map(r => ({ ...r, catalogo_nome: r.catalogo_nome?.trim() || r.nome })));
       }
       setLoading(false);
     })();
@@ -60,8 +64,20 @@ function CatalogoAdminPage() {
   };
 
   const handleSaveCatalogoNome = async (equipamentoId: string, valueAtBlur: string) => {
+    const row = rows.find(r => r.id === equipamentoId);
+    if (!row) return;
+
     const trimmed = valueAtBlur.trim();
-    const novo = trimmed === "" ? null : trimmed;
+    const original = originals[equipamentoId] ?? null;
+
+    const isUnchanged =
+      trimmed === (original ?? "") ||
+      (original === null && trimmed === row.nome);
+
+    if (isUnchanged) return;
+
+    const novo = trimmed === "" || trimmed === row.nome ? null : trimmed;
+
     setSavingId(equipamentoId);
     const { data, error } = await supabase
       .from("equipamentos")
@@ -75,7 +91,10 @@ function CatalogoAdminPage() {
       toast.error(error?.message ?? "ERRO AO SALVAR");
       return;
     }
-    setRows(prev => prev.map(r => r.id === equipamentoId ? (data as Row) : r));
+
+    const updated = data as Row;
+    setOriginals(prev => ({ ...prev, [equipamentoId]: updated.catalogo_nome ?? null }));
+    setRows(prev => prev.map(r => r.id === equipamentoId ? { ...updated, catalogo_nome: updated.catalogo_nome?.trim() || updated.nome } : r));
     toast.success("Salvo");
   };
 
