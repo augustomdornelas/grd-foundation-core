@@ -24,6 +24,7 @@ function CatalogoAdminPage() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [originals, setOriginals] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     let cancel = false;
