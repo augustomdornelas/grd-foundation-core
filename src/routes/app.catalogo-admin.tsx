@@ -101,6 +101,7 @@ function CatalogoAdminPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#213368]/5">
+                  <TableHead className="text-[#213368] font-bold w-16">Foto</TableHead>
                   <TableHead className="text-[#213368] font-bold">Nome interno</TableHead>
                   <TableHead className="text-[#213368] font-bold">Nome no catálogo</TableHead>
                   <TableHead className="text-[#213368] font-bold">Categoria</TableHead>
