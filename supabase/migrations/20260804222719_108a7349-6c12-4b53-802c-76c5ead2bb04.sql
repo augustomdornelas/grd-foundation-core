@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.tg_orcamento_status_nota() FROM PUBLIC, anon, authenticated;
