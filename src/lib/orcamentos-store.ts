@@ -224,7 +224,7 @@ export const orcamentosActions = {
   async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao"> & { numero?: string }): Promise<{ id: string | null; error: { message?: string } | null }> {
     const numero = input.numero || proximoNumero();
     const tempId = uid();
-    state = [{ ...input, id: tempId, numero, timeline: [], notas: [] }, ...state];
+    state = [{ ...input, id: tempId, numero, ultimaAtualizacao: new Date().toISOString().slice(0, 10), timeline: [], notas: [] }, ...state];
     emit();
     const { data, error } = await supabase
       .from("orcamentos")
