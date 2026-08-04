@@ -220,15 +220,12 @@ export const orcamentosActions = {
   proximoNumero,
   async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas"> & { numero?: string }): Promise<{ id: string | null; error: { message?: string } | null }> {
     const numero = input.numero || proximoNumero();
-    const timeline: TimelineEvento[] = [
-      { data: new Date().toISOString(), de: "\u2014", para: input.status, autor: input.responsavel },
-    ];
     const tempId = uid();
-    state = [{ ...input, id: tempId, numero, timeline, notas: [] }, ...state];
+    state = [{ ...input, id: tempId, numero, timeline: [], notas: [] }, ...state];
     emit();
     const { data, error } = await supabase
       .from("orcamentos")
-      .insert(toRow({ ...input, numero, timeline, notas: [] }))
+      .insert(toRow({ ...input, numero }))
       .select()
       .single();
     if (error) {
@@ -248,12 +245,6 @@ export const orcamentosActions = {
     const atual = state.find(o => o.id === id);
     if (!atual) return { error: { message: "Orçamento não encontrado" } };
     const novoPatch: Partial<Orcamento> = { ...patch };
-    if (patch.status && patch.status !== atual.status) {
-      novoPatch.timeline = [
-        ...atual.timeline,
-        { data: new Date().toISOString(), de: atual.status, para: patch.status, autor: patch.responsavel ?? atual.responsavel },
-      ];
-    }
     const anterior = atual;
     state = state.map(o => o.id === id ? { ...o, ...novoPatch } : o);
     emit();
@@ -282,7 +273,6 @@ export const orcamentosActions = {
     const orig = state.find(o => o.id === id);
     if (!orig) return;
     const numero = proximoNumero();
-    const timeline: TimelineEvento[] = [{ data: new Date().toISOString(), de: "\u2014", para: "LEVANTAMENTO", autor: orig.responsavel }];
     const input = {
       ...orig,
       data: new Date().toISOString().slice(0, 10),
@@ -290,12 +280,12 @@ export const orcamentosActions = {
     };
 
     const tempId = uid();
-    state = [{ ...input, id: tempId, numero, timeline, notas: [] }, ...state];
+    state = [{ ...input, id: tempId, numero, timeline: [], notas: [] }, ...state];
     emit();
     void (async () => {
       const { data, error } = await supabase
         .from("orcamentos")
-        .insert(toRow({ ...input, numero, timeline, notas: [] }))
+        .insert(toRow({ ...input, numero }))
         .select()
         .single();
       if (error) { toastErr("Falha ao duplicar orçamento", error); state = state.filter(o => o.id !== tempId); emit(); return; }
@@ -309,15 +299,6 @@ export const orcamentosActions = {
     emit();
     void supabase.from("orcamentos").delete().eq("id", id)
       .then(({ error }) => { if (error) { toastErr("Falha ao excluir orçamento", error); state = backup; emit(); } });
-  },
-  adicionarNota(id: string, autor: string, texto: string) {
-    const atual = state.find(o => o.id === id);
-    if (!atual) return;
-    const notas = [...atual.notas, { id: uid(), data: new Date().toISOString(), autor, texto }];
-    state = state.map(o => o.id === id ? { ...o, notas } : o);
-    emit();
-    void supabase.from("orcamentos").update({ notas }).eq("id", id)
-      .then(({ error }) => toastErr("Falha ao salvar nota", error));
   },
 };
 
