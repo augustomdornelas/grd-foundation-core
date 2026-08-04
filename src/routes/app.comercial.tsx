@@ -561,7 +561,7 @@ function Comercial() {
                 <SortableTh label="Obra" col="obra" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Valor" col="valor" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Responsável" col="responsavel" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <SortableTh label="Data" col="data" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                <SortableTh label="ÚLTIMA ATUALIZAÇÃO" col="ultimaAtualizacao" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Status" col="status" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -576,7 +576,12 @@ function Comercial() {
                   <TableCell className="text-xs">{o.obra}</TableCell>
                   <TableCell className="font-semibold">{brl(o.valor)}</TableCell>
                   <TableCell>{o.responsavel}</TableCell>
-                  <TableCell>{new Date(o.data).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span>{o.ultimaAtualizacao ? new Date(o.ultimaAtualizacao).toLocaleDateString("pt-BR") : "—"}</span>
+                      <AtualizacaoBadge iso={o.ultimaAtualizacao} />
+                    </div>
+                  </TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -661,6 +666,31 @@ function SortableTh({ label, col, sortBy, sortDir, onClick }: {
         {label} <Icon className="h-3 w-3" />
       </button>
     </TableHead>
+  );
+}
+
+function diasSemAtualizacao(iso: string): number {
+  if (!iso) return Infinity;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const d = new Date(iso);
+  d.setHours(0, 0, 0, 0);
+  const diff = hoje.getTime() - d.getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+function AtualizacaoBadge({ iso }: { iso: string }) {
+  const dias = diasSemAtualizacao(iso);
+  let label = "EM DIA";
+  let cls = "bg-green-600";
+  if (dias > 90) { label = "PARADO"; cls = "bg-slate-700"; }
+  else if (dias > 30) { label = "CRÍTICO"; cls = "bg-red-600"; }
+  else if (dias > 15) { label = "ALERTA"; cls = "bg-[#F37032]"; }
+  else if (dias > 7) { label = "ATENÇÃO"; cls = "bg-yellow-500"; }
+  return (
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${cls}`}>
+      {dias === Infinity ? "—" : `${dias} DIA${dias === 1 ? "" : "S"}`} · {label}
+    </span>
   );
 }
 
