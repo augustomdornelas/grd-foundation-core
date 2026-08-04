@@ -820,12 +820,50 @@ function Campo({ label, children, className = "" }: { label: string; children: R
 // ------------------------------------------------------------
 // Drawer de detalhes
 // ------------------------------------------------------------
+type NotaRow = { id: string; orcamento_id: string; texto: string; tipo: string; autor: string; created_at: string };
+
 function DetalheDrawer({ orcamento, onClose, onEdit }: {
   orcamento: Orcamento | null; onClose: () => void; onEdit: (o: Orcamento) => void;
 }) {
   const [nota, setNota] = useState("");
+  const [notas, setNotas] = useState<NotaRow[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const usuario = useCurrentUser();
   const atual = useOrcamentos(s => s.find(x => x.id === orcamento?.id));
   const o = atual ?? orcamento;
+  const orcId = orcamento?.id;
+
+  useEffect(() => {
+    if (!orcId) { setNotas([]); return; }
+    let ativo = true;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("orcamento_notas")
+        .select("*")
+        .eq("orcamento_id", orcId)
+        .order("created_at", { ascending: false });
+      if (!ativo) return;
+      if (error) { toast.error(`Erro ao carregar notas: ${error.message}`); setNotas([]); return; }
+      setNotas((data ?? []) as NotaRow[]);
+    })();
+    return () => { ativo = false; };
+  }, [orcId]);
+
+  async function salvarNota() {
+    if (!o || !nota.trim() || salvando) return;
+    setSalvando(true);
+    const { data, error } = await supabase
+      .from("orcamento_notas")
+      .insert({ orcamento_id: o.id, texto: nota.trim(), tipo: "NOTA", autor: usuario.nome || o.responsavel || "" })
+      .select()
+      .single();
+    setSalvando(false);
+    if (error) { toast.error(`Erro ao salvar nota: ${error.message}`); return; }
+    setNotas(prev => [data as NotaRow, ...prev]);
+    setNota("");
+    toast.success("Nota adicionada.");
+  }
+
   if (!o) return null;
 
   return (
@@ -862,32 +900,24 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
           </div>
 
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Histórico de status</div>
-            <ol className="relative border-l-2 border-[#213368]/20 pl-4">
-              {o.timeline.map((t, i) => (
-                <li key={i} className="mb-3">
-                  <div className="absolute -left-[7px] mt-1 h-3 w-3 rounded-full bg-[#F37032]" />
-                  <div className="text-xs text-muted-foreground">{new Date(t.data).toLocaleString("pt-BR")} · {t.autor}</div>
-                  <div className="text-sm font-semibold text-[#213368]">{t.de} → {t.para}</div>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div>
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notas</div>
             <div className="space-y-2">
-              {o.notas.length === 0 && <div className="text-xs text-muted-foreground">Nenhuma nota ainda.</div>}
-              {o.notas.map(n => (
+              {notas.length === 0 && <div className="text-xs text-muted-foreground">Nenhuma nota ainda.</div>}
+              {notas.map(n => (
                 <div key={n.id} className="rounded-md border bg-muted/30 p-3">
-                  <div className="text-xs text-muted-foreground">{new Date(n.data).toLocaleString("pt-BR")} · {n.autor}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString("pt-BR")} · {n.autor}</div>
+                    {n.tipo === "STATUS" && (
+                      <span className="rounded-full bg-[#F37032] px-2 py-0.5 text-[10px] font-bold text-white">STATUS</span>
+                    )}
+                  </div>
                   <div className="text-sm">{n.texto}</div>
                 </div>
               ))}
             </div>
             <div className="mt-2 flex gap-2">
               <Textarea rows={2} value={nota} onChange={e => setNota(e.target.value)} placeholder="Adicionar uma nota..." />
-              <Button onClick={() => { if (nota.trim()) { orcamentosActions.adicionarNota(o.id, o.responsavel, nota.trim()); setNota(""); toast.success("Nota adicionada."); } }}
+              <Button onClick={() => void salvarNota()} disabled={salvando}
                       className="bg-[#213368] text-white hover:bg-[#213368]/90">Salvar</Button>
             </div>
           </div>
