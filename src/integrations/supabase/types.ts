@@ -607,6 +607,7 @@ export type Database = {
           status: string
           timeline: Json
           tipo_servico: string
+          ultima_atualizacao: string | null
           updated_at: string
           valor: number
         }
@@ -628,6 +629,7 @@ export type Database = {
           status?: string
           timeline?: Json
           tipo_servico?: string
+          ultima_atualizacao?: string | null
           updated_at?: string
           valor?: number
         }
@@ -649,6 +651,7 @@ export type Database = {
           status?: string
           timeline?: Json
           tipo_servico?: string
+          ultima_atualizacao?: string | null
           updated_at?: string
           valor?: number
         }
