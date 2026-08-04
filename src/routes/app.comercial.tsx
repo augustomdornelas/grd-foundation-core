@@ -576,7 +576,12 @@ function Comercial() {
                   <TableCell className="text-xs">{o.obra}</TableCell>
                   <TableCell className="font-semibold">{brl(o.valor)}</TableCell>
                   <TableCell>{o.responsavel}</TableCell>
-                  <TableCell>{new Date(o.data).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span>{o.ultimaAtualizacao ? new Date(o.ultimaAtualizacao).toLocaleDateString("pt-BR") : "—"}</span>
+                      <AtualizacaoBadge iso={o.ultimaAtualizacao} />
+                    </div>
+                  </TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
