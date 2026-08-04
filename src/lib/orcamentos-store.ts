@@ -161,8 +161,6 @@ function toRow(o: Partial<Orcamento>) {
     if (o.probabilidade !== undefined) row.probabilidade = o.probabilidade;
     if (o.observacoes !== undefined) row.observacoes = o.observacoes;
     if (o.anexo !== undefined) row.anexo = o.anexo;
-    if (o.timeline !== undefined) row.timeline = o.timeline;
-    if (o.notas !== undefined) row.notas = o.notas;
     return upperizePayload(row, ["timeline", "notas", "anexo", "status", "descricao", "observacoes"]);
 }
 
