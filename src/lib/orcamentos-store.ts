@@ -221,7 +221,7 @@ function proximoNumero(): string {
 
 export const orcamentosActions = {
   proximoNumero,
-  async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas"> & { numero?: string }): Promise<{ id: string | null; error: { message?: string } | null }> {
+  async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao"> & { numero?: string }): Promise<{ id: string | null; error: { message?: string } | null }> {
     const numero = input.numero || proximoNumero();
     const tempId = uid();
     state = [{ ...input, id: tempId, numero, timeline: [], notas: [] }, ...state];
