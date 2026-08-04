@@ -33,6 +33,7 @@ import {
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
 import { supabase } from "@/integrations/supabase/client";
+import { useCurrentUser } from "@/lib/current-user";
 import * as XLSX from "xlsx";
 
 
