@@ -59,6 +59,7 @@ export type Orcamento = {
     probabilidade: number;
     observacoes: string;
     anexo?: string;
+    ultimaAtualizacao: string;
     timeline: TimelineEvento[];
     notas: Nota[];
 };
@@ -113,6 +114,7 @@ type OrcamentoRow = {
     data_emissao: string | null;
     prazo_validade: string | null;
     status: string | null;
+    ultima_atualizacao: string | null;
 
     probabilidade: number | null;
     observacoes: string | null;
@@ -135,6 +137,7 @@ function fromRow(r: OrcamentoRow): Orcamento {
           data: r.data_emissao ?? "",
           validade: r.prazo_validade ?? "",
           status: (r.status as OrcStatus) ?? "LEVANTAMENTO",
+          ultimaAtualizacao: r.ultima_atualizacao ?? "",
 
           probabilidade: Number(r.probabilidade ?? 0) || 0,
           observacoes: r.observacoes ?? "",
