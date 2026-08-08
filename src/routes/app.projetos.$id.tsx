@@ -447,7 +447,7 @@ function ProjetoDetalhe() {
 // a busca no Supabase só acontece quando o usuário abre a aba.
 // ------------------------------------------------------------
 const dataBR = (iso: string) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("pt-BR") : "—");
-const num = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const num = (n: number) => (Number.isFinite(Number(n)) ? Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—");
 
 function AbaLancamentos({ projetoId }: { projetoId: string }) {
   const { lancamentos, carregando } = useLancamentosProjeto(projetoId);
@@ -552,6 +552,12 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
             {projeto.metragem > 0 && <> · Metragem: <b>{num(projeto.metragem)} m²</b></>}
           </p>
         </div>
+        {execucao.qtdLinhas === 0 && (
+          <p className="mb-4 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+            Nenhum lançamento para este projeto — a coluna Executado fica zerada e a Diferença
+            repete o planejado.
+          </p>
+        )}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

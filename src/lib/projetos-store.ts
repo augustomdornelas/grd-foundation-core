@@ -140,11 +140,13 @@ async function fetchAll() {
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
       clienteId: r.cliente_id ?? null,
       orcamentoId: r.orcamento_id ?? null,
-      valorContrato: Number(r.valor_contrato ?? 0) || 0,
+      valorContrato: num(r.valor_contrato),
       local: r.local ?? "", descricao: r.descricao ?? "",
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
       prazo: r.prazo ?? "", status: r.status ?? "PLANEJAMENTO",
-      progresso: r.progresso ?? 0, orcado: r.orcado ?? 0,
+      // num() em tudo que entra em conta: colunas numeric podem chegar
+      // como string e "10" - 5 daria NaN na tela.
+      progresso: num(r.progresso), orcado: num(r.orcado),
       planejadoLucroPct: num(r.planejado_lucro_pct),
       planejadoImpostoPct: num(r.planejado_imposto_pct),
       planejadoMoPct: num(r.planejado_mo_pct),
@@ -157,17 +159,17 @@ async function fetchAll() {
     custos: (c.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", data: r.data ?? "",
       descricao: r.descricao ?? "", categoria: r.categoria ?? "Outro",
-      valor: r.valor ?? 0,
+      valor: num(r.valor),
     })),
     notas: (n.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? "",
       fornecedor: r.fornecedor ?? "", descricao: r.descricao ?? "",
-      data: r.data ?? "", valor: r.valor ?? 0, status: r.status ?? "PENDENTE",
+      data: r.data ?? "", valor: num(r.valor), status: r.status ?? "PENDENTE",
     })),
     medicoes: (m.data ?? []).map((r: any) => ({
-      id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? 0,
+      id: r.id, projetoId: r.projeto_id ?? "", numero: num(r.numero),
       periodo: r.periodo ?? "", data: r.data ?? "",
-      pct: r.pct ?? 0, valor: r.valor ?? 0, status: r.status ?? "EM ANÁLISE",
+      pct: num(r.pct), valor: num(r.valor), status: r.status ?? "EM ANÁLISE",
     })),
   };
   emit();
