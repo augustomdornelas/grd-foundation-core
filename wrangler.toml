@@ -1,25 +1,13 @@
 name = "grd-foundation-core"
-
-# ------------------------------------------------------------
-# Cloudflare Pages (advanced mode).
-#
-# O build do Vite gera tudo dentro de dist/client:
-#   dist/client/assets/**        -> estáticos servidos pelo Pages
-#   dist/client/_worker.js/      -> bundle SSR (entry index.js)
-#
-# O Pages não serve o conteúdo de _worker.js como estático — ele usa a
-# pasta como worker (directory format), então o bundle do servidor não
-# vaza para a web.
-#
-# Chaves de Workers (main, [assets]) NÃO valem aqui: com
-# pages_build_output_dir o wrangler passa a tratar o projeto como Pages
-# e recusa `wrangler deploy`. O deploy é `wrangler pages deploy`
-# (ou o CI do Pages, com build output directory = dist/client).
-# ------------------------------------------------------------
-pages_build_output_dir = "dist/client"
-
+main = "dist/server/server.js"
 compatibility_date = "2025-05-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Assets estáticos gerados pelo build (client). O Cloudflare serve os
+# arquivos estáticos primeiro; o que não casar cai no worker (SSR).
+[assets]
+directory = "./dist/client"
+binding = "ASSETS"
 
 [vars]
 APP_VERSION = "3"
