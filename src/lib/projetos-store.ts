@@ -73,12 +73,38 @@ const listeners = new Set<() => void>();
 function emit() { listeners.forEach(l => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 
+// O Supabase limita cada resposta a 1000 linhas. Tabelas grandes (custos tem
+// mais de 11 mil registros) precisam ser lidas em lotes, senão a maior parte
+// dos dados nunca chega e as telas de projeto aparecem vazias.
+const PAGE_SIZE = 1000;
+
+async function fetchPaginado(
+  tabela: "custos" | "notas_fiscais" | "medicoes",
+  ordenarPor: string,
+): Promise<{ data: any[]; error: { message?: string } | null }> {
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from(tabela)
+      .select("*")
+      .order(ordenarPor, { ascending: false })
+      // desempate estável: sem ele linhas com a mesma data podem repetir ou
+      // desaparecer entre lotes
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) return { data: rows, error };
+    const lote = data ?? [];
+    rows.push(...lote);
+    if (lote.length < PAGE_SIZE) return { data: rows, error: null };
+  }
+}
+
 async function fetchAll() {
   const [p, c, n, m] = await Promise.all([
     supabase.from("projetos").select("*").order("created_at", { ascending: false }),
-    supabase.from("custos").select("*").order("data", { ascending: false }),
-    supabase.from("notas_fiscais").select("*").order("data", { ascending: false }),
-    supabase.from("medicoes").select("*").order("data", { ascending: false }),
+    fetchPaginado("custos", "data"),
+    fetchPaginado("notas_fiscais", "data"),
+    fetchPaginado("medicoes", "data"),
   ]);
   toastErr("Falha ao carregar projetos", p.error);
   toastErr("Falha ao carregar custos", c.error);
