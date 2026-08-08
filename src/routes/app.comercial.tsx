@@ -33,6 +33,7 @@ import {
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
 import { supabase } from "@/integrations/supabase/client";
+import { useCurrentUser } from "@/lib/current-user";
 import * as XLSX from "xlsx";
 
 
@@ -560,7 +561,7 @@ function Comercial() {
                 <SortableTh label="Obra" col="obra" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Valor" col="valor" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Responsável" col="responsavel" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
-                <SortableTh label="Data" col="data" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
+                <SortableTh label="ÚLTIMA ATUALIZAÇÃO" col="ultimaAtualizacao" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <SortableTh label="Status" col="status" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort} />
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -575,7 +576,12 @@ function Comercial() {
                   <TableCell className="text-xs">{o.obra}</TableCell>
                   <TableCell className="font-semibold">{brl(o.valor)}</TableCell>
                   <TableCell>{o.responsavel}</TableCell>
-                  <TableCell>{new Date(o.data).toLocaleDateString("pt-BR")}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span>{o.ultimaAtualizacao ? new Date(o.ultimaAtualizacao).toLocaleDateString("pt-BR") : "—"}</span>
+                      <AtualizacaoBadge iso={o.ultimaAtualizacao} />
+                    </div>
+                  </TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -660,6 +666,31 @@ function SortableTh({ label, col, sortBy, sortDir, onClick }: {
         {label} <Icon className="h-3 w-3" />
       </button>
     </TableHead>
+  );
+}
+
+function diasSemAtualizacao(iso: string): number {
+  if (!iso) return Infinity;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const d = new Date(iso);
+  d.setHours(0, 0, 0, 0);
+  const diff = hoje.getTime() - d.getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+function AtualizacaoBadge({ iso }: { iso: string }) {
+  const dias = diasSemAtualizacao(iso);
+  let label = "EM DIA";
+  let cls = "bg-green-600";
+  if (dias > 90) { label = "PARADO"; cls = "bg-slate-700"; }
+  else if (dias > 30) { label = "CRÍTICO"; cls = "bg-red-600"; }
+  else if (dias > 15) { label = "ALERTA"; cls = "bg-[#F37032]"; }
+  else if (dias > 7) { label = "ATENÇÃO"; cls = "bg-yellow-500"; }
+  return (
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${cls}`}>
+      {dias === Infinity ? "—" : `${dias} DIA${dias === 1 ? "" : "S"}`} · {label}
+    </span>
   );
 }
 
@@ -820,12 +851,50 @@ function Campo({ label, children, className = "" }: { label: string; children: R
 // ------------------------------------------------------------
 // Drawer de detalhes
 // ------------------------------------------------------------
+type NotaRow = { id: string; orcamento_id: string; texto: string; tipo: string; autor: string; created_at: string };
+
 function DetalheDrawer({ orcamento, onClose, onEdit }: {
   orcamento: Orcamento | null; onClose: () => void; onEdit: (o: Orcamento) => void;
 }) {
   const [nota, setNota] = useState("");
+  const [notas, setNotas] = useState<NotaRow[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const usuario = useCurrentUser();
   const atual = useOrcamentos(s => s.find(x => x.id === orcamento?.id));
   const o = atual ?? orcamento;
+  const orcId = orcamento?.id;
+
+  useEffect(() => {
+    if (!orcId) { setNotas([]); return; }
+    let ativo = true;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("orcamento_notas")
+        .select("*")
+        .eq("orcamento_id", orcId)
+        .order("created_at", { ascending: false });
+      if (!ativo) return;
+      if (error) { toast.error(`Erro ao carregar notas: ${error.message}`); setNotas([]); return; }
+      setNotas((data ?? []) as NotaRow[]);
+    })();
+    return () => { ativo = false; };
+  }, [orcId]);
+
+  async function salvarNota() {
+    if (!o || !nota.trim() || salvando) return;
+    setSalvando(true);
+    const { data, error } = await supabase
+      .from("orcamento_notas")
+      .insert({ orcamento_id: o.id, texto: nota.trim(), tipo: "NOTA", autor: usuario.nome || o.responsavel || "" })
+      .select()
+      .single();
+    setSalvando(false);
+    if (error) { toast.error(`Erro ao salvar nota: ${error.message}`); return; }
+    setNotas(prev => [data as NotaRow, ...prev]);
+    setNota("");
+    toast.success("Nota adicionada.");
+  }
+
   if (!o) return null;
 
   return (
@@ -862,32 +931,24 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
           </div>
 
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Histórico de status</div>
-            <ol className="relative border-l-2 border-[#213368]/20 pl-4">
-              {o.timeline.map((t, i) => (
-                <li key={i} className="mb-3">
-                  <div className="absolute -left-[7px] mt-1 h-3 w-3 rounded-full bg-[#F37032]" />
-                  <div className="text-xs text-muted-foreground">{new Date(t.data).toLocaleString("pt-BR")} · {t.autor}</div>
-                  <div className="text-sm font-semibold text-[#213368]">{t.de} → {t.para}</div>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div>
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notas</div>
             <div className="space-y-2">
-              {o.notas.length === 0 && <div className="text-xs text-muted-foreground">Nenhuma nota ainda.</div>}
-              {o.notas.map(n => (
+              {notas.length === 0 && <div className="text-xs text-muted-foreground">Nenhuma nota ainda.</div>}
+              {notas.map(n => (
                 <div key={n.id} className="rounded-md border bg-muted/30 p-3">
-                  <div className="text-xs text-muted-foreground">{new Date(n.data).toLocaleString("pt-BR")} · {n.autor}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString("pt-BR")} · {n.autor}</div>
+                    {n.tipo === "STATUS" && (
+                      <span className="rounded-full bg-[#F37032] px-2 py-0.5 text-[10px] font-bold text-white">STATUS</span>
+                    )}
+                  </div>
                   <div className="text-sm">{n.texto}</div>
                 </div>
               ))}
             </div>
             <div className="mt-2 flex gap-2">
               <Textarea rows={2} value={nota} onChange={e => setNota(e.target.value)} placeholder="Adicionar uma nota..." />
-              <Button onClick={() => { if (nota.trim()) { orcamentosActions.adicionarNota(o.id, o.responsavel, nota.trim()); setNota(""); toast.success("Nota adicionada."); } }}
+              <Button onClick={() => void salvarNota()} disabled={salvando}
                       className="bg-[#213368] text-white hover:bg-[#213368]/90">Salvar</Button>
             </div>
           </div>

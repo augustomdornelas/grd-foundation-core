@@ -550,6 +550,44 @@ export type Database = {
           },
         ]
       }
+      orcamento_notas: {
+        Row: {
+          autor: string
+          created_at: string
+          id: string
+          orcamento_id: string
+          texto: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          autor?: string
+          created_at?: string
+          id?: string
+          orcamento_id: string
+          texto?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          autor?: string
+          created_at?: string
+          id?: string
+          orcamento_id?: string
+          texto?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamento_notas_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orcamentos: {
         Row: {
           anexo: string | null
@@ -569,6 +607,7 @@ export type Database = {
           status: string
           timeline: Json
           tipo_servico: string
+          ultima_atualizacao: string | null
           updated_at: string
           valor: number
         }
@@ -590,6 +629,7 @@ export type Database = {
           status?: string
           timeline?: Json
           tipo_servico?: string
+          ultima_atualizacao?: string | null
           updated_at?: string
           valor?: number
         }
@@ -611,6 +651,7 @@ export type Database = {
           status?: string
           timeline?: Json
           tipo_servico?: string
+          ultima_atualizacao?: string | null
           updated_at?: string
           valor?: number
         }
