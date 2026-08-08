@@ -346,6 +346,138 @@ export type Database = {
         }
         Relationships: []
       }
+      fornecedores: {
+        Row: {
+          ativo: boolean
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          contato: string | null
+          created_at: string
+          endereco: string | null
+          estado: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          old_id: number | null
+          telefone: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          contato?: string | null
+          created_at?: string
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          old_id?: number | null
+          telefone?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          contato?: string | null
+          created_at?: string
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          old_id?: number | null
+          telefone?: string | null
+        }
+        Relationships: []
+      }
+      lancamentos: {
+        Row: {
+          categoria: string | null
+          categoria_grupo: string | null
+          created_at: string
+          data_executada: string | null
+          data_planejada: string | null
+          descricao: string | null
+          fluxo: string | null
+          fornecedor_id: string | null
+          funcionario_old_id: number | null
+          id: string
+          numero_medicao: number | null
+          numero_nota: number | null
+          old_id: number | null
+          projeto_id: string | null
+          quantidade: number
+          tipo: string | null
+          unidade: string | null
+          updated_at: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          categoria?: string | null
+          categoria_grupo?: string | null
+          created_at?: string
+          data_executada?: string | null
+          data_planejada?: string | null
+          descricao?: string | null
+          fluxo?: string | null
+          fornecedor_id?: string | null
+          funcionario_old_id?: number | null
+          id?: string
+          numero_medicao?: number | null
+          numero_nota?: number | null
+          old_id?: number | null
+          projeto_id?: string | null
+          quantidade?: number
+          tipo?: string | null
+          unidade?: string | null
+          updated_at?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          categoria?: string | null
+          categoria_grupo?: string | null
+          created_at?: string
+          data_executada?: string | null
+          data_planejada?: string | null
+          descricao?: string | null
+          fluxo?: string | null
+          fornecedor_id?: string | null
+          funcionario_old_id?: number | null
+          id?: string
+          numero_medicao?: number | null
+          numero_nota?: number | null
+          old_id?: number | null
+          projeto_id?: string | null
+          quantidade?: number
+          tipo?: string | null
+          unidade?: string | null
+          updated_at?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locais_equipamentos: {
         Row: {
           created_at: string

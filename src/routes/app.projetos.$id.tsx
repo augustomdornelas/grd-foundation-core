@@ -16,6 +16,7 @@ import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
 import { useProjetosStore, projetosActions, resumoProjeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { useLancamentosProjeto, resumoLancamentos, dataDoLancamento } from "@/lib/lancamentos-store";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/$id")({
@@ -175,6 +176,7 @@ function ProjetoDetalhe() {
           <TabsTrigger value="fin">Financeiro</TabsTrigger>
           <TabsTrigger value="notas">Notas</TabsTrigger>
           <TabsTrigger value="med">Medições</TabsTrigger>
+          <TabsTrigger value="lanc">Lançamentos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 grid gap-6 lg:grid-cols-3">
@@ -395,6 +397,10 @@ function ProjetoDetalhe() {
             </Table>
           </Card>
         </TabsContent>
+
+        <TabsContent value="lanc" className="mt-4">
+          <AbaLancamentos projetoId={id} />
+        </TabsContent>
       </Tabs>
 
       {/* Editar projeto */}
@@ -425,6 +431,83 @@ function ProjetoDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Aba Lançamentos — livro-caixa migrado do sistema antigo.
+// Fica num componente separado porque o Radix só monta a aba ativa:
+// a busca no Supabase só acontece quando o usuário abre a aba.
+// ------------------------------------------------------------
+const dataBR = (iso: string) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("pt-BR") : "—");
+const num = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+function AbaLancamentos({ projetoId }: { projetoId: string }) {
+  const { lancamentos, carregando } = useLancamentosProjeto(projetoId);
+  const resumo = useMemo(() => resumoLancamentos(lancamentos), [lancamentos]);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="p-6">
+          <div className="text-xs text-muted-foreground">Entradas ({resumo.qtdEntradas})</div>
+          <div className="text-xl font-extrabold text-emerald-600">{brl(resumo.entradas)}</div>
+        </Card>
+        <Card className="p-6">
+          <div className="text-xs text-muted-foreground">Saídas ({resumo.qtdSaidas})</div>
+          <div className="text-xl font-extrabold text-[#F37032]">{brl(resumo.saidas)}</div>
+        </Card>
+        <Card className="p-6">
+          <div className="text-xs text-muted-foreground">Saldo (entradas − saídas)</div>
+          <div className={`text-xl font-extrabold ${resumo.saldo < 0 ? "text-destructive" : "text-[#213368]"}`}>{brl(resumo.saldo)}</div>
+        </Card>
+      </div>
+
+      <Card className="p-6">
+        <div className="mb-4">
+          <h3 className="font-bold text-[#213368]">Lançamentos</h3>
+          <p className="text-xs text-muted-foreground">{lancamentos.length} lançamento(s) do livro-caixa deste projeto.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Fornecedor</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Un.</TableHead>
+                <TableHead className="text-right">Qtd.</TableHead>
+                <TableHead className="text-right">Vlr. unit.</TableHead>
+                <TableHead className="text-right">Vlr. total</TableHead>
+                <TableHead>Fluxo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {carregando && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Carregando lançamentos…</TableCell></TableRow>}
+              {!carregando && lancamentos.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Nenhum lançamento para este projeto.</TableCell></TableRow>}
+              {lancamentos.map(l => (
+                <TableRow key={l.id}>
+                  <TableCell className="whitespace-nowrap">{dataBR(dataDoLancamento(l))}</TableCell>
+                  <TableCell className="whitespace-nowrap">{l.categoria || l.categoriaGrupo || "—"}</TableCell>
+                  <TableCell>{l.fornecedorNome || "—"}</TableCell>
+                  <TableCell>{l.descricao || "—"}</TableCell>
+                  <TableCell>{l.unidade || "—"}</TableCell>
+                  <TableCell className="text-right">{num(l.quantidade)}</TableCell>
+                  <TableCell className="text-right">{brl(l.valorUnitario)}</TableCell>
+                  <TableCell className="text-right font-semibold">{brl(l.valorTotal)}</TableCell>
+                  <TableCell>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${l.fluxo === "entrada" ? "bg-emerald-100 text-emerald-700" : "bg-orange-100 text-[#F37032]"}`}>
+                      {l.fluxo === "entrada" ? "Entrada" : "Saída"}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
     </div>
   );
 }
