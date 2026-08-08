@@ -9,33 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CatalogoRouteImport } from './routes/catalogo'
-import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as CatalogoRouteImport } from './routes/catalogo'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as AppWebmailRouteImport } from './routes/app.webmail'
-import { Route as AppEpisRouteImport } from './routes/app.epis'
-import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
-import { Route as AppPontoRouteImport } from './routes/app.ponto'
-import { Route as AppComercialRouteImport } from './routes/app.comercial'
-import { Route as AppCatalogoAdminRouteImport } from './routes/app.catalogo-admin'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
-import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
-import { Route as AppEquipamentosIndexRouteImport } from './routes/app.equipamentos.index'
+import { Route as AppCatalogoAdminRouteImport } from './routes/app.catalogo-admin'
+import { Route as AppComercialRouteImport } from './routes/app.comercial'
+import { Route as AppEpisRouteImport } from './routes/app.epis'
+import { Route as AppPontoRouteImport } from './routes/app.ponto'
+import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
+import { Route as AppWebmailRouteImport } from './routes/app.webmail'
 import { Route as AppClientesIndexRouteImport } from './routes/app.clientes.index'
-import { Route as AppProjetosIdRouteImport } from './routes/app.projetos.$id'
-import { Route as AppEquipamentosIdRouteImport } from './routes/app.equipamentos.$id'
 import { Route as AppClientesIdRouteImport } from './routes/app.clientes.$id'
+import { Route as AppEquipamentosIndexRouteImport } from './routes/app.equipamentos.index'
+import { Route as AppEquipamentosIdRouteImport } from './routes/app.equipamentos.$id'
+import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
+import { Route as AppProjetosIdRouteImport } from './routes/app.projetos.$id'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CatalogoRoute = CatalogoRouteImport.update({
-  id: '/catalogo',
-  path: '/catalogo',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -43,9 +38,14 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CatalogoRoute = CatalogoRouteImport.update({
+  id: '/catalogo',
+  path: '/catalogo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -53,29 +53,9 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppWebmailRoute = AppWebmailRouteImport.update({
-  id: '/webmail',
-  path: '/webmail',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEpisRoute = AppEpisRouteImport.update({
-  id: '/epis',
-  path: '/epis',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPrevisaoRoute = AppPrevisaoRouteImport.update({
-  id: '/previsao',
-  path: '/previsao',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPontoRoute = AppPontoRouteImport.update({
-  id: '/ponto',
-  path: '/ponto',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppComercialRoute = AppComercialRouteImport.update({
-  id: '/comercial',
-  path: '/comercial',
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCatalogoAdminRoute = AppCatalogoAdminRouteImport.update({
@@ -83,19 +63,29 @@ const AppCatalogoAdminRoute = AppCatalogoAdminRouteImport.update({
   path: '/catalogo-admin',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AppComercialRoute = AppComercialRouteImport.update({
+  id: '/comercial',
+  path: '/comercial',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProjetosIndexRoute = AppProjetosIndexRouteImport.update({
-  id: '/projetos/',
-  path: '/projetos/',
+const AppEpisRoute = AppEpisRouteImport.update({
+  id: '/epis',
+  path: '/epis',
   getParentRoute: () => AppRoute,
 } as any)
-const AppEquipamentosIndexRoute = AppEquipamentosIndexRouteImport.update({
-  id: '/equipamentos/',
-  path: '/equipamentos/',
+const AppPontoRoute = AppPontoRouteImport.update({
+  id: '/ponto',
+  path: '/ponto',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrevisaoRoute = AppPrevisaoRouteImport.update({
+  id: '/previsao',
+  path: '/previsao',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWebmailRoute = AppWebmailRouteImport.update({
+  id: '/webmail',
+  path: '/webmail',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClientesIndexRoute = AppClientesIndexRouteImport.update({
@@ -103,9 +93,14 @@ const AppClientesIndexRoute = AppClientesIndexRouteImport.update({
   path: '/clientes/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProjetosIdRoute = AppProjetosIdRouteImport.update({
-  id: '/projetos/$id',
-  path: '/projetos/$id',
+const AppClientesIdRoute = AppClientesIdRouteImport.update({
+  id: '/clientes/$id',
+  path: '/clientes/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEquipamentosIndexRoute = AppEquipamentosIndexRouteImport.update({
+  id: '/equipamentos/',
+  path: '/equipamentos/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEquipamentosIdRoute = AppEquipamentosIdRouteImport.update({
@@ -113,9 +108,14 @@ const AppEquipamentosIdRoute = AppEquipamentosIdRouteImport.update({
   path: '/equipamentos/$id',
   getParentRoute: () => AppRoute,
 } as any)
-const AppClientesIdRoute = AppClientesIdRouteImport.update({
-  id: '/clientes/$id',
-  path: '/clientes/$id',
+const AppProjetosIndexRoute = AppProjetosIndexRouteImport.update({
+  id: '/projetos/',
+  path: '/projetos/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProjetosIdRoute = AppProjetosIdRouteImport.update({
+  id: '/projetos/$id',
+  path: '/projetos/$id',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -127,10 +127,10 @@ export interface FileRoutesByFullPath {
   '/app/admin': typeof AppAdminRoute
   '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
+  '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
-  '/app/epis': typeof AppEpisRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
@@ -146,10 +146,10 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminRoute
   '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
+  '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
-  '/app/epis': typeof AppEpisRoute
   '/app': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
@@ -157,7 +157,6 @@ export interface FileRoutesByTo {
   '/app/clientes': typeof AppClientesIndexRoute
   '/app/equipamentos': typeof AppEquipamentosIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
-  '/app/epis': typeof AppEpisRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,10 +167,10 @@ export interface FileRoutesById {
   '/app/admin': typeof AppAdminRoute
   '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
+  '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
-  '/app/epis': typeof AppEpisRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
@@ -190,10 +189,10 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/catalogo-admin'
     | '/app/comercial'
+    | '/app/epis'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
-    | '/app/epis'
     | '/app/'
     | '/app/clientes/$id'
     | '/app/equipamentos/$id'
@@ -209,10 +208,10 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/catalogo-admin'
     | '/app/comercial'
+    | '/app/epis'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
-    | '/app/epis'
     | '/app'
     | '/app/clientes/$id'
     | '/app/equipamentos/$id'
@@ -229,10 +228,10 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/catalogo-admin'
     | '/app/comercial'
+    | '/app/epis'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
-    | '/app/epis'
     | '/app/'
     | '/app/clientes/$id'
     | '/app/equipamentos/$id'
@@ -251,18 +250,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/catalogo': {
-      id: '/catalogo'
-      path: '/catalogo'
-      fullPath: '/catalogo'
-      preLoaderRoute: typeof CatalogoRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -272,11 +264,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/catalogo': {
+      id: '/catalogo'
+      path: '/catalogo'
+      fullPath: '/catalogo'
+      preLoaderRoute: typeof CatalogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -286,39 +285,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/webmail': {
-      id: '/app/webmail'
-      path: '/webmail'
-      fullPath: '/app/webmail'
-      preLoaderRoute: typeof AppWebmailRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/epis': {
-      id: '/app/epis'
-      path: '/epis'
-      fullPath: '/app/epis'
-      preLoaderRoute: typeof AppEpisRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/previsao': {
-      id: '/app/previsao'
-      path: '/previsao'
-      fullPath: '/app/previsao'
-      preLoaderRoute: typeof AppPrevisaoRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/ponto': {
-      id: '/app/ponto'
-      path: '/ponto'
-      fullPath: '/app/ponto'
-      preLoaderRoute: typeof AppPontoRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/comercial': {
-      id: '/app/comercial'
-      path: '/comercial'
-      fullPath: '/app/comercial'
-      preLoaderRoute: typeof AppComercialRouteImport
+    '/app/admin': {
+      id: '/app/admin'
+      path: '/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/catalogo-admin': {
@@ -328,25 +299,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCatalogoAdminRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/admin': {
-      id: '/app/admin'
-      path: '/admin'
-      fullPath: '/app/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
+    '/app/comercial': {
+      id: '/app/comercial'
+      path: '/comercial'
+      fullPath: '/app/comercial'
+      preLoaderRoute: typeof AppComercialRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/projetos/': {
-      id: '/app/projetos/'
-      path: '/projetos'
-      fullPath: '/app/projetos/'
-      preLoaderRoute: typeof AppProjetosIndexRouteImport
+    '/app/epis': {
+      id: '/app/epis'
+      path: '/epis'
+      fullPath: '/app/epis'
+      preLoaderRoute: typeof AppEpisRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/equipamentos/': {
-      id: '/app/equipamentos/'
-      path: '/equipamentos'
-      fullPath: '/app/equipamentos/'
-      preLoaderRoute: typeof AppEquipamentosIndexRouteImport
+    '/app/ponto': {
+      id: '/app/ponto'
+      path: '/ponto'
+      fullPath: '/app/ponto'
+      preLoaderRoute: typeof AppPontoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/previsao': {
+      id: '/app/previsao'
+      path: '/previsao'
+      fullPath: '/app/previsao'
+      preLoaderRoute: typeof AppPrevisaoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/webmail': {
+      id: '/app/webmail'
+      path: '/webmail'
+      fullPath: '/app/webmail'
+      preLoaderRoute: typeof AppWebmailRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/clientes/': {
@@ -356,11 +341,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppClientesIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/projetos/$id': {
-      id: '/app/projetos/$id'
-      path: '/projetos/$id'
-      fullPath: '/app/projetos/$id'
-      preLoaderRoute: typeof AppProjetosIdRouteImport
+    '/app/clientes/$id': {
+      id: '/app/clientes/$id'
+      path: '/clientes/$id'
+      fullPath: '/app/clientes/$id'
+      preLoaderRoute: typeof AppClientesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/equipamentos/': {
+      id: '/app/equipamentos/'
+      path: '/equipamentos'
+      fullPath: '/app/equipamentos/'
+      preLoaderRoute: typeof AppEquipamentosIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/equipamentos/$id': {
@@ -370,11 +362,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEquipamentosIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/clientes/$id': {
-      id: '/app/clientes/$id'
-      path: '/clientes/$id'
-      fullPath: '/app/clientes/$id'
-      preLoaderRoute: typeof AppClientesIdRouteImport
+    '/app/projetos/': {
+      id: '/app/projetos/'
+      path: '/projetos'
+      fullPath: '/app/projetos/'
+      preLoaderRoute: typeof AppProjetosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/projetos/$id': {
+      id: '/app/projetos/$id'
+      path: '/projetos/$id'
+      fullPath: '/app/projetos/$id'
+      preLoaderRoute: typeof AppProjetosIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -384,10 +383,10 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppCatalogoAdminRoute: typeof AppCatalogoAdminRoute
   AppComercialRoute: typeof AppComercialRoute
+  AppEpisRoute: typeof AppEpisRoute
   AppPontoRoute: typeof AppPontoRoute
   AppPrevisaoRoute: typeof AppPrevisaoRoute
   AppWebmailRoute: typeof AppWebmailRoute
-  AppEpisRoute: typeof AppEpisRoute
   AppIndexRoute: typeof AppIndexRoute
   AppClientesIdRoute: typeof AppClientesIdRoute
   AppEquipamentosIdRoute: typeof AppEquipamentosIdRoute
@@ -401,10 +400,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppCatalogoAdminRoute: AppCatalogoAdminRoute,
   AppComercialRoute: AppComercialRoute,
+  AppEpisRoute: AppEpisRoute,
   AppPontoRoute: AppPontoRoute,
   AppPrevisaoRoute: AppPrevisaoRoute,
   AppWebmailRoute: AppWebmailRoute,
-  AppEpisRoute: AppEpisRoute,
   AppIndexRoute: AppIndexRoute,
   AppClientesIdRoute: AppClientesIdRoute,
   AppEquipamentosIdRoute: AppEquipamentosIdRoute,
@@ -425,3 +424,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

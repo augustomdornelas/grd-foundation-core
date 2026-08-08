@@ -1,7 +1,13 @@
 name = "grd-foundation-core"
-compatibility_date = "2024-01-01"
+main = "dist/server/server.js"
+compatibility_date = "2025-05-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Assets estáticos gerados pelo build (client). O Cloudflare serve os
+# arquivos estáticos primeiro; o que não casar cai no worker (SSR).
+[assets]
+directory = "./dist/client"
+binding = "ASSETS"
 
 [vars]
 APP_VERSION = "3"
-
