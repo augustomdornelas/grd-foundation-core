@@ -545,7 +545,8 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
         <div className="mb-4">
           <h3 className="font-bold text-[#213368]">Planejado × Executado</h3>
           <p className="text-xs text-muted-foreground">
-            Base dos percentuais: contrato <b>{brl(q.contrato)}</b>
+            Base dos percentuais: {q.baseRotulo} <b>{brl(q.base)}</b>
+            {" · "}Contrato: <b>{brl(q.contrato)}</b>
             {" · "}Medido (entradas): <b>{brl(q.medido)}</b>
             {" · "}{execucao.qtdLinhas} lançamento(s)
             {projeto.metragem > 0 && <> · Metragem: <b>{num(projeto.metragem)} m²</b></>}
@@ -585,8 +586,8 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
         </div>
         <p className="mt-4 text-xs text-muted-foreground">
           A coluna Diferença da linha Total é planejado − executado. O card “Lucro total” usa
-          contrato − executado − impostos, conforme o modelo do sistema antigo, por isso os dois
-          valores não coincidem.
+          contrato − executado, por isso os dois valores só coincidem quando o total planejado
+          é igual ao contrato.
         </p>
       </Card>
     </div>

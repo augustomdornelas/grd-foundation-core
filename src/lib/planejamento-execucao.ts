@@ -17,7 +17,7 @@ import type { ExecucaoProjeto } from "@/lib/lancamentos-store";
 // DO CONTRATO. Se o sistema antigo aplicava sobre o custo total
 // previsto (planejado_custos), troque para "custos".
 // ------------------------------------------------------------
-const BASE_PERCENTUAIS: "contrato" | "custos" = "contrato";
+const BASE_PERCENTUAIS: "contrato" | "custos" = "custos";
 
 // ------------------------------------------------------------
 // AJUSTE 2 — natureza de planejado_custos.
@@ -34,7 +34,7 @@ const CUSTOS_PLANEJADO_EH_PERCENTUAL = false;
 // imposto duas vezes. Mantida como especificada; para descontar uma
 // única vez, mude para false.
 // ------------------------------------------------------------
-const LUCRO_TOTAL_DESCONTA_IMPOSTO_DUAS_VEZES = true;
+const LUCRO_TOTAL_DESCONTA_IMPOSTO_DUAS_VEZES: boolean = false;
 
 /** Grupos de `categoria_grupo` que ganham linha própria no quadro. */
 export const GRUPOS_QUADRO = ["MO", "MT", "ST", "TX", "CP"] as const;
@@ -60,6 +60,8 @@ export type LinhaQuadro = {
 export type QuadroPlanejamentoExecucao = {
   /** Base usada nos percentuais (ver AJUSTE 1). */
   base: number;
+  /** Como a base se chama na tela — acompanha BASE_PERCENTUAIS. */
+  baseRotulo: string;
   contrato: number;
   linhas: LinhaQuadro[];
   totalPlanejado: number;
@@ -86,6 +88,7 @@ export function montarQuadro(p: Projeto, e: ExecucaoProjeto): QuadroPlanejamento
   // sem valor_contrato caem no orçado, senão o quadro inteiro zera.
   const contrato = p.valorContrato > 0 ? p.valorContrato : p.orcado;
   const base = BASE_PERCENTUAIS === "contrato" ? contrato : p.planejadoCustos;
+  const baseRotulo = BASE_PERCENTUAIS === "contrato" ? "contrato" : "custos planejados";
 
   // --- Planejado -------------------------------------------------
   const planejado: Record<GrupoQuadro, number> = {
@@ -133,6 +136,7 @@ export function montarQuadro(p: Projeto, e: ExecucaoProjeto): QuadroPlanejamento
 
   return {
     base,
+    baseRotulo,
     contrato,
     linhas,
     totalPlanejado,
