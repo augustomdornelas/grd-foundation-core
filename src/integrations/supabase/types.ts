@@ -834,9 +834,17 @@ export type Database = {
           descricao: string | null
           id: string
           local: string | null
+          metragem: number | null
           nome: string
           orcado: number
           orcamento_id: string | null
+          planejado_administrativo_pct: number | null
+          planejado_custos: number | null
+          planejado_imposto_pct: number | null
+          planejado_lucro_pct: number | null
+          planejado_mo_pct: number | null
+          planejado_mt_pct: number | null
+          planejado_terceirizado_pct: number | null
           prazo: string | null
           progresso: number
           responsavel: string | null
@@ -852,9 +860,17 @@ export type Database = {
           descricao?: string | null
           id: string
           local?: string | null
+          metragem?: number | null
           nome: string
           orcado?: number
           orcamento_id?: string | null
+          planejado_administrativo_pct?: number | null
+          planejado_custos?: number | null
+          planejado_imposto_pct?: number | null
+          planejado_lucro_pct?: number | null
+          planejado_mo_pct?: number | null
+          planejado_mt_pct?: number | null
+          planejado_terceirizado_pct?: number | null
           prazo?: string | null
           progresso?: number
           responsavel?: string | null
@@ -870,9 +886,17 @@ export type Database = {
           descricao?: string | null
           id?: string
           local?: string | null
+          metragem?: number | null
           nome?: string
           orcado?: number
           orcamento_id?: string | null
+          planejado_administrativo_pct?: number | null
+          planejado_custos?: number | null
+          planejado_imposto_pct?: number | null
+          planejado_lucro_pct?: number | null
+          planejado_mo_pct?: number | null
+          planejado_mt_pct?: number | null
+          planejado_terceirizado_pct?: number | null
           prazo?: string | null
           progresso?: number
           responsavel?: string | null

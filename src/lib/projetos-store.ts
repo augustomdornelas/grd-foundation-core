@@ -12,6 +12,24 @@ function toastErr(msg: string, err: { message?: string } | null | undefined) {
 
 export type ProjetoStatus = "PLANEJAMENTO" | "EM ANDAMENTO" | "PARALISADO" | "CONCLUÍDO";
 
+/**
+ * Colunas de planejamento vindas do sistema antigo (todas numeric no banco;
+ * as terminadas em Pct são percentuais, as outras são valor/medida absoluta).
+ * Ficam num tipo próprio para que `criarProjeto` possa recebê-las como
+ * opcionais sem quebrar quem já chama a action.
+ */
+export type PlanejamentoProjeto = {
+  planejadoLucroPct: number;
+  planejadoImpostoPct: number;
+  planejadoMoPct: number;
+  planejadoMtPct: number;
+  planejadoTerceirizadoPct: number;
+  planejadoAdministrativoPct: number;
+  /** Valor em R$ (não é percentual). */
+  planejadoCustos: number;
+  metragem: number;
+};
+
 export type Projeto = {
   id: string;
   nome: string;
@@ -27,7 +45,14 @@ export type Projeto = {
   status: ProjetoStatus;
   progresso: number;
   orcado: number;
+} & PlanejamentoProjeto;
+
+const PLANEJAMENTO_ZERADO: PlanejamentoProjeto = {
+  planejadoLucroPct: 0, planejadoImpostoPct: 0, planejadoMoPct: 0, planejadoMtPct: 0,
+  planejadoTerceirizadoPct: 0, planejadoAdministrativoPct: 0, planejadoCustos: 0, metragem: 0,
 };
+
+const num = (v: unknown) => Number(v ?? 0) || 0;
 
 export type Custo = {
   id: string;
@@ -120,6 +145,14 @@ async function fetchAll() {
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
       prazo: r.prazo ?? "", status: r.status ?? "PLANEJAMENTO",
       progresso: r.progresso ?? 0, orcado: r.orcado ?? 0,
+      planejadoLucroPct: num(r.planejado_lucro_pct),
+      planejadoImpostoPct: num(r.planejado_imposto_pct),
+      planejadoMoPct: num(r.planejado_mo_pct),
+      planejadoMtPct: num(r.planejado_mt_pct),
+      planejadoTerceirizadoPct: num(r.planejado_terceirizado_pct),
+      planejadoAdministrativoPct: num(r.planejado_administrativo_pct),
+      planejadoCustos: num(r.planejado_custos),
+      metragem: num(r.metragem),
     })),
     custos: (c.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", data: r.data ?? "",
@@ -151,12 +184,27 @@ function uid(prefix: string) {
 }
 
 export const projetosActions = {
-  criarProjeto(input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato"> & { id?: string; orcamentoId?: string | null; valorContrato?: number }) {
+  criarProjeto(
+    input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato" | keyof PlanejamentoProjeto>
+      & { id?: string; orcamentoId?: string | null; valorContrato?: number }
+      & Partial<PlanejamentoProjeto>,
+  ) {
     const id = input.id || uid("P");
     const completo: Projeto = {
+      ...PLANEJAMENTO_ZERADO,
       ...input, id,
       orcamentoId: input.orcamentoId ?? null,
       valorContrato: input.valorContrato ?? 0,
+      // repetidos explicitamente: o spread acima sobrescreveria os zeros
+      // com undefined se o chamador passar a chave sem valor.
+      planejadoLucroPct: input.planejadoLucroPct ?? 0,
+      planejadoImpostoPct: input.planejadoImpostoPct ?? 0,
+      planejadoMoPct: input.planejadoMoPct ?? 0,
+      planejadoMtPct: input.planejadoMtPct ?? 0,
+      planejadoTerceirizadoPct: input.planejadoTerceirizadoPct ?? 0,
+      planejadoAdministrativoPct: input.planejadoAdministrativoPct ?? 0,
+      planejadoCustos: input.planejadoCustos ?? 0,
+      metragem: input.metragem ?? 0,
     };
     state = { ...state, projetos: [...state.projetos, completo] };
     emit();
@@ -184,6 +232,16 @@ export const projetosActions = {
     if (patch.status !== undefined) row.status = patch.status;
     if (patch.progresso !== undefined) row.progresso = patch.progresso;
     if (patch.orcado !== undefined) row.orcado = patch.orcado;
+    // planejamento: mapeado aqui para que um patch nessas chaves não seja
+    // silenciosamente descartado (hoje nenhuma tela edita esses campos).
+    if (patch.planejadoLucroPct !== undefined) row.planejado_lucro_pct = patch.planejadoLucroPct;
+    if (patch.planejadoImpostoPct !== undefined) row.planejado_imposto_pct = patch.planejadoImpostoPct;
+    if (patch.planejadoMoPct !== undefined) row.planejado_mo_pct = patch.planejadoMoPct;
+    if (patch.planejadoMtPct !== undefined) row.planejado_mt_pct = patch.planejadoMtPct;
+    if (patch.planejadoTerceirizadoPct !== undefined) row.planejado_terceirizado_pct = patch.planejadoTerceirizadoPct;
+    if (patch.planejadoAdministrativoPct !== undefined) row.planejado_administrativo_pct = patch.planejadoAdministrativoPct;
+    if (patch.planejadoCustos !== undefined) row.planejado_custos = patch.planejadoCustos;
+    if (patch.metragem !== undefined) row.metragem = patch.metragem;
     void supabase.from("projetos").update(upperizePayload(row)).eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirProjeto(id: string) {

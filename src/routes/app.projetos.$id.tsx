@@ -15,8 +15,9 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
-import { useProjetosStore, projetosActions, resumoProjeto, type ProjetoStatus } from "@/lib/projetos-store";
-import { useLancamentosProjeto, resumoLancamentos, dataDoLancamento } from "@/lib/lancamentos-store";
+import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { useLancamentosProjeto, useExecucaoProjeto, resumoLancamentos, dataDoLancamento } from "@/lib/lancamentos-store";
+import { montarQuadro } from "@/lib/planejamento-execucao";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/$id")({
@@ -177,6 +178,7 @@ function ProjetoDetalhe() {
           <TabsTrigger value="notas">Notas</TabsTrigger>
           <TabsTrigger value="med">Medições</TabsTrigger>
           <TabsTrigger value="lanc">Lançamentos</TabsTrigger>
+          <TabsTrigger value="plan">Planejamento × Execução</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 grid gap-6 lg:grid-cols-3">
@@ -401,6 +403,10 @@ function ProjetoDetalhe() {
         <TabsContent value="lanc" className="mt-4">
           <AbaLancamentos projetoId={id} />
         </TabsContent>
+
+        <TabsContent value="plan" className="mt-4">
+          <AbaPlanejamento projeto={p} />
+        </TabsContent>
       </Tabs>
 
       {/* Editar projeto */}
@@ -509,6 +515,90 @@ function AbaLancamentos({ projetoId }: { projetoId: string }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Aba Planejamento × Execução
+// O planejado vem das colunas planejado_* de `projetos`; o executado,
+// dos lançamentos agrupados por categoria_grupo. As fórmulas ficam em
+// @/lib/planejamento-execucao (fácil de ajustar depois da comparação
+// com o sistema antigo).
+// ------------------------------------------------------------
+function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
+  const { execucao, carregando } = useExecucaoProjeto(projeto.id);
+  const q = useMemo(() => montarQuadro(projeto, execucao), [projeto, execucao]);
+
+  if (carregando) {
+    return <Card className="p-6 text-center text-sm text-muted-foreground">Carregando execução…</Card>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <CardLucro label="Lucro em Mão de obra" valor={q.lucroMaoDeObra} />
+        <CardLucro label="Lucro em Materiais" valor={q.lucroMaterial} />
+        <CardLucro label="Lucro total" valor={q.lucroTotal} destaque />
+      </div>
+
+      <Card className="p-6">
+        <div className="mb-4">
+          <h3 className="font-bold text-[#213368]">Planejado × Executado</h3>
+          <p className="text-xs text-muted-foreground">
+            Base dos percentuais: contrato <b>{brl(q.contrato)}</b>
+            {" · "}Medido (entradas): <b>{brl(q.medido)}</b>
+            {" · "}{execucao.qtdLinhas} lançamento(s)
+            {projeto.metragem > 0 && <> · Metragem: <b>{num(projeto.metragem)} m²</b></>}
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Categoria</TableHead>
+                <TableHead className="text-right">Planejado</TableHead>
+                <TableHead className="text-right">Executado</TableHead>
+                <TableHead className="text-right">Diferença (lucro)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {q.linhas.map(l => (
+                <TableRow key={l.grupo}>
+                  <TableCell className="font-medium">{l.rotulo}</TableCell>
+                  <TableCell className="text-right">{brl(l.planejado)}</TableCell>
+                  <TableCell className="text-right text-[#F37032]">{brl(l.executado)}</TableCell>
+                  <TableCell className={`text-right font-semibold ${l.diferenca < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                    {brl(l.diferenca)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              <TableRow className="border-t-2 bg-muted/40">
+                <TableCell className="font-bold text-[#213368]">Total</TableCell>
+                <TableCell className="text-right font-bold">{brl(q.totalPlanejado)}</TableCell>
+                <TableCell className="text-right font-bold text-[#F37032]">{brl(q.totalExecutado)}</TableCell>
+                <TableCell className={`text-right font-bold ${q.totalPlanejado - q.totalExecutado < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                  {brl(q.totalPlanejado - q.totalExecutado)}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          A coluna Diferença da linha Total é planejado − executado. O card “Lucro total” usa
+          contrato − executado − impostos, conforme o modelo do sistema antigo, por isso os dois
+          valores não coincidem.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function CardLucro({ label, valor, destaque }: { label: string; valor: number; destaque?: boolean }) {
+  return (
+    <Card className={`p-6 ${destaque ? "border-[#213368]/30" : ""}`}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-1 text-2xl font-extrabold ${valor < 0 ? "text-destructive" : "text-emerald-600"}`}>{brl(valor)}</div>
+    </Card>
   );
 }
 
