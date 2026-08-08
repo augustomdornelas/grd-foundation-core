@@ -19,6 +19,7 @@ const titles: Record<string, string> = {
   "/app/previsao": "Previsão de Entrada",
   "/app/projetos": "Controle de Projetos",
   "/app/equipamentos": "Equipamentos",
+  "/app/epis": "EPIs — Segurança do Trabalho",
   "/app/clientes": "Clientes",
   "/app/webmail": "Webmail",
   "/app/catalogo-admin": "Catálogo",

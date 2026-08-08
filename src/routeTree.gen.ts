@@ -15,6 +15,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppWebmailRouteImport } from './routes/app.webmail'
+import { Route as AppEpisRouteImport } from './routes/app.epis'
 import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
 import { Route as AppPontoRouteImport } from './routes/app.ponto'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
@@ -55,6 +56,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppWebmailRoute = AppWebmailRouteImport.update({
   id: '/webmail',
   path: '/webmail',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEpisRoute = AppEpisRouteImport.update({
+  id: '/epis',
+  path: '/epis',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPrevisaoRoute = AppPrevisaoRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
+  '/app/epis': typeof AppEpisRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
+  '/app/epis': typeof AppEpisRoute
   '/app': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
   '/app/clientes': typeof AppClientesIndexRoute
   '/app/equipamentos': typeof AppEquipamentosIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
+  '/app/epis': typeof AppEpisRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,6 +171,7 @@ export interface FileRoutesById {
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
+  '/app/epis': typeof AppEpisRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
+    | '/app/epis'
     | '/app/'
     | '/app/clientes/$id'
     | '/app/equipamentos/$id'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
+    | '/app/epis'
     | '/app'
     | '/app/clientes/$id'
     | '/app/equipamentos/$id'
@@ -220,6 +232,7 @@ export interface FileRouteTypes {
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
+    | '/app/epis'
     | '/app/'
     | '/app/clientes/$id'
     | '/app/equipamentos/$id'
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       path: '/webmail'
       fullPath: '/app/webmail'
       preLoaderRoute: typeof AppWebmailRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/epis': {
+      id: '/app/epis'
+      path: '/epis'
+      fullPath: '/app/epis'
+      preLoaderRoute: typeof AppEpisRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/previsao': {
@@ -367,6 +387,7 @@ interface AppRouteChildren {
   AppPontoRoute: typeof AppPontoRoute
   AppPrevisaoRoute: typeof AppPrevisaoRoute
   AppWebmailRoute: typeof AppWebmailRoute
+  AppEpisRoute: typeof AppEpisRoute
   AppIndexRoute: typeof AppIndexRoute
   AppClientesIdRoute: typeof AppClientesIdRoute
   AppEquipamentosIdRoute: typeof AppEquipamentosIdRoute
@@ -383,6 +404,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPontoRoute: AppPontoRoute,
   AppPrevisaoRoute: AppPrevisaoRoute,
   AppWebmailRoute: AppWebmailRoute,
+  AppEpisRoute: AppEpisRoute,
   AppIndexRoute: AppIndexRoute,
   AppClientesIdRoute: AppClientesIdRoute,
   AppEquipamentosIdRoute: AppEquipamentosIdRoute,

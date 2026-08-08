@@ -19,13 +19,14 @@ import { PortfolioAdmin } from "@/components/portal/PortfolioAdmin";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-type ModuloKey = "comercial" | "projetos" | "equipamentos" | "webmail" | "admin" | "financeiro";
+type ModuloKey = "comercial" | "projetos" | "equipamentos" | "epis" | "webmail" | "admin" | "financeiro";
 type PainelKey = "comercial" | "previsao" | "projetos" | "equipamentos" | "financeiro";
 
 const MODULOS: { key: ModuloKey; label: string }[] = [
   { key: "comercial", label: "Comercial" },
   { key: "projetos", label: "Projetos" },
   { key: "equipamentos", label: "Equipamentos" },
+  { key: "epis", label: "EPIs" },
   { key: "webmail", label: "Webmail" },
   { key: "financeiro", label: "Financeiro" },
   { key: "admin", label: "Administração" },
@@ -55,15 +56,15 @@ function permissoesDoPerfil(perfil: string): Record<ModuloKey, boolean> {
   switch (perfil) {
     case "Administrador":
     case "admin":
-      return { comercial: true, projetos: true, equipamentos: true, webmail: true, admin: true, financeiro: true };
+      return { comercial: true, projetos: true, equipamentos: true, epis: true, webmail: true, admin: true, financeiro: true };
     case "Comercial":
-      return { comercial: true, projetos: false, equipamentos: false, webmail: true, admin: false, financeiro: false };
+      return { comercial: true, projetos: false, equipamentos: false, epis: false, webmail: true, admin: false, financeiro: false };
     case "Projetos":
-      return { comercial: false, projetos: true, equipamentos: false, webmail: true, admin: false, financeiro: true };
+      return { comercial: false, projetos: true, equipamentos: false, epis: false, webmail: true, admin: false, financeiro: true };
     case "Almoxarifado":
-      return { comercial: false, projetos: false, equipamentos: true, webmail: true, admin: false, financeiro: false };
+      return { comercial: false, projetos: false, equipamentos: true, epis: true, webmail: true, admin: false, financeiro: false };
     default:
-      return { comercial: false, projetos: false, equipamentos: false, webmail: true, admin: false, financeiro: false };
+      return { comercial: false, projetos: false, equipamentos: false, epis: false, webmail: true, admin: false, financeiro: false };
   }
 }
 

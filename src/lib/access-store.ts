@@ -31,11 +31,12 @@ export const PAINEL_MODULO: Record<PainelKey, ModuloKey> = {
     financeiro: "financeiro",
 };
 
-export const MODULO_KEYS: ModuloKey[] = ["comercial", "projetos", "equipamentos", "webmail", "financeiro", "admin"];
+export const MODULO_KEYS: ModuloKey[] = ["comercial", "projetos", "equipamentos", "epis", "webmail", "financeiro", "admin"];
 export const MODULO_LABEL: Record<ModuloKey, string> = {
     comercial: "Comercial",
     projetos: "Projetos",
     equipamentos: "Equipamentos",
+    epis: "EPIs",
     webmail: "Webmail",
     financeiro: "Financeiro",
     admin: "Administracao",
@@ -86,6 +87,7 @@ export function defaultModulosDoPerfil(perfil: string): Record<ModuloKey, Modulo
           comercial: { ver: permitidos.has("comercial"), editar: isAdmin || perfil === "Comercial" },
           projetos: { ver: permitidos.has("projetos"), editar: isAdmin || perfil === "Projetos" },
           equipamentos: { ver: permitidos.has("equipamentos"), editar: isAdmin || perfil === "Almoxarifado" },
+          epis: { ver: permitidos.has("epis"), editar: isAdmin || perfil === "Almoxarifado" },
           webmail: { ver: permitidos.has("webmail"), editar: permitidos.has("webmail") },
           financeiro: { ver: permitidos.has("financeiro"), editar: isAdmin },
           admin: { ver: isAdmin, editar: isAdmin },
