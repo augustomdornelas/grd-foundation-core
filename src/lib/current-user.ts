@@ -14,7 +14,6 @@ import type { Session } from "@supabase/supabase-js";
 export type ModuloKey =
     | "comercial"
   | "projetos"
-  | "equipamentos"
   | "epis"
   | "webmail"
   | "admin"
@@ -33,13 +32,13 @@ export function permissoesDoPerfil(perfil: string): ModuloKey[] {
     switch (perfil.toLowerCase()) {
       case "administrador":
       case "admin":
-              return ["comercial", "projetos", "equipamentos", "epis", "webmail", "admin", "financeiro"];
+              return ["comercial", "projetos", "epis", "webmail", "admin", "financeiro"];
       case "comercial":
               return ["comercial", "webmail"];
       case "projetos":
               return ["projetos", "webmail", "financeiro"];
       case "almoxarifado":
-              return ["equipamentos", "epis", "webmail"];
+              return ["epis", "webmail"];
       default:
               return ["webmail"];
     }

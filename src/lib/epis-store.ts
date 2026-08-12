@@ -3,7 +3,7 @@
 // ------------------------------------------------------------
 // Cobre: funcionários, catálogo de EPIs, entregas (termos) e os
 // itens de cada entrega (com data de entrega e validade calculada).
-// Segue o mesmo padrão do equipamentos-store: estado em módulo,
+// Segue o padrão dos demais stores do portal: estado em módulo,
 // subscribe/emit, hook useEpiStore com equality shallow e escrita
 // otimista no Supabase.
 // ============================================================

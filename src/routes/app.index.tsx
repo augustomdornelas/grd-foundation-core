@@ -15,7 +15,7 @@ import {
 import {
   FileText, DollarSign, CheckCircle2, Percent, Target, Handshake,
   FolderKanban, ClipboardList, Wallet, TrendingUp,
-  Package, PackageCheck, PackageX, Wrench, BarChart3, Activity,
+  BarChart3, Activity,
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/")({ component: PainelHome });
@@ -53,64 +53,29 @@ const PROJ_COLORS: Record<string, string> = {
   "CONCLUÍDO": "#16a34a",
   "PAUSADO": "#f59e0b",
 };
-const EQ_COLORS: Record<string, string> = {
-  "DISPONÍVEL": "#16a34a",
-  "ALUGADO": "#F37032",
-  "MANUTENÇÃO": "#ef4444",
-};
-
 type Row = Record<string, any>;
-
-function diffDias(ini: string, fim: string): number {
-  if (!ini || !fim) return 0;
-  const a = new Date(ini).getTime(); const b = new Date(fim).getTime();
-  if (isNaN(a) || isNaN(b)) return 0;
-  return Math.max(1, Math.round((b - a) / 86400000) + 1);
-}
-function receitaEmprestimo(e: Row): number {
-  const total = Number(e.custo_total ?? 0);
-  if (total > 0) return total;
-  const fim = e.data_devolucao_real ?? e.data_devolucao_prevista;
-  const dias = diffDias(e.data_inicio, fim);
-  const unidade = String(e.unidade ?? "dia").toLowerCase();
-  const cp = Number(e.custo_periodo ?? 0);
-  if (unidade.startsWith("mes") || unidade.startsWith("mês")) return cp * Math.max(1, Math.ceil(dias / 30));
-  if (unidade.startsWith("sem")) return cp * Math.max(1, Math.ceil(dias / 7));
-  return cp * dias;
-}
-
-
 
 function PainelHome() {
   const [loading, setLoading] = useState(true);
   const [orcamentos, setOrcamentos] = useState<Row[]>([]);
   const [projetos, setProjetos] = useState<Row[]>([]);
   const [medicoes, setMedicoes] = useState<Row[]>([]);
-  const [equipamentos, setEquipamentos] = useState<Row[]>([]);
-  const [emprestimos, setEmprestimos] = useState<Row[]>([]);
-  const [manutencoes, setManutencoes] = useState<Row[]>([]);
   const [clientes, setClientes] = useState<Row[]>([]);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
-      const [orc, proj, med, eq, emp, man, cli] = await Promise.all([
+      const [orc, proj, med, cli] = await Promise.all([
         supabase.from("orcamentos").select("*"),
         supabase.from("projetos").select("*"),
         supabase.from("medicoes").select("*"),
-        supabase.from("equipamentos").select("*"),
-        supabase.from("emprestimos").select("*"),
-        supabase.from("manutencoes").select("*"),
         supabase.from("clientes").select("id, nome"),
       ]);
       if (!alive) return;
       setOrcamentos(orc.data ?? []);
       setProjetos(proj.data ?? []);
       setMedicoes(med.data ?? []);
-      setEquipamentos(eq.data ?? []);
-      setEmprestimos(emp.data ?? []);
-      setManutencoes(man.data ?? []);
       setClientes(cli.data ?? []);
       setLoading(false);
     })();
@@ -135,14 +100,6 @@ function PainelHome() {
     .filter(m => String(m.status || "").toUpperCase() === "RECEBIDA")
     .reduce((a, m) => a + (Number(m.valor) || 0), 0);
   const saldoFaturar = Math.max(0, valorAprovado - faturado);
-
-  // === EQUIPAMENTOS ===
-  const totalEq = equipamentos.length;
-  const disponiveis = equipamentos.filter(e => e.status === "DISPONÍVEL").length;
-  const alugados = equipamentos.filter(e => e.status === "ALUGADO").length;
-  const emManut = equipamentos.filter(e => e.status === "MANUTENÇÃO").length;
-  const receitaEq = emprestimos.reduce((a, e) => a + receitaEmprestimo(e), 0);
-  const taxaUtil = totalEq > 0 ? (alugados / totalEq) * 100 : 0;
 
   // === CHARTS — agrupados por mês/ano (sem filtro) ===
   const orcPorMes = useMemo(() => {
@@ -191,22 +148,6 @@ function PainelHome() {
     return Object.entries(map).map(([name, value]) => ({ name, value, color: PROJ_COLORS[name] || "#94a3b8" }));
   }, [projetos]);
 
-  const receitaEqPorMes = useMemo(() => {
-    const buckets = bucketsMensais(emprestimos, "data_inicio");
-    const map = new Map(buckets.map(ym => [ym, { mes: fmtMesAno(ym), valor: 0 }]));
-    emprestimos.forEach(e => {
-      const ym = ymOf(e.data_inicio); if (!ym) return;
-      map.get(ym)!.valor += receitaEmprestimo(e);
-    });
-    return Array.from(map.values());
-  }, [emprestimos]);
-
-  const eqPorStatus = useMemo(() => {
-    const map: Record<string, number> = { "DISPONÍVEL": 0, "ALUGADO": 0, "MANUTENÇÃO": 0 };
-    equipamentos.forEach(e => { const s = e.status || "DISPONÍVEL"; map[s] = (map[s] || 0) + 1; });
-    return Object.entries(map).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value, color: EQ_COLORS[name] || "#94a3b8" }));
-  }, [equipamentos]);
-
   const topClientes = useMemo(() => {
     const map: Record<string, number> = {};
     aprovados.forEach(o => { const c = (o.cliente || "—").toString().toUpperCase(); map[c] = (map[c] || 0) + (Number(o.valor) || 0); });
@@ -229,21 +170,6 @@ function PainelHome() {
     [...orcamentos].sort((a, b) => (b.data_emissao || b.created_at || "").localeCompare(a.data_emissao || a.created_at || "")).slice(0, 5)
   , [orcamentos]);
   const projEmObra = useMemo(() => projAndamento.slice(0, 5), [projAndamento]);
-  const eqManut = useMemo(() => {
-    const abertas = manutencoes.filter(m => m.aberta !== false && m.status !== "CONCLUÍDA");
-    return (abertas as Row[]).slice(0, 5).map((m: Row): Row => ({
-      ...m, nomeEq: equipamentos.find(e => e.id === m.equipamento_id)?.nome || "—",
-    }));
-  }, [manutencoes, equipamentos]);
-  const proxDevolucoes = useMemo(() => {
-    const hoje = new Date().toISOString().slice(0, 10);
-    return (emprestimos as Row[])
-      .filter(e => !e.data_devolucao_real && e.data_devolucao_prevista && e.data_devolucao_prevista >= hoje)
-      .sort((a, b) => String(a.data_devolucao_prevista).localeCompare(String(b.data_devolucao_prevista)))
-      .slice(0, 5)
-      .map((e: Row): Row => ({ ...e, nomeEq: equipamentos.find(x => x.id === e.equipamento_id)?.nome || "—" }));
-  }, [emprestimos, equipamentos]);
-
 
   if (loading) return <LoadingSkeleton />;
 
@@ -278,19 +204,7 @@ function PainelHome() {
         </div>
       </Section>
 
-      {/* SEÇÃO 3 — EQUIPAMENTOS */}
-      <Section title="Equipamentos" icon={<Package className="h-4 w-4" />}>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Kpi icon={<Package />} label="Total" value={String(totalEq)} />
-          <Kpi icon={<PackageCheck />} label="Disponíveis" value={String(disponiveis)} tone="green" />
-          <Kpi icon={<PackageX />} label="Alugados" value={String(alugados)} tone="orange" />
-          <Kpi icon={<Wrench />} label="Manutenção" value={String(emManut)} tone="red" />
-          <Kpi icon={<DollarSign />} label="Receita de aluguel" value={brl(receitaEq)} tone="green" />
-          <Kpi icon={<Percent />} label="Taxa de utilização" value={`${taxaUtil.toFixed(1)}%`} />
-        </div>
-      </Section>
-
-      {/* SEÇÃO 4 — GRÁFICOS */}
+      {/* SEÇÃO 3 — GRÁFICOS */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard title="Orçamentos por mês">
           <ResponsiveContainer width="100%" height={280}>
@@ -345,30 +259,6 @@ function PainelHome() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Receita de equipamentos por mês">
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={receitaEqPorMes}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => brl(v)} />
-              <Line type="monotone" dataKey="valor" name="Receita" stroke={ORANGE} strokeWidth={3} dot={{ fill: ORANGE, r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Equipamentos por status">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={eqPorStatus} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={2}>
-                {eqPorStatus.map((e, i) => <Cell key={i} fill={e.color} />)}
-              </Pie>
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
         <ChartCard title="Top 10 clientes por valor aprovado">
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={topClientes} layout="vertical" margin={{ left: 40 }}>
@@ -394,7 +284,7 @@ function PainelHome() {
         </ChartCard>
       </div>
 
-      {/* SEÇÃO 5 — TABELAS */}
+      {/* SEÇÃO 4 — TABELAS */}
       <div className="grid gap-4 lg:grid-cols-2">
         <TableCard title="Últimos 5 orçamentos" link="/app/comercial">
           <table className="w-full text-sm">
@@ -448,47 +338,6 @@ function PainelHome() {
           </table>
         </TableCard>
 
-        <TableCard title="Equipamentos em manutenção" link="/app/equipamentos">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
-                <th className="py-2">Equipamento</th><th>Data início</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {eqManut.length === 0 && <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Nenhuma manutenção aberta</td></tr>}
-              {eqManut.map(m => (
-                <tr key={m.id} className="border-b last:border-0">
-                  <td className="py-2 font-semibold" style={{ color: NAVY }}>{m.nomeEq}</td>
-                  <td>{m.data ? new Date(m.data).toLocaleDateString("pt-BR") : "—"}</td>
-                  <td><StatusBadge status={m.status || "ABERTA"} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
-
-        <TableCard title="Próximas devoluções" link="/app/equipamentos">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs uppercase text-muted-foreground">
-                <th className="py-2">Equipamento</th><th>Responsável</th><th>Prevista</th>
-              </tr>
-            </thead>
-            <tbody>
-              {proxDevolucoes.length === 0 && <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Sem devoluções futuras</td></tr>}
-              {proxDevolucoes.map(e => (
-                <tr key={e.id} className="border-b last:border-0">
-                  <td className="py-2 font-semibold" style={{ color: NAVY }}>{e.nomeEq}</td>
-                  <td>{e.responsavel || "—"}</td>
-                  <td className="font-semibold" style={{ color: ORANGE }}>
-                    {new Date(e.data_devolucao_prevista).toLocaleDateString("pt-BR")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableCard>
       </div>
     </div>
   );

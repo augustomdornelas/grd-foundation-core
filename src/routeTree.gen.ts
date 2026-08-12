@@ -11,11 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
-import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
-import { Route as AppCatalogoAdminRouteImport } from './routes/app.catalogo-admin'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
 import { Route as AppEpisRouteImport } from './routes/app.epis'
 import { Route as AppPontoRouteImport } from './routes/app.ponto'
@@ -23,8 +21,6 @@ import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
 import { Route as AppWebmailRouteImport } from './routes/app.webmail'
 import { Route as AppClientesIndexRouteImport } from './routes/app.clientes.index'
 import { Route as AppClientesIdRouteImport } from './routes/app.clientes.$id'
-import { Route as AppEquipamentosIndexRouteImport } from './routes/app.equipamentos.index'
-import { Route as AppEquipamentosIdRouteImport } from './routes/app.equipamentos.$id'
 import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
 import { Route as AppProjetosIdRouteImport } from './routes/app.projetos.$id'
 
@@ -36,11 +32,6 @@ const IndexRoute = IndexRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CatalogoRoute = CatalogoRouteImport.update({
-  id: '/catalogo',
-  path: '/catalogo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -56,11 +47,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCatalogoAdminRoute = AppCatalogoAdminRouteImport.update({
-  id: '/catalogo-admin',
-  path: '/catalogo-admin',
   getParentRoute: () => AppRoute,
 } as any)
 const AppComercialRoute = AppComercialRouteImport.update({
@@ -98,16 +84,6 @@ const AppClientesIdRoute = AppClientesIdRouteImport.update({
   path: '/clientes/$id',
   getParentRoute: () => AppRoute,
 } as any)
-const AppEquipamentosIndexRoute = AppEquipamentosIndexRouteImport.update({
-  id: '/equipamentos/',
-  path: '/equipamentos/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppEquipamentosIdRoute = AppEquipamentosIdRouteImport.update({
-  id: '/equipamentos/$id',
-  path: '/equipamentos/$id',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppProjetosIndexRoute = AppProjetosIndexRouteImport.update({
   id: '/projetos/',
   path: '/projetos/',
@@ -122,10 +98,8 @@ const AppProjetosIdRoute = AppProjetosIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
-  '/catalogo': typeof CatalogoRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
@@ -133,18 +107,14 @@ export interface FileRoutesByFullPath {
   '/app/webmail': typeof AppWebmailRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
-  '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
   '/app/clientes/': typeof AppClientesIndexRoute
-  '/app/equipamentos/': typeof AppEquipamentosIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/catalogo': typeof CatalogoRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
@@ -152,20 +122,16 @@ export interface FileRoutesByTo {
   '/app/webmail': typeof AppWebmailRoute
   '/app': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
-  '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
   '/app/clientes': typeof AppClientesIndexRoute
-  '/app/equipamentos': typeof AppEquipamentosIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
-  '/catalogo': typeof CatalogoRoute
   '/login': typeof LoginRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/catalogo-admin': typeof AppCatalogoAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
@@ -173,10 +139,8 @@ export interface FileRoutesById {
   '/app/webmail': typeof AppWebmailRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
-  '/app/equipamentos/$id': typeof AppEquipamentosIdRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
   '/app/clientes/': typeof AppClientesIndexRoute
-  '/app/equipamentos/': typeof AppEquipamentosIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
 }
 export interface FileRouteTypes {
@@ -184,10 +148,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
-    | '/catalogo'
     | '/login'
     | '/app/admin'
-    | '/app/catalogo-admin'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
@@ -195,18 +157,14 @@ export interface FileRouteTypes {
     | '/app/webmail'
     | '/app/'
     | '/app/clientes/$id'
-    | '/app/equipamentos/$id'
     | '/app/projetos/$id'
     | '/app/clientes/'
-    | '/app/equipamentos/'
     | '/app/projetos/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/catalogo'
     | '/login'
     | '/app/admin'
-    | '/app/catalogo-admin'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
@@ -214,19 +172,15 @@ export interface FileRouteTypes {
     | '/app/webmail'
     | '/app'
     | '/app/clientes/$id'
-    | '/app/equipamentos/$id'
     | '/app/projetos/$id'
     | '/app/clientes'
-    | '/app/equipamentos'
     | '/app/projetos'
   id:
     | '__root__'
     | '/'
     | '/app'
-    | '/catalogo'
     | '/login'
     | '/app/admin'
-    | '/app/catalogo-admin'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
@@ -234,17 +188,14 @@ export interface FileRouteTypes {
     | '/app/webmail'
     | '/app/'
     | '/app/clientes/$id'
-    | '/app/equipamentos/$id'
     | '/app/projetos/$id'
     | '/app/clientes/'
-    | '/app/equipamentos/'
     | '/app/projetos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
-  CatalogoRoute: typeof CatalogoRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -262,13 +213,6 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/catalogo': {
-      id: '/catalogo'
-      path: '/catalogo'
-      fullPath: '/catalogo'
-      preLoaderRoute: typeof CatalogoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -290,13 +234,6 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/app/admin'
       preLoaderRoute: typeof AppAdminRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/catalogo-admin': {
-      id: '/app/catalogo-admin'
-      path: '/catalogo-admin'
-      fullPath: '/app/catalogo-admin'
-      preLoaderRoute: typeof AppCatalogoAdminRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/comercial': {
@@ -348,20 +285,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppClientesIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/equipamentos/': {
-      id: '/app/equipamentos/'
-      path: '/equipamentos'
-      fullPath: '/app/equipamentos/'
-      preLoaderRoute: typeof AppEquipamentosIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/equipamentos/$id': {
-      id: '/app/equipamentos/$id'
-      path: '/equipamentos/$id'
-      fullPath: '/app/equipamentos/$id'
-      preLoaderRoute: typeof AppEquipamentosIdRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/projetos/': {
       id: '/app/projetos/'
       path: '/projetos'
@@ -381,7 +304,6 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
-  AppCatalogoAdminRoute: typeof AppCatalogoAdminRoute
   AppComercialRoute: typeof AppComercialRoute
   AppEpisRoute: typeof AppEpisRoute
   AppPontoRoute: typeof AppPontoRoute
@@ -389,16 +311,13 @@ interface AppRouteChildren {
   AppWebmailRoute: typeof AppWebmailRoute
   AppIndexRoute: typeof AppIndexRoute
   AppClientesIdRoute: typeof AppClientesIdRoute
-  AppEquipamentosIdRoute: typeof AppEquipamentosIdRoute
   AppProjetosIdRoute: typeof AppProjetosIdRoute
   AppClientesIndexRoute: typeof AppClientesIndexRoute
-  AppEquipamentosIndexRoute: typeof AppEquipamentosIndexRoute
   AppProjetosIndexRoute: typeof AppProjetosIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
-  AppCatalogoAdminRoute: AppCatalogoAdminRoute,
   AppComercialRoute: AppComercialRoute,
   AppEpisRoute: AppEpisRoute,
   AppPontoRoute: AppPontoRoute,
@@ -406,10 +325,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppWebmailRoute: AppWebmailRoute,
   AppIndexRoute: AppIndexRoute,
   AppClientesIdRoute: AppClientesIdRoute,
-  AppEquipamentosIdRoute: AppEquipamentosIdRoute,
   AppProjetosIdRoute: AppProjetosIdRoute,
   AppClientesIndexRoute: AppClientesIndexRoute,
-  AppEquipamentosIndexRoute: AppEquipamentosIndexRoute,
   AppProjetosIndexRoute: AppProjetosIndexRoute,
 }
 
@@ -418,7 +335,6 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
-  CatalogoRoute: CatalogoRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

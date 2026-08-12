@@ -12,14 +12,13 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ModuloKey } from "@/lib/current-user";
 import { permissoesDoPerfil } from "@/lib/current-user";
 
-export type PainelKey = "comercial" | "previsao" | "projetos" | "equipamentos" | "financeiro";
+export type PainelKey = "comercial" | "previsao" | "projetos" | "financeiro";
 
-export const PAINEL_KEYS: PainelKey[] = ["comercial", "previsao", "projetos", "equipamentos", "financeiro"];
+export const PAINEL_KEYS: PainelKey[] = ["comercial", "previsao", "projetos", "financeiro"];
 export const PAINEL_LABEL: Record<PainelKey, string> = {
     comercial: "Comercial",
     previsao: "Previsao de Entrada",
     projetos: "Projetos",
-    equipamentos: "Equipamentos",
     financeiro: "Financeiro",
 };
 // Qual modulo cada painel depende para poder ser exibido.
@@ -27,15 +26,13 @@ export const PAINEL_MODULO: Record<PainelKey, ModuloKey> = {
     comercial: "comercial",
     previsao: "comercial",
     projetos: "projetos",
-    equipamentos: "equipamentos",
     financeiro: "financeiro",
 };
 
-export const MODULO_KEYS: ModuloKey[] = ["comercial", "projetos", "equipamentos", "epis", "webmail", "financeiro", "admin"];
+export const MODULO_KEYS: ModuloKey[] = ["comercial", "projetos", "epis", "webmail", "financeiro", "admin"];
 export const MODULO_LABEL: Record<ModuloKey, string> = {
     comercial: "Comercial",
     projetos: "Projetos",
-    equipamentos: "Equipamentos",
     epis: "EPIs",
     webmail: "Webmail",
     financeiro: "Financeiro",
@@ -86,7 +83,6 @@ export function defaultModulosDoPerfil(perfil: string): Record<ModuloKey, Modulo
     return {
           comercial: { ver: permitidos.has("comercial"), editar: isAdmin || perfil === "Comercial" },
           projetos: { ver: permitidos.has("projetos"), editar: isAdmin || perfil === "Projetos" },
-          equipamentos: { ver: permitidos.has("equipamentos"), editar: isAdmin || perfil === "Almoxarifado" },
           epis: { ver: permitidos.has("epis"), editar: isAdmin || perfil === "Almoxarifado" },
           webmail: { ver: permitidos.has("webmail"), editar: permitidos.has("webmail") },
           financeiro: { ver: permitidos.has("financeiro"), editar: isAdmin },
@@ -100,7 +96,6 @@ export function defaultPaineisDoPerfil(perfil: string): Record<PainelKey, boolea
           comercial: mods.comercial.ver,
           previsao: mods.comercial.ver,
           projetos: mods.projetos.ver,
-          equipamentos: mods.equipamentos.ver,
           financeiro: mods.financeiro.ver,
     };
 }

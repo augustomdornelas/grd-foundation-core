@@ -40,7 +40,7 @@ function LoginPage() {
         <div className="relative"><Logo variant="light" /></div>
         <div className="relative max-w-md">
           <h1 className="text-3xl font-extrabold text-white lg:text-4xl">Bem-vindo à área do colaborador</h1>
-          <p className="mt-4 text-white/70">Acesse os módulos do Grupo GRD: comercial, projetos, equipamentos, webmail e administração.</p>
+          <p className="mt-4 text-white/70">Acesse os módulos do Grupo GRD: comercial, projetos, EPIs, webmail e administração.</p>
         </div>
         <div className="relative text-xs text-white/50">© {new Date().getFullYear()} Grupo GRD</div>
       </div>
