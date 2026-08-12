@@ -15,10 +15,34 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/mock-data";
-import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { useProjetosStore, projetosActions, resumoProjeto, calcularValorNota, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { UnidadeSelect } from "@/components/portal/UnidadeSelect";
 import { useLancamentosProjeto, useExecucaoProjeto, resumoLancamentos, dataDoLancamento } from "@/lib/lancamentos-store";
 import { montarQuadro } from "@/lib/planejamento-execucao";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
+
+const NOTA_VAZIA = {
+  data: "", numero: "", fornecedor: "", descricao: "",
+  unidade: "un", quantidade: "1", valorUnitario: "",
+};
+
+/**
+ * Lê um número digitado, aceitando vírgula ou ponto como decimal.
+ *
+ * O formulário antigo usava `replace(/\D/g, "")`, que jogava fora a
+ * parte decimal — servia para valor inteiro, mas quebraria o valor
+ * unitário, onde centavos são a regra e não a exceção.
+ */
+function parseNumero(texto: string): number {
+  const limpo = texto.trim().replace(/\s/g, "");
+  if (!limpo) return 0;
+  // "1.234,56" → tira o separador de milhar e troca a vírgula por ponto.
+  const normalizado = limpo.includes(",")
+    ? limpo.replace(/\./g, "").replace(",", ".")
+    : limpo;
+  const n = Number(normalizado);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
 
 export const Route = createFileRoute("/app/projetos/$id")({
   component: ProjetoDetalhe,
@@ -49,7 +73,7 @@ function ProjetoDetalhe() {
   const [editOpen, setEditOpen] = useState(false);
 
   const [custo, setCusto] = useState({ data: hoje(), descricao: "", categoria: "Insumo" as const, valor: "" });
-  const [nota, setNota] = useState({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "PENDENTE" as const });
+  const [nota, setNota] = useState(NOTA_VAZIA);
   const [med, setMed] = useState({ data: hoje(), periodo: "", pct: "", valor: "", status: "ENVIADA" as const });
   const [edit, setEdit] = useState({
     nome: p.nome, cliente: p.cliente, clienteId: p.clienteId as string | null,
@@ -99,11 +123,23 @@ function ProjetoDetalhe() {
     setCustoOpen(false);
   };
   const submitNota = () => {
-    const valor = Number(nota.valor.replace(/\D/g, ""));
-    if (!nota.numero.trim() || !nota.fornecedor.trim() || !valor) return toast.error("Preencha número, fornecedor e valor");
-    projetosActions.adicionarNota({ projetoId: id, numero: nota.numero, fornecedor: nota.fornecedor, descricao: nota.descricao, data: nota.data, valor, status: nota.status });
+    const quantidade = parseNumero(nota.quantidade);
+    const valorUnitario = parseNumero(nota.valorUnitario);
+    // O número da nota deixou de ser obrigatório: nem toda entrada de
+    // material chega com nota emitida.
+    if (!nota.fornecedor.trim()) return toast.error("Informe o fornecedor");
+    if (!quantidade) return toast.error("Informe a quantidade");
+    if (!valorUnitario) return toast.error("Informe o valor unitário");
+    projetosActions.adicionarNota({
+      projetoId: id, numero: nota.numero, fornecedor: nota.fornecedor,
+      descricao: nota.descricao, data: nota.data || hoje(),
+      unidade: nota.unidade, quantidade, valorUnitario,
+      // Sem interface por enquanto: a tabela `funcionarios` ainda não
+      // existe no banco, então não há de onde escolher.
+      funcionarioId: null,
+    });
     toast.success("Nota lançada");
-    setNota({ data: hoje(), numero: "", fornecedor: "", descricao: "", valor: "", status: "PENDENTE" });
+    setNota({ ...NOTA_VAZIA, data: hoje() });
     setNotaOpen(false);
   };
   const submitMed = () => {
@@ -313,17 +349,35 @@ function ProjetoDetalhe() {
                 <DialogContent>
                   <DialogHeader><DialogTitle>Nova nota fiscal</DialogTitle></DialogHeader>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <div><Label>Número</Label><Input value={nota.numero} onChange={e => setNota({ ...nota, numero: e.target.value })} placeholder="NF 12345" /></div>
+                    <div>
+                      <Label>Número <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                      <Input value={nota.numero} onChange={e => setNota({ ...nota, numero: e.target.value })} placeholder="NF 12345" />
+                    </div>
                     <div><Label>Data</Label><Input type="date" value={nota.data} onChange={e => setNota({ ...nota, data: e.target.value })} /></div>
                     <div className="md:col-span-2"><Label>Fornecedor</Label><Input value={nota.fornecedor} onChange={e => setNota({ ...nota, fornecedor: e.target.value })} /></div>
                     <div className="md:col-span-2"><Label>Descrição</Label><Input value={nota.descricao} onChange={e => setNota({ ...nota, descricao: e.target.value })} /></div>
-                    <div><Label>Valor (R$)</Label><Input inputMode="numeric" value={nota.valor} onChange={e => setNota({ ...nota, valor: e.target.value })} /></div>
                     <div>
-                      <Label>Status</Label>
-                      <Select value={nota.status} onValueChange={v => setNota({ ...nota, status: v as typeof nota.status })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{["PENDENTE", "PAGO", "CANCELADO"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                      </Select>
+                      <Label>Unidade</Label>
+                      <UnidadeSelect value={nota.unidade} onChange={u => setNota({ ...nota, unidade: u })} />
+                    </div>
+                    <div>
+                      <Label>Quantidade</Label>
+                      <Input inputMode="decimal" value={nota.quantidade} onChange={e => setNota({ ...nota, quantidade: e.target.value })} placeholder="1" />
+                    </div>
+                    <div>
+                      <Label>Valor unitário (R$)</Label>
+                      <Input inputMode="decimal" value={nota.valorUnitario} onChange={e => setNota({ ...nota, valorUnitario: e.target.value })} placeholder="0,00" />
+                    </div>
+                    <div>
+                      <Label>Valor total</Label>
+                      {/* Só leitura: sai sempre de quantidade × unitário, para
+                          os três números nunca se contradizerem. */}
+                      <div
+                        aria-live="polite"
+                        className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm font-bold text-[#213368]"
+                      >
+                        {brl(calcularValorNota(parseNumero(nota.quantidade), parseNumero(nota.valorUnitario)))}
+                      </div>
                     </div>
                   </div>
                   <DialogFooter><Button variant="outline" onClick={() => setNotaOpen(false)}>Cancelar</Button><Button onClick={submitNota} className="bg-[#213368] text-white">Salvar</Button></DialogFooter>
@@ -331,17 +385,23 @@ function ProjetoDetalhe() {
               </Dialog>
             </div>
             <Table>
-              <TableHeader><TableRow><TableHead>Nº</TableHead><TableHead>Fornecedor</TableHead><TableHead>Descrição</TableHead><TableHead>Data</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Nº</TableHead><TableHead>Fornecedor</TableHead><TableHead>Descrição</TableHead><TableHead>Data</TableHead><TableHead className="text-right">Qtd.</TableHead><TableHead className="text-right">V. unit.</TableHead><TableHead className="text-right">Valor</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
-                {r.notas.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhuma nota lançada.</TableCell></TableRow>}
+                {r.notas.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Nenhuma nota lançada.</TableCell></TableRow>}
                 {r.notas.map(n => (
                   <TableRow key={n.id}>
-                    <TableCell className="font-semibold">{n.numero}</TableCell>
+                    {/* Nota sem número é normal agora: entrada de material
+                        nem sempre vem com nota emitida. */}
+                    <TableCell className="font-semibold">{n.numero || <span className="font-normal text-muted-foreground">—</span>}</TableCell>
                     <TableCell>{n.fornecedor}</TableCell>
                     <TableCell>{n.descricao}</TableCell>
-                    <TableCell>{new Date(n.data).toLocaleDateString("pt-BR")}</TableCell>
-                    <TableCell>{brl(n.valor)}</TableCell>
-                    <TableCell><StatusBadge status={n.status} /></TableCell>
+                    <TableCell>{n.data ? new Date(n.data).toLocaleDateString("pt-BR") : "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {n.quantidade.toLocaleString("pt-BR")}
+                      {n.unidade && <span className="ml-1 text-xs text-muted-foreground">{n.unidade}</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{n.valorUnitario ? brl(n.valorUnitario) : "—"}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{brl(n.valor)}</TableCell>
                     <TableCell><Button variant="ghost" size="sm" onClick={() => projetosActions.excluirNota(n.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                   </TableRow>
                 ))}

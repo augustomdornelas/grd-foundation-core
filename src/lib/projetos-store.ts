@@ -66,12 +66,23 @@ export type Custo = {
 export type NotaFiscal = {
   id: string;
   projetoId: string;
+  /** Opcional: nem toda entrada de material chega com nota emitida. */
   numero: string;
   fornecedor: string;
   descricao: string;
   data: string;
+  unidade: string;
+  quantidade: number;
+  valorUnitario: number;
+  /**
+   * Sempre quantidade × valorUnitario para notas novas.
+   *
+   * Continua sendo coluna gravada, e não calculada na leitura, porque
+   * as notas lançadas antes desta mudança têm quantidade 1 e valor
+   * unitário 0 — recalcular na leitura zeraria todas elas.
+   */
   valor: number;
-  status: "PENDENTE" | "PAGO" | "CANCELADO";
+  funcionarioId: string | null;
 };
 
 export type Medicao = {
@@ -164,7 +175,9 @@ async function fetchAll() {
     notas: (n.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? "",
       fornecedor: r.fornecedor ?? "", descricao: r.descricao ?? "",
-      data: r.data ?? "", valor: num(r.valor), status: r.status ?? "PENDENTE",
+      data: r.data ?? "", unidade: r.unidade ?? "",
+      quantidade: num(r.quantidade) || 1, valorUnitario: num(r.valor_unitario),
+      valor: num(r.valor), funcionarioId: r.funcionario_id ?? null,
     })),
     medicoes: (m.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", numero: num(r.numero),
@@ -179,6 +192,18 @@ if (typeof window !== "undefined") void fetchAll();
 
 export function useProjetosStore<T>(selector: (s: State) => T): T {
   return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
+}
+
+/**
+ * Valor da nota a partir de quantidade e valor unitário.
+ *
+ * Arredonda em duas casas: 3 × 10.335 daria 31.005000000000003 em
+ * ponto flutuante, e esse resto apareceria no total do projeto.
+ */
+export function calcularValorNota(quantidade: number, valorUnitario: number): number {
+  const q = Number.isFinite(quantidade) ? quantidade : 0;
+  const v = Number.isFinite(valorUnitario) ? valorUnitario : 0;
+  return Math.round(q * v * 100) / 100;
 }
 
 export const projetosActions = {
@@ -266,13 +291,23 @@ export const projetosActions = {
     emit();
     void supabase.from("custos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
-  adicionarNota(n: Omit<NotaFiscal, "id">) {
+  adicionarNota(n: Omit<NotaFiscal, "id" | "valor"> & { valor?: number }) {
     const id = crypto.randomUUID();
-    state = { ...state, notas: [...state.notas, { ...n, id }] };
+    // O valor é derivado aqui, e não no formulário, para que qualquer
+    // chamador chegue ao mesmo número.
+    const valor = calcularValorNota(n.quantidade, n.valorUnitario);
+    const nova: NotaFiscal = { ...n, id, valor };
+    state = { ...state, notas: [...state.notas, nova] };
     emit();
     void supabase.from("notas_fiscais").insert(upperizePayload({
-      id, projeto_id: n.projetoId, numero: n.numero, fornecedor: n.fornecedor,
-      descricao: n.descricao, data: n.data, valor: n.valor, status: n.status,
+      id, projeto_id: n.projetoId,
+      // Número em branco vira NULL: a coluna deixou de ser obrigatória,
+      // e string vazia poluiria a listagem.
+      numero: n.numero.trim() || null,
+      fornecedor: n.fornecedor, descricao: n.descricao, data: n.data,
+      unidade: n.unidade, quantidade: n.quantidade,
+      valor_unitario: n.valorUnitario, valor,
+      funcionario_id: n.funcionarioId,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   excluirNota(id: string) {
