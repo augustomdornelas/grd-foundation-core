@@ -181,17 +181,13 @@ export function useProjetosStore<T>(selector: (s: State) => T): T {
   return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
 }
 
-function uid(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
-}
-
 export const projetosActions = {
   criarProjeto(
     input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato" | keyof PlanejamentoProjeto>
       & { id?: string; orcamentoId?: string | null; valorContrato?: number }
       & Partial<PlanejamentoProjeto>,
   ) {
-    const id = input.id || uid("P");
+    const id = input.id || crypto.randomUUID();
     const completo: Projeto = {
       ...PLANEJAMENTO_ZERADO,
       ...input, id,
@@ -257,7 +253,7 @@ export const projetosActions = {
     void supabase.from("projetos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   adicionarCusto(c: Omit<Custo, "id">) {
-    const id = uid("C");
+    const id = crypto.randomUUID();
     state = { ...state, custos: [...state.custos, { ...c, id }] };
     emit();
     void supabase.from("custos").insert(upperizePayload({
@@ -271,7 +267,7 @@ export const projetosActions = {
     void supabase.from("custos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   adicionarNota(n: Omit<NotaFiscal, "id">) {
-    const id = uid("N");
+    const id = crypto.randomUUID();
     state = { ...state, notas: [...state.notas, { ...n, id }] };
     emit();
     void supabase.from("notas_fiscais").insert(upperizePayload({
@@ -285,7 +281,7 @@ export const projetosActions = {
     void supabase.from("notas_fiscais").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   adicionarMedicao(m: Omit<Medicao, "id">) {
-    const id = uid("M");
+    const id = crypto.randomUUID();
     const nova = { ...m, id };
     state = { ...state, medicoes: [...state.medicoes, nova] };
     const proj = state.projetos.find(p => p.id === m.projetoId);

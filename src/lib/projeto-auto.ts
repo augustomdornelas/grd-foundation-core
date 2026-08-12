@@ -12,10 +12,6 @@ export type OrcamentoResumo = {
   responsavel?: string | null;
 };
 
-function uid(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
-}
-
 /**
  * Garante que exista um projeto vinculado ao orçamento aprovado.
  * Retorna o id do projeto (existente ou recém criado) ou null em erro.
@@ -48,7 +44,7 @@ export async function garantirProjetoDeOrcamento(orc: OrcamentoResumo): Promise<
     }
 
     // 3. Insere
-    const id = uid("P");
+    const id = crypto.randomUUID();
     const payload = upperizePayload({
       id,
       nome: orc.obra ?? "",

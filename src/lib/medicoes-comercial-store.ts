@@ -117,13 +117,9 @@ export function proximoNumeroMedicao(orcamentoId: string): string {
   return `MED-${String(existing.length + 1).padStart(3, "0")}`;
 }
 
-function uid() {
-  return `MED-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
-}
-
 export const medicoesActions = {
   criar(input: Omit<Medicao, "id" | "percentualFisico" | "dataRecebimento"> & { percentualFisico?: number; dataRecebimento?: string }) {
-    const id = uid();
+    const id = crypto.randomUUID();
     const nova: Medicao = {
       ...input,
       id,

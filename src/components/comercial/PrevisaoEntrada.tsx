@@ -261,7 +261,7 @@ export function PrevisaoEntrada() {
       setMedicoes(list => list.map(m => m.id === editMed.id ? { ...m, ...payload, id: editMed.id } : m));
       toast.success("Medição atualizada");
     } else {
-      const id = `MED-${Date.now().toString(36).toUpperCase()}`;
+      const id = crypto.randomUUID();
       const nova: Medicao = { ...payload, id };
       setMedicoes(list => [nova, ...list]);
       const { error } = await supabase.from("medicoes").insert({
