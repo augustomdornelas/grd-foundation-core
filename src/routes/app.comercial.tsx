@@ -18,6 +18,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/portal/StatusBadge";
+import { PlanejamentoCampos } from "@/components/planejamento/PlanejamentoCampos";
+import {
+  formParaValores, valoresParaForm, mesmoPlanejamento, planejamentoVazio,
+  type PlanejamentoValores,
+} from "@/lib/planejamento-campos";
+import { projetoDoOrcamento, aplicarPlanejamentoNoProjeto } from "@/lib/projeto-auto";
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Eye, Pencil, Copy, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
@@ -706,6 +712,11 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
   const [erro, setErro] = useState("");
   const [clientes, setClientes] = useState<{id:string;nome:string}[]>([]);
   const [buscaCliente, setBuscaCliente] = useState("");
+  // Orçamento que já virou projeto e teve o planejamento alterado: o
+  // projeto só é atualizado se a pessoa confirmar.
+  const [sobrescrever, setSobrescrever] = useState<
+    { projetoId: string; planejamento: PlanejamentoValores } | null
+  >(null);
 
   useEffect(() => {
     if (!open) return;
@@ -735,6 +746,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
       status: form.status as OrcStatus,
       probabilidade: form.probabilidade,
       observacoes: form.observacoes.trim(),
+      planejamento: formParaValores(form.planejamento),
     };
 
 
@@ -745,6 +757,17 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
         return;
       }
       toast.success("Orçamento atualizado.");
+
+      // O projeto não é atualizado em silêncio: se o planejamento mudou,
+      // pergunta antes de sobrescrever o que já está no projeto.
+      const novoPlan = payload.planejamento;
+      if (!planejamentoVazio(novoPlan)) {
+        const proj = await projetoDoOrcamento(orcamento.id);
+        if (proj && !mesmoPlanejamento(proj.planejamento, novoPlan)) {
+          setSobrescrever({ projetoId: proj.id, planejamento: novoPlan });
+          return;
+        }
+      }
       onOpenChange(false);
       return;
     }
@@ -799,6 +822,14 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
           <Campo label={`Probabilidade de fechamento — ${form.probabilidade}%`} className="md:col-span-2">
             <Slider value={[form.probabilidade]} min={0} max={100} step={5} onValueChange={([v]) => setForm({ ...form, probabilidade: v })} />
           </Campo>
+          <div className="md:col-span-2">
+            <PlanejamentoCampos
+              form={form.planejamento}
+              onChange={pl => setForm({ ...form, planejamento: pl })}
+              valorBase={parseValorBR(form.valor)}
+            />
+          </div>
+
           <Campo label="Observações" className="md:col-span-2"><Textarea rows={3} value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} /></Campo>
 
           {erro && <div className="md:col-span-2 text-sm text-red-600">{erro}</div>}
@@ -808,6 +839,38 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={!!sobrescrever} onOpenChange={o => { if (!o) { setSobrescrever(null); onOpenChange(false); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atualizar o planejamento do projeto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este orçamento já virou projeto, e o projeto tem um planejamento diferente do que
+              você acabou de salvar aqui. O orçamento já foi atualizado; o projeto só muda se
+              você confirmar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setSobrescrever(null); onOpenChange(false); }}>
+              Manter o do projeto
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!sobrescrever) return;
+                const ok = await aplicarPlanejamentoNoProjeto(sobrescrever.projetoId, sobrescrever.planejamento);
+                toast[ok ? "success" : "error"](
+                  ok ? "Planejamento do projeto atualizado." : "Não foi possível atualizar o projeto.",
+                );
+                setSobrescrever(null);
+                onOpenChange(false);
+              }}
+              className="bg-[#213368] hover:bg-[#2a4185]"
+            >
+              Atualizar o projeto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
@@ -835,6 +898,7 @@ function defaults(o?: Orcamento, preset?: { descricao?: string; valor?: number }
 
     probabilidade: o?.probabilidade ?? 50,
     observacoes: o?.observacoes ?? "",
+    planejamento: valoresParaForm(o?.planejamento),
   };
 }
 

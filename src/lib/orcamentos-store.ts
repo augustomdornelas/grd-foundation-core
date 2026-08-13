@@ -9,6 +9,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { upperizePayload } from "@/lib/utils";
 import { garantirProjetoDeOrcamento } from "@/lib/projeto-auto";
+import { planejamentoZerado, type PlanejamentoValores } from "@/lib/planejamento-campos";
+
+/** Colunas numeric do Postgres chegam como string; null vira 0. */
+function pnum(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
@@ -62,6 +69,8 @@ export type Orcamento = {
     ultimaAtualizacao: string;
     timeline: TimelineEvento[];
     notas: Nota[];
+    /** Planejamento copiado para as colunas planejado_* do projeto. */
+    planejamento: PlanejamentoValores;
 };
 
 export const TIPOS_SERVICO: TipoServico[] = [
@@ -121,6 +130,14 @@ type OrcamentoRow = {
     anexo: string | null;
     timeline: TimelineEvento[] | null;
     notas: Nota[] | null;
+
+    planejado_custos: number | null;
+    planejado_mo_pct: number | null;
+    planejado_mt_pct: number | null;
+    planejado_terceirizado_pct: number | null;
+    planejado_administrativo_pct: number | null;
+    planejado_imposto_pct: number | null;
+    planejado_lucro_pct: number | null;
 };
 
 function fromRow(r: OrcamentoRow): Orcamento {
@@ -144,6 +161,15 @@ function fromRow(r: OrcamentoRow): Orcamento {
           anexo: r.anexo ?? undefined,
           timeline: Array.isArray(r.timeline) ? r.timeline : [],
           notas: Array.isArray(r.notas) ? r.notas : [],
+          planejamento: {
+                custos: pnum(r.planejado_custos),
+                moPct: pnum(r.planejado_mo_pct),
+                mtPct: pnum(r.planejado_mt_pct),
+                terceirizadoPct: pnum(r.planejado_terceirizado_pct),
+                administrativoPct: pnum(r.planejado_administrativo_pct),
+                impostoPct: pnum(r.planejado_imposto_pct),
+                lucroPct: pnum(r.planejado_lucro_pct),
+          },
     };
 }
 
@@ -164,6 +190,15 @@ function toRow(o: Partial<Orcamento>) {
     if (o.probabilidade !== undefined) row.probabilidade = o.probabilidade;
     if (o.observacoes !== undefined) row.observacoes = o.observacoes;
     if (o.anexo !== undefined) row.anexo = o.anexo;
+    if (o.planejamento !== undefined) {
+          row.planejado_custos = o.planejamento.custos;
+          row.planejado_mo_pct = o.planejamento.moPct;
+          row.planejado_mt_pct = o.planejamento.mtPct;
+          row.planejado_terceirizado_pct = o.planejamento.terceirizadoPct;
+          row.planejado_administrativo_pct = o.planejamento.administrativoPct;
+          row.planejado_imposto_pct = o.planejamento.impostoPct;
+          row.planejado_lucro_pct = o.planejamento.lucroPct;
+    }
     return upperizePayload(row, ["timeline", "notas", "anexo", "status", "descricao", "observacoes"]);
 }
 
@@ -221,14 +256,17 @@ function proximoNumero(): string {
 
 export const orcamentosActions = {
   proximoNumero,
-  async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao"> & { numero?: string }): Promise<{ id: string | null; error: { message?: string } | null }> {
+  // `planejamento` e opcional: o lancamento em lote nao preenche esses
+  // campos, e forcar o objeto ali so criaria ruido.
+  async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao" | "planejamento"> & { numero?: string; planejamento?: PlanejamentoValores }): Promise<{ id: string | null; error: { message?: string } | null }> {
     const numero = input.numero || proximoNumero();
+    const planejamento = input.planejamento ?? planejamentoZerado();
     const tempId = uid();
-    state = [{ ...input, id: tempId, numero, ultimaAtualizacao: new Date().toISOString().slice(0, 10), timeline: [], notas: [] }, ...state];
+    state = [{ ...input, planejamento, id: tempId, numero, ultimaAtualizacao: new Date().toISOString().slice(0, 10), timeline: [], notas: [] }, ...state];
     emit();
     const { data, error } = await supabase
       .from("orcamentos")
-      .insert(toRow({ ...input, numero }))
+      .insert(toRow({ ...input, numero, planejamento }))
       .select()
       .single();
     if (error) {
@@ -240,7 +278,7 @@ export const orcamentosActions = {
     emit();
     const novo = fromRow(data as OrcamentoRow);
     if (novo.status === "APROVADO") {
-      void garantirProjetoDeOrcamento({ id: novo.id, obra: novo.obra, cliente: novo.cliente, valor: novo.valor, responsavel: novo.responsavel });
+      void garantirProjetoDeOrcamento({ id: novo.id, obra: novo.obra, cliente: novo.cliente, valor: novo.valor, responsavel: novo.responsavel, planejamento: novo.planejamento });
     }
     return { id: (data as OrcamentoRow).id, error: null };
   },
@@ -268,7 +306,7 @@ export const orcamentosActions = {
     }
     const atualizado = state.find(o => o.id === id);
     if (atualizado && atualizado.status === "APROVADO" && anterior.status !== "APROVADO") {
-      void garantirProjetoDeOrcamento({ id: atualizado.id, obra: atualizado.obra, cliente: atualizado.cliente, valor: atualizado.valor, responsavel: atualizado.responsavel });
+      void garantirProjetoDeOrcamento({ id: atualizado.id, obra: atualizado.obra, cliente: atualizado.cliente, valor: atualizado.valor, responsavel: atualizado.responsavel, planejamento: atualizado.planejamento });
     }
     return { error: null };
   },

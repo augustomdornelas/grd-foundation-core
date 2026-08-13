@@ -20,6 +20,8 @@ import { UnidadeSelect } from "@/components/portal/UnidadeSelect";
 import { useLancamentosProjeto, useExecucaoProjeto, resumoLancamentos, dataDoLancamento } from "@/lib/lancamentos-store";
 import { montarQuadro } from "@/lib/planejamento-execucao";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
+import { PlanejamentoCampos } from "@/components/planejamento/PlanejamentoCampos";
+import { formParaValores, valoresParaForm, type PlanejamentoForm } from "@/lib/planejamento-campos";
 
 const NOTA_VAZIA = {
   data: "", numero: "", fornecedor: "", descricao: "",
@@ -588,6 +590,12 @@ function AbaLancamentos({ projetoId }: { projetoId: string }) {
 function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
   const { execucao, carregando } = useExecucaoProjeto(projeto.id);
   const q = useMemo(() => montarQuadro(projeto, execucao), [projeto, execucao]);
+  const [editando, setEditando] = useState(false);
+
+  const semPlanejamento =
+    !projeto.planejadoCustos && !projeto.planejadoMoPct && !projeto.planejadoMtPct &&
+    !projeto.planejadoTerceirizadoPct && !projeto.planejadoAdministrativoPct &&
+    !projeto.planejadoImpostoPct && !projeto.planejadoLucroPct;
 
   if (carregando) {
     return <Card className="p-6 text-center text-sm text-muted-foreground">Carregando execução…</Card>;
@@ -601,8 +609,21 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
         <CardLucro label="Lucro total" valor={q.lucroTotal} destaque />
       </div>
 
+      {semPlanejamento && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 border-[#F37032] p-4">
+          <p className="text-sm text-muted-foreground">
+            Este projeto não tem planejamento preenchido, por isso a coluna Planejado fica zerada.
+            Normalmente ele vem do orçamento; dá para preencher aqui também.
+          </p>
+          <Button size="sm" onClick={() => setEditando(true)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <Pencil className="mr-1 h-4 w-4" /> Preencher planejamento
+          </Button>
+        </Card>
+      )}
+
       <Card className="p-6">
-        <div className="mb-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
           <h3 className="font-bold text-[#213368]">Planejado × Executado</h3>
           <p className="text-xs text-muted-foreground">
             Base dos percentuais: {q.baseRotulo} <b>{brl(q.base)}</b>
@@ -611,6 +632,10 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
             {" · "}{execucao.qtdLinhas} lançamento(s)
             {projeto.metragem > 0 && <> · Metragem: <b>{num(projeto.metragem)} m²</b></>}
           </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setEditando(true)} className="shrink-0">
+            <Pencil className="mr-1 h-4 w-4" /> Editar planejamento
+          </Button>
         </div>
         {execucao.qtdLinhas === 0 && (
           <p className="mb-4 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
@@ -656,7 +681,75 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
           é igual ao contrato.
         </p>
       </Card>
+
+      {editando && (
+        <PlanejamentoProjetoDialog projeto={projeto} onClose={() => setEditando(false)} />
+      )}
     </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Edição do planejamento direto no projeto — para projetos que já
+// existiam ou que foram criados sem orçamento.
+// ------------------------------------------------------------
+function PlanejamentoProjetoDialog({ projeto, onClose }: { projeto: Projeto; onClose: () => void }) {
+  const [form, setForm] = useState<PlanejamentoForm>(() =>
+    valoresParaForm({
+      custos: projeto.planejadoCustos,
+      moPct: projeto.planejadoMoPct,
+      mtPct: projeto.planejadoMtPct,
+      terceirizadoPct: projeto.planejadoTerceirizadoPct,
+      administrativoPct: projeto.planejadoAdministrativoPct,
+      impostoPct: projeto.planejadoImpostoPct,
+      lucroPct: projeto.planejadoLucroPct,
+    }),
+  );
+  const [salvando, setSalvando] = useState(false);
+
+  // Mesma referência que o quadro usa como contrato.
+  const valorBase = projeto.valorContrato > 0 ? projeto.valorContrato : projeto.orcado;
+
+  const salvar = async () => {
+    setSalvando(true);
+    const v = formParaValores(form);
+    projetosActions.atualizarProjeto(projeto.id, {
+      planejadoCustos: v.custos,
+      planejadoMoPct: v.moPct,
+      planejadoMtPct: v.mtPct,
+      planejadoTerceirizadoPct: v.terceirizadoPct,
+      planejadoAdministrativoPct: v.administrativoPct,
+      planejadoImpostoPct: v.impostoPct,
+      planejadoLucroPct: v.lucroPct,
+    });
+    toast.success("Planejamento salvo.");
+    setSalvando(false);
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={o => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-[#213368]">Planejamento do projeto</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground">
+          Editar aqui altera apenas este projeto — o orçamento de origem, se houver, não muda.
+        </p>
+        <PlanejamentoCampos
+          form={form}
+          onChange={setForm}
+          valorBase={valorBase}
+          rotuloBase="contrato"
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={salvar} disabled={salvando} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+            {salvando ? "Salvando…" : "Salvar planejamento"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
