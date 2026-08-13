@@ -1,24 +1,27 @@
 // ============================================================
-// Diálogo de entrega de EPIs a um funcionário.
-// Permite escolher o funcionário, adicionar vários EPIs (com
-// quantidade e motivo), calcula a validade automaticamente e,
-// ao salvar, registra a entrega e gera o Termo em PDF (NR-6).
+// Diálogo de entrega de EPIs.
+// Permite escolher um ou vários funcionários, adicionar EPIs (com
+// quantidade e motivo) e calcula a validade automaticamente. Ao
+// salvar, registra uma entrega por funcionário — cada um com seu
+// número de termo, para que cada um assine o seu — e gera os
+// Termos em PDF (NR-6).
 // ============================================================
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HardHat, Plus, Trash2, ShieldCheck } from "lucide-react";
+import { HardHat, Plus, Trash2, ShieldCheck, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/current-user";
 import {
   useEpiStore, epiActions, somaDias,
-  MOTIVOS_ENTREGA, type MotivoEntrega,
+  MOTIVOS_ENTREGA, type MotivoEntrega, type EntregaSalva,
 } from "@/lib/epis-store";
-import { gerarTermoEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
+import { gerarTermosEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
 
 type Linha = { epiId: string; quantidade: string; motivo: MotivoEntrega };
 
@@ -45,7 +48,8 @@ export function EntregaEpiDialog({
   const funcionarios = useEpiStore(s => s.funcionarios);
   const epis = useEpiStore(s => s.epis);
 
-  const [funcionarioId, setFuncionarioId] = useState("");
+  const [funcionarioIds, setFuncionarioIds] = useState<string[]>([]);
+  const [buscaFunc, setBuscaFunc] = useState("");
   const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().slice(0, 10));
   const [responsavel, setResponsavel] = useState("");
   const [cargo, setCargo] = useState("");
@@ -55,7 +59,8 @@ export function EntregaEpiDialog({
 
   useEffect(() => {
     if (!open) return;
-    setFuncionarioId(funcionarioIdInicial ?? "");
+    setFuncionarioIds(funcionarioIdInicial ? [funcionarioIdInicial] : []);
+    setBuscaFunc("");
     setDataEntrega(new Date().toISOString().slice(0, 10));
     setResponsavel(user.nome || "");
     setCargo(user.perfil || "");
@@ -65,6 +70,28 @@ export function EntregaEpiDialog({
   }, [open, funcionarioIdInicial, user.nome, user.perfil]);
 
   const episAtivos = useMemo(() => epis.filter(e => e.ativo), [epis]);
+  const funcionariosAtivos = useMemo(() => funcionarios.filter(f => f.ativo), [funcionarios]);
+  const funcionariosFiltrados = useMemo(() => {
+    const termo = buscaFunc.trim().toLowerCase();
+    if (!termo) return funcionariosAtivos;
+    return funcionariosAtivos.filter(f =>
+      [f.nome, f.cargo, f.setor, f.matricula].some(v => (v || "").toLowerCase().includes(termo)),
+    );
+  }, [funcionariosAtivos, buscaFunc]);
+
+  const toggleFuncionario = (id: string) =>
+    setFuncionarioIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  // Marca/desmarca apenas o que está visível no filtro atual.
+  const todosVisiveisMarcados =
+    funcionariosFiltrados.length > 0 && funcionariosFiltrados.every(f => funcionarioIds.includes(f.id));
+  const alternarVisiveis = () =>
+    setFuncionarioIds(prev => {
+      const visiveis = funcionariosFiltrados.map(f => f.id);
+      return todosVisiveisMarcados
+        ? prev.filter(id => !visiveis.includes(id))
+        : [...new Set([...prev, ...visiveis])];
+    });
 
   const setLinha = (i: number, patch: Partial<Linha>) =>
     setLinhas(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l));
@@ -77,9 +104,37 @@ export function EntregaEpiDialog({
     return somaDias(dataEntrega, epi.validadeDias);
   };
 
+  const montaTermo = (salvo: EntregaSalva): TermoEpiData => ({
+    numero: salvo.entrega.numeroTermo,
+    emissao: salvo.entrega.dataEntrega,
+    funcionario: {
+      nome: salvo.funcionario?.nome ?? "",
+      cpf: salvo.funcionario?.cpf,
+      rg: salvo.funcionario?.rg,
+      cargo: salvo.funcionario?.cargo,
+      setor: salvo.funcionario?.setor,
+      matricula: salvo.funcionario?.matricula,
+      dataAdmissao: salvo.funcionario?.dataAdmissao,
+    },
+    itens: salvo.itens.map(i => ({
+      epiNome: i.epiNome,
+      ca: i.ca,
+      fabricante: i.fabricante,
+      unidade: i.unidade,
+      fotoUrl: i.epiFotoUrl,
+      quantidade: i.quantidade,
+      motivo: i.motivo,
+      dataEntrega: i.dataEntrega,
+      dataValidade: i.dataValidade,
+    })),
+    responsavelEntrega: salvo.entrega.responsavelEntrega,
+    responsavelCargo: salvo.entrega.responsavelCargo,
+    observacoes: salvo.entrega.observacoes,
+  });
+
   const salvar = async () => {
     if (saving) return;
-    if (!funcionarioId) return toast.error("Selecione o funcionário");
+    if (!funcionarioIds.length) return toast.error("Selecione ao menos um funcionário");
     const itens = linhas
       .filter(l => l.epiId)
       .map(l => ({ epiId: l.epiId, quantidade: Math.max(1, Number(l.quantidade) || 1), motivo: l.motivo }));
@@ -88,46 +143,29 @@ export function EntregaEpiDialog({
 
     setSaving(true);
     try {
-      const salvo = await epiActions.registrarEntrega({
-        funcionarioId,
+      const salvas = await epiActions.registrarEntregaEmLote({
+        funcionarioIds,
         dataEntrega,
         responsavelEntrega: responsavel.trim(),
         responsavelCargo: cargo.trim(),
         observacoes: obs.trim(),
         itens,
       });
-      if (!salvo) { setSaving(false); return; }
+      if (!salvas.length) { setSaving(false); return; }
 
-      toast.success(`Entrega registrada — termo ${salvo.entrega.numeroTermo}.`);
+      if (salvas.length < funcionarioIds.length) {
+        toast.warning(`${salvas.length} de ${funcionarioIds.length} entregas registradas — veja os erros acima.`);
+      } else if (salvas.length === 1) {
+        toast.success(`Entrega registrada — termo ${salvas[0].entrega.numeroTermo}.`);
+      } else {
+        toast.success(`${salvas.length} entregas registradas — um termo para cada funcionário.`);
+      }
       onOpenChange(false);
 
       try {
-        const termo: TermoEpiData = {
-          numero: salvo.entrega.numeroTermo,
-          emissao: salvo.entrega.dataEntrega,
-          funcionario: {
-            nome: salvo.funcionario?.nome ?? "",
-            cpf: salvo.funcionario?.cpf,
-            rg: salvo.funcionario?.rg,
-            cargo: salvo.funcionario?.cargo,
-            setor: salvo.funcionario?.setor,
-            matricula: salvo.funcionario?.matricula,
-          },
-          itens: salvo.itens.map(i => ({
-            epiNome: i.epiNome,
-            ca: i.ca,
-            quantidade: i.quantidade,
-            motivo: i.motivo,
-            dataEntrega: i.dataEntrega,
-            dataValidade: i.dataValidade,
-          })),
-          responsavelEntrega: salvo.entrega.responsavelEntrega,
-          responsavelCargo: salvo.entrega.responsavelCargo,
-          observacoes: salvo.entrega.observacoes,
-        };
-        await gerarTermoEpiPDF(termo);
+        await gerarTermosEpiPDF(salvas.map(montaTermo));
       } catch (err) {
-        toast.error(`Falha ao gerar o PDF do termo: ${err instanceof Error ? err.message : "desconhecido"}`);
+        toast.error(`Falha ao gerar o PDF dos termos: ${err instanceof Error ? err.message : "desconhecido"}`);
       }
     } catch (err) {
       toast.error(`Erro ao registrar entrega: ${err instanceof Error ? err.message : "desconhecido"}`);
@@ -148,20 +186,61 @@ export function EntregaEpiDialog({
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2">
-            <Label>Funcionário *</Label>
-            <Select value={funcionarioId} onValueChange={setFuncionarioId}>
-              <SelectTrigger><SelectValue placeholder="Selecionar funcionário" /></SelectTrigger>
-              <SelectContent>
-                {funcionarios.filter(f => f.ativo).map(f => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.nome}{f.cargo ? ` — ${f.cargo}` : ""}
-                  </SelectItem>
+            <div className="mb-1 flex items-center justify-between">
+              <Label>
+                Funcionários *
+                {funcionarioIds.length > 0 && (
+                  <span className="ml-2 font-normal text-[#F37032]">
+                    {funcionarioIds.length} selecionado{funcionarioIds.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </Label>
+              {funcionariosFiltrados.length > 0 && (
+                <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={alternarVisiveis}>
+                  <Users className="mr-1 h-3.5 w-3.5" />
+                  {todosVisiveisMarcados ? "Limpar seleção" : "Selecionar todos"}
+                </Button>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-[#e6e6ea]">
+              <div className="relative border-b border-[#e6e6ea]">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={buscaFunc}
+                  onChange={e => setBuscaFunc(e.target.value)}
+                  placeholder="Buscar por nome, cargo, setor ou matrícula…"
+                  className="border-0 pl-9 focus-visible:ring-0"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto p-1">
+                {funcionariosAtivos.length === 0 ? (
+                  <p className="p-3 text-xs text-[#F37032]">
+                    Cadastre um funcionário primeiro na aba “Funcionários”.
+                  </p>
+                ) : funcionariosFiltrados.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground">Nenhum funcionário encontrado.</p>
+                ) : funcionariosFiltrados.map(f => (
+                  <label
+                    key={f.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[#F4F4F4]"
+                  >
+                    <Checkbox
+                      checked={funcionarioIds.includes(f.id)}
+                      onCheckedChange={() => toggleFuncionario(f.id)}
+                    />
+                    <span className="text-sm">
+                      {f.nome}
+                      {(f.cargo || f.setor) && (
+                        <span className="text-muted-foreground">
+                          {" — "}{[f.cargo, f.setor].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </span>
+                  </label>
                 ))}
-              </SelectContent>
-            </Select>
-            {funcionarios.length === 0 && (
-              <p className="mt-1 text-xs text-[#F37032]">Cadastre um funcionário primeiro na aba “Funcionários”.</p>
-            )}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -245,15 +324,21 @@ export function EntregaEpiDialog({
           <Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ex.: substituição por desgaste natural." />
         </div>
 
-        <div className="flex items-center gap-2 rounded-lg bg-[#eef3ff] p-3 text-xs text-[#213368]">
-          <ShieldCheck className="h-4 w-4 text-[#213368]" />
-          Ao salvar, o Termo de Entrega de EPI (NR-6) é gerado em PDF para o funcionário e a GRD assinarem.
+        <div className="flex items-start gap-2 rounded-lg bg-[#eef3ff] p-3 text-xs text-[#213368]">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#213368]" />
+          <span>
+            {funcionarioIds.length > 1
+              ? `Ao salvar, cada um dos ${funcionarioIds.length} funcionários recebe seu próprio Termo de Entrega de EPI (NR-6), com número de termo individual para assinar. Os termos vêm num único PDF, um por página.`
+              : "Ao salvar, o Termo de Entrega de EPI (NR-6) é gerado em PDF para o funcionário e a GRD assinarem."}
+          </span>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={salvar} disabled={saving} className="bg-[#213368] text-white hover:bg-[#2a4185]">
-            {saving ? "Salvando…" : "Salvar e gerar termo"}
+            {saving
+              ? "Salvando…"
+              : funcionarioIds.length > 1 ? `Salvar e gerar ${funcionarioIds.length} termos` : "Salvar e gerar termo"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -4,7 +4,7 @@
 // Integrado ao Supabase via epis-store.
 // ============================================================
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,14 +21,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   HardHat, Plus, Pencil, Trash2, FileText, Users, ShieldCheck,
-  AlertTriangle, CheckCircle2, PackageCheck,
+  AlertTriangle, CheckCircle2, PackageCheck, Upload, Image as ImageIcon, ShoppingCart,
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useEpiStore, epiActions, diasParaVencer,
   type Funcionario, type Epi,
 } from "@/lib/epis-store";
 import { EntregaEpiDialog } from "@/components/epis/EntregaEpiDialog";
+import { CompraEpiDialog } from "@/components/epis/CompraEpiDialog";
 import { gerarTermoEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
 
 export const Route = createFileRoute("/app/epis")({
@@ -49,6 +51,7 @@ function fmtBr(iso?: string) {
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
 }
+const fmtBrl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 function maskCpf(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 11);
   return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
@@ -60,13 +63,16 @@ function EpisPage() {
   const epis = useEpiStore(s => s.epis);
   const entregas = useEpiStore(s => s.entregas);
   const itens = useEpiStore(s => s.itens);
+  const compras = useEpiStore(s => s.compras);
+  const compraItens = useEpiStore(s => s.compraItens);
 
   const [entregaOpen, setEntregaOpen] = useState(false);
   const [entregaFuncInicial, setEntregaFuncInicial] = useState<string | undefined>(undefined);
+  const [compraOpen, setCompraOpen] = useState(false);
 
   const [epiForm, setEpiForm] = useState<Epi | "novo" | null>(null);
   const [funcForm, setFuncForm] = useState<Funcionario | "novo" | null>(null);
-  const [confirmar, setConfirmar] = useState<{ kind: "epi" | "func" | "entrega"; id: string; label: string } | null>(null);
+  const [confirmar, setConfirmar] = useState<{ kind: "epi" | "func" | "entrega" | "compra"; id: string; label: string } | null>(null);
 
   // Métricas
   const itensVencendo = useMemo(
@@ -93,10 +99,14 @@ function EpisPage() {
       emissao: ent.dataEntrega,
       funcionario: {
         nome: func?.nome ?? "",
-        cpf: func?.cpf, rg: func?.rg, cargo: func?.cargo, setor: func?.setor, matricula: func?.matricula,
+        cpf: func?.cpf, rg: func?.rg, cargo: func?.cargo, setor: func?.setor,
+        matricula: func?.matricula, dataAdmissao: func?.dataAdmissao,
       },
+      // Tudo vem do snapshot do item, não do catálogo: o termo antigo mostra
+      // o que foi entregue mesmo que o EPI tenha mudado ou sido excluído.
       itens: its.map(i => ({
-        epiNome: i.epiNome, ca: i.ca, quantidade: i.quantidade, motivo: i.motivo,
+        epiNome: i.epiNome, ca: i.ca, fabricante: i.fabricante, unidade: i.unidade,
+        fotoUrl: i.epiFotoUrl, quantidade: i.quantidade, motivo: i.motivo,
         dataEntrega: i.dataEntrega, dataValidade: i.dataValidade,
       })),
       responsavelEntrega: ent.responsavelEntrega,
@@ -112,6 +122,7 @@ function EpisPage() {
     if (confirmar.kind === "epi") await epiActions.excluirEpi(confirmar.id);
     if (confirmar.kind === "func") await epiActions.excluirFuncionario(confirmar.id);
     if (confirmar.kind === "entrega") await epiActions.excluirEntrega(confirmar.id);
+    if (confirmar.kind === "compra") await epiActions.excluirCompra(confirmar.id);
     toast.success("Registro excluído.");
     setConfirmar(null);
   };
@@ -125,9 +136,14 @@ function EpisPage() {
           </h2>
           <p className="text-xs text-muted-foreground">Cadastro de EPIs e funcionários, entregas com validade e termo de responsabilidade (NR-6).</p>
         </div>
-        <Button onClick={() => abrirEntregaPara(undefined)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
-          <PackageCheck className="mr-1 h-4 w-4" /> Nova entrega
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setCompraOpen(true)} className="border-[#213368] text-[#213368]">
+            <ShoppingCart className="mr-1 h-4 w-4" /> Lançar compra
+          </Button>
+          <Button onClick={() => abrirEntregaPara(undefined)} className="bg-[#F37032] text-white hover:bg-[#ff8850]">
+            <PackageCheck className="mr-1 h-4 w-4" /> Nova entrega
+          </Button>
+        </div>
       </div>
 
       {/* Cards de resumo */}
@@ -141,6 +157,7 @@ function EpisPage() {
       <Tabs defaultValue="entregas" className="w-full">
         <TabsList>
           <TabsTrigger value="entregas">Entregas</TabsTrigger>
+          <TabsTrigger value="compras">Compras</TabsTrigger>
           <TabsTrigger value="epis">Catálogo de EPIs</TabsTrigger>
           <TabsTrigger value="funcionarios">Funcionários</TabsTrigger>
         </TabsList>
@@ -243,6 +260,56 @@ function EpisPage() {
           )}
         </TabsContent>
 
+        {/* ---------------- COMPRAS (entrada de estoque) ---------------- */}
+        <TabsContent value="compras">
+          <Card className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-[#213368]">Compras de EPI</h3>
+                <p className="text-xs text-muted-foreground">Entrada de estoque. Cada compra soma as quantidades ao catálogo.</p>
+              </div>
+              <Button size="sm" onClick={() => setCompraOpen(true)} className="bg-[#213368] text-white hover:bg-[#2a4185]">
+                <Plus className="mr-1 h-4 w-4" /> Nova compra
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead>Nº da nota</TableHead>
+                  <TableHead className="text-center">Itens</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {compras.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">Nenhuma compra lançada.</TableCell></TableRow>
+                ) : compras.map(c => {
+                  const its = compraItens.filter(i => i.compraId === c.id);
+                  const qtd = its.reduce((a, i) => a + i.quantidade, 0);
+                  const total = its.reduce((a, i) => a + i.quantidade * i.valorUnitario, 0);
+                  return (
+                    <TableRow key={c.id}>
+                      <TableCell>{fmtBr(c.dataCompra)}</TableCell>
+                      <TableCell className="font-semibold">{c.fornecedorNome || "—"}</TableCell>
+                      <TableCell>{c.numeroNota || "—"}</TableCell>
+                      <TableCell className="text-center">{qtd}</TableCell>
+                      <TableCell className="text-right">{fmtBrl(total)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" title="Excluir compra (devolve o estoque)" onClick={() => setConfirmar({ kind: "compra", id: c.id, label: `compra de ${fmtBr(c.dataCompra)}` })}>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
         {/* ---------------- CATÁLOGO DE EPIS ---------------- */}
         <TabsContent value="epis">
           <Card className="p-6">
@@ -255,6 +322,7 @@ function EpisPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-14">Foto</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>C.A.</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -266,9 +334,16 @@ function EpisPage() {
               </TableHeader>
               <TableBody>
                 {epis.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Nenhum EPI cadastrado.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">Nenhum EPI cadastrado.</TableCell></TableRow>
                 ) : epis.map(e => (
                   <TableRow key={e.id}>
+                    <TableCell>
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-[#e6e6ea] bg-[#F4F4F4]">
+                        {e.fotoUrl
+                          ? <img src={e.fotoUrl} alt={e.nome} className="h-full w-full object-contain" />
+                          : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                    </TableCell>
                     <TableCell className="font-semibold">{e.nome}</TableCell>
                     <TableCell>{e.ca || "—"}</TableCell>
                     <TableCell>{e.categoria || "—"}</TableCell>
@@ -337,6 +412,7 @@ function EpisPage() {
 
       {/* Diálogos */}
       <EntregaEpiDialog open={entregaOpen} onOpenChange={setEntregaOpen} funcionarioIdInicial={entregaFuncInicial} />
+      <CompraEpiDialog open={compraOpen} onOpenChange={setCompraOpen} />
       {epiForm && <EpiFormDialog epi={epiForm === "novo" ? null : epiForm} onClose={() => setEpiForm(null)} />}
       {funcForm && <FuncionarioFormDialog funcionario={funcForm === "novo" ? null : funcForm} onClose={() => setFuncForm(null)} />}
 
@@ -383,9 +459,35 @@ function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void 
     caValidade: epi?.caValidade ?? "",
     estoque: epi ? String(epi.estoque) : "0",
     unidade: epi?.unidade ?? "un",
+    fotoUrl: epi?.fotoUrl ?? "",
     ativo: epi?.ativo ?? true,
   });
   const [saving, setSaving] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const fotoRef = useRef<HTMLInputElement>(null);
+
+  // Mesmo padrão de upload do PortfolioAdmin: sobe para o Storage e guarda a
+  // URL pública. Precisa ser pública porque o termo em PDF busca a imagem.
+  const enviarFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    setEnviandoFoto(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("epis").upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data } = supabase.storage.from("epis").getPublicUrl(path);
+      setForm(f => ({ ...f, fotoUrl: data.publicUrl }));
+      toast.success("Foto enviada.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha no upload.");
+    } finally {
+      setEnviandoFoto(false);
+      if (fotoRef.current) fotoRef.current.value = "";
+    }
+  };
 
   const salvar = async () => {
     if (!form.nome.trim()) return toast.error("Informe o nome do EPI");
@@ -397,13 +499,16 @@ function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void 
       descricao: form.descricao.trim(),
       fabricante: form.fabricante.trim(),
       validadeDias: Math.max(0, Number(form.validadeDias) || 0),
-      caValidade: form.caValidade || undefined,
+      // String vazia (e não undefined) para que limpar a data realmente
+      // grave null no banco — atualizarEpi ignora campos undefined.
+      caValidade: form.caValidade,
       estoque: Math.max(0, Number(form.estoque) || 0),
       unidade: form.unidade.trim() || "un",
+      fotoUrl: form.fotoUrl,
       ativo: form.ativo,
     };
     if (epi) await epiActions.atualizarEpi(epi.id, payload);
-    else await epiActions.criarEpi({ ...payload, fotoUrl: undefined });
+    else await epiActions.criarEpi(payload);
     toast.success(epi ? "EPI atualizado." : "EPI cadastrado.");
     setSaving(false);
     onClose();
@@ -429,6 +534,32 @@ function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void 
             <div><Label>Unidade</Label><Input value={form.unidade} onChange={e => setForm({ ...form, unidade: e.target.value })} placeholder="un / par / cx" /></div>
           </div>
           <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
+
+          <div className="md:col-span-2">
+            <Label>Foto do EPI</Label>
+            <div className="mt-1 flex items-center gap-3">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#e6e6ea] bg-[#F4F4F4]">
+                {form.fotoUrl
+                  ? <img src={form.fotoUrl} alt="Foto do EPI" className="h-full w-full object-contain" />
+                  : <ImageIcon className="h-6 w-6 text-muted-foreground" />}
+              </div>
+              <div className="flex flex-col gap-2">
+                <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={enviarFoto} />
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => fotoRef.current?.click()} disabled={enviandoFoto}>
+                    <Upload className="mr-1 h-4 w-4" /> {enviandoFoto ? "Enviando…" : form.fotoUrl ? "Trocar foto" : "Enviar foto"}
+                  </Button>
+                  {form.fotoUrl && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setForm({ ...form, fotoUrl: "" })}>
+                      <Trash2 className="mr-1 h-4 w-4 text-red-600" /> Remover
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">A foto aparece na tabela do termo de entrega.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="md:col-span-2">
             <Label>Situação</Label>
             <Select value={form.ativo ? "ativo" : "inativo"} onValueChange={v => setForm({ ...form, ativo: v === "ativo" })}>

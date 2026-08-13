@@ -1,10 +1,15 @@
 // ============================================================
 // Termo de Entrega / Recebimento de EPI (NR-6) em PDF
 // ------------------------------------------------------------
-// Mesma identidade visual dos termos de equipamento (jsPDF):
-// azul-marinho GRD, faixa laranja, cabeçalho com logo e rodapé.
+// Identidade visual GRD (jsPDF): azul-marinho, faixa laranja,
+// cabeçalho com logo + número do termo e rodapé.
+//
+// O logo vem do asset local (@/assets/logo_grd.png) — a versão
+// anterior buscava https://grupogrdbrasil.com.br/logo_grd.jpeg,
+// que responde 404, então todo termo saía sem logo.
 // ============================================================
 import { jsPDF } from "jspdf";
+import logoGrd from "@/assets/logo_grd.png";
 
 const NAVY: [number, number, number] = [33, 51, 104];
 const ORANGE: [number, number, number] = [243, 112, 50];
@@ -14,33 +19,56 @@ const TEXT_DARK: [number, number, number] = [40, 40, 45];
 const TEXT_MUTED: [number, number, number] = [110, 110, 120];
 const WHITE: [number, number, number] = [255, 255, 255];
 
-let logoDataUrl: string | null = null;
-let logoDims: { w: number; h: number } | null = null;
+// ---------- Carregamento de imagens ----------
+type ImagemPdf = { dataUrl: string; w: number; h: number };
 
-async function getLogoDataUrl(): Promise<{ url: string; w: number; h: number } | null> {
-  if (logoDataUrl && logoDims) return { url: logoDataUrl, ...logoDims };
-  try {
-    const res = await fetch("https://grupogrdbrasil.com.br/logo_grd.jpeg", { cache: "force-cache" });
-    if (!res.ok) throw new Error("bad status");
-    const blob = await res.blob();
-    const url = await new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result as string);
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-    const dims = await new Promise<{ w: number; h: number }>((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-      img.onerror = () => resolve({ w: 1, h: 1 });
-      img.src = url;
-    });
-    logoDataUrl = url;
-    logoDims = dims;
-    return { url, ...dims };
-  } catch {
-    return null;
-  }
+const cacheImagens = new Map<string, Promise<ImagemPdf | null>>();
+
+/**
+ * Baixa a imagem, reduz para `maxPx` e normaliza em PNG sobre fundo branco.
+ * Passar pelo canvas resolve de uma vez formatos que o jsPDF não embute
+ * (webp/avif) e transparência que alguns leitores renderizam escura.
+ * Devolve null em qualquer falha — o termo sai sem a foto, nunca quebra.
+ */
+function carregarImagem(url: string, maxPx = 320): Promise<ImagemPdf | null> {
+  const chave = `${url}|${maxPx}`;
+  const emCache = cacheImagens.get(chave);
+  if (emCache) return emCache;
+
+  const promessa = (async (): Promise<ImagemPdf | null> => {
+    try {
+      const res = await fetch(url, { cache: "force-cache" });
+      if (!res.ok) return null;
+      const blobUrl = URL.createObjectURL(await res.blob());
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const el = new Image();
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error("imagem inválida"));
+          el.src = blobUrl;
+        });
+        const escala = Math.min(1, maxPx / Math.max(img.naturalWidth, img.naturalHeight, 1));
+        const w = Math.max(1, Math.round(img.naturalWidth * escala));
+        const h = Math.max(1, Math.round(img.naturalHeight * escala));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        return { dataUrl: canvas.toDataURL("image/png"), w, h };
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch {
+      return null;
+    }
+  })();
+
+  cacheImagens.set(chave, promessa);
+  return promessa;
 }
 
 function fmtDate(iso?: string) {
@@ -56,11 +84,15 @@ export interface TermoEpiFuncionario {
   cargo?: string;
   setor?: string;
   matricula?: string;
+  dataAdmissao?: string;
 }
 
 export interface TermoEpiItem {
   epiNome: string;
   ca: string;
+  fabricante?: string;
+  unidade?: string;
+  fotoUrl?: string;
   quantidade: number;
   motivo: string;
   dataEntrega?: string;
@@ -77,21 +109,41 @@ export interface TermoEpiData {
   observacoes?: string;
 }
 
-export async function gerarTermoEpiPDF(t: TermoEpiData) {
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+// Larguras da tabela de itens, em proporção de uma área útil de 180mm.
+const COLUNAS: { titulo: string; larg: number; centro?: boolean }[] = [
+  { titulo: "Foto", larg: 17, centro: true },
+  { titulo: "EPI", larg: 42 },
+  { titulo: "C.A.", larg: 19 },
+  { titulo: "Fabricante", larg: 26 },
+  { titulo: "Qtd.", larg: 15, centro: true },
+  { titulo: "Motivo", larg: 25 },
+  { titulo: "Entrega", larg: 18 },
+  { titulo: "Validade", larg: 18 },
+];
+const LARG_BASE = COLUNAS.reduce((a, c) => a + c.larg, 0);
+
+/**
+ * Desenha um termo completo a partir da página atual do documento.
+ * Separado de `gerarTermoEpiPDF` para que a entrega em lote consiga
+ * emitir vários termos — um por funcionário — no mesmo arquivo.
+ */
+async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 15;
+  const tableX = M;
+  const tableW = W - 2 * M;
+  const colsW = COLUNAS.map(c => (c.larg / LARG_BASE) * tableW);
   let y = M;
 
-  const desenharCabecalho = async () => {
+  const logo = await carregarImagem(logoGrd, 600);
+
+  const desenharCabecalho = () => {
     y = M;
-    const logo = await getLogoDataUrl();
-    const logoH = 20;
+    const logoH = 16;
     if (logo) {
-      const ratio = logo.w / logo.h;
-      const logoW = Math.min(50, logoH * ratio);
-      try { doc.addImage(logo.url, "JPEG", M, y, logoW, logoH); } catch { /* ignore */ }
+      const logoW = Math.min(50, logoH * (logo.w / logo.h));
+      try { doc.addImage(logo.dataUrl, "PNG", M, y, logoW, logoH); } catch { /* segue sem logo */ }
     }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
@@ -104,12 +156,12 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
     doc.text("Av. José Antunes de Oliveira, 307 · Agudos-SP", W - M, y + 14.5, { align: "right" });
     doc.text("(14) 3261-4194 · grupogrdbrasil.com.br", W - M, y + 19, { align: "right" });
 
-    y += logoH + 4;
+    y += logoH + 5;
     doc.setDrawColor(...ORANGE);
     doc.setLineWidth(1);
     doc.line(M, y, W - M, y);
     doc.setLineWidth(0.2);
-    y += 5;
+    y += 4;
   };
 
   const desenharRodape = () => {
@@ -119,17 +171,21 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...TEXT_MUTED);
-    doc.text("© 2026 Grupo GRD · grupogrdbrasil.com.br · Termo de Entrega de EPI (NR-6)", W / 2, H - M - 2, { align: "center" });
+    doc.text(
+      `Termo de Entrega de EPI (NR-6) · Nº ${t.numero} · Grupo GRD · grupogrdbrasil.com.br`,
+      W / 2, H - M - 2, { align: "center" },
+    );
   };
 
-  const novaPagina = async () => {
+  const novaPagina = () => {
     desenharRodape();
     doc.addPage();
-    await desenharCabecalho();
+    desenharCabecalho();
   };
 
-  const garantirEspaco = async (altura: number) => {
-    if (y + altura > H - M - 12) await novaPagina();
+  /** Quebra de página quando o bloco de `altura` não cabe no que resta. */
+  const garantirEspaco = (altura: number) => {
+    if (y + altura > H - M - 12) novaPagina();
   };
 
   const drawSectionTitle = (title: string) => {
@@ -145,10 +201,11 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
     y += 4;
   };
 
+  /** Grade rótulo/valor em 2 colunas; valores longos quebram em 2 linhas. */
   const drawGrid = (rows: [string, string][]) => {
     const cols = 2;
     const rowsPerCol = Math.ceil(rows.length / cols);
-    const rowH = 10;
+    const rowH = 9.5;
     const boxH = rowsPerCol * rowH + 3;
     const colW = (W - 2 * M) / cols;
 
@@ -168,31 +225,36 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
       doc.setTextColor(...TEXT_MUTED);
       doc.text(r[0].toUpperCase(), x, yy);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
+      doc.setFontSize(8.5);
       doc.setTextColor(...TEXT_DARK);
-      const value = r[1] || "—";
-      const lines = doc.splitTextToSize(value, colW - 8);
-      doc.text(lines.slice(0, 1), x, yy + 4.5);
+      const linhas = doc.splitTextToSize(r[1] || "—", colW - 8).slice(0, 2);
+      doc.text(linhas, x, yy + 3.8);
     });
-    y += boxH + 5;
+    y += boxH + 4;
   };
 
-  const drawTextBox = (text: string, minH = 16) => {
+  /**
+   * Caixa de texto corrido. A fonte é definida ANTES de quebrar as linhas —
+   * splitTextToSize mede com a fonte corrente — e a altura da caixa usa o
+   * espaçamento real do jsPDF (fonte × lineHeightFactor), sem folga chutada.
+   */
+  const drawTextBox = (text: string, minH = 16, fonte = 8.5) => {
     const inner = W - 2 * M - 6;
-    const lines = doc.splitTextToSize(text || "—", inner);
-    const h = Math.max(minH, lines.length * 4.5 + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fonte);
+    const lines = doc.splitTextToSize(text || "—", inner) as string[];
+    const alturaLinha = fonte * 1.15 * 0.3528; // pt -> mm
+    const h = Math.max(minH, lines.length * alturaLinha + 5);
     doc.setDrawColor(...GREY_LINE);
     doc.setLineWidth(0.2);
     doc.roundedRect(M, y, W - 2 * M, h, 1.5, 1.5, "S");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
     doc.setTextColor(...TEXT_DARK);
-    doc.text(lines, M + 3, y + 5);
-    y += h + 5;
+    doc.text(lines, M + 3, y + 4.5);
+    y += h + 4;
   };
 
-  // ============ Página 1 — cabeçalho e título ============
-  await desenharCabecalho();
+  // ============ Cabeçalho e faixa do título ============
+  desenharCabecalho();
 
   const bandH = 11;
   const leftW = (W - 2 * M) * 0.66;
@@ -224,41 +286,54 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
     ["Matrícula", t.funcionario.matricula || "—"],
     ["Cargo / Função", t.funcionario.cargo || "—"],
     ["Setor", t.funcionario.setor || "—"],
+    ["Data de admissão", t.funcionario.dataAdmissao ? fmtDate(t.funcionario.dataAdmissao) : "—"],
+    ["Data de entrega", fmtDate(t.emissao)],
   ]);
 
-  // ============ Seção 2 — Tabela de EPIs ============
+  // ============ Seção 2 — Tabela de EPIs (com foto) ============
   drawSectionTitle("2. Equipamentos de proteção entregues");
 
-  // Colunas: EPI | CA | Qtd | Motivo | Entrega | Validade
-  const tableX = M;
-  const tableW = W - 2 * M;
-  const colsW = [tableW * 0.30, tableW * 0.15, tableW * 0.09, tableW * 0.20, tableW * 0.13, tableW * 0.13];
-  const heads = ["EPI", "C.A.", "Qtd", "Motivo", "Entrega", "Validade"];
-  const rowH = 8;
+  // Baixa as fotos distintas antes de montar a tabela.
+  const urls = [...new Set(t.itens.map(i => i.fotoUrl).filter((u): u is string => !!u))];
+  const fotos = new Map<string, ImagemPdf | null>();
+  await Promise.all(urls.map(async u => { fotos.set(u, await carregarImagem(u, 320)); }));
+
+  const headH = 7.5;
+  const rowH = 13;
 
   const drawTableHead = () => {
     doc.setFillColor(...NAVY);
-    doc.rect(tableX, y, tableW, rowH, "F");
+    doc.rect(tableX, y, tableW, headH, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(...WHITE);
     let cx = tableX;
-    heads.forEach((h, i) => {
-      doc.text(h, cx + 2, y + 5.3);
+    COLUNAS.forEach((c, i) => {
+      if (c.centro) doc.text(c.titulo, cx + colsW[i] / 2, y + 5, { align: "center" });
+      else doc.text(c.titulo, cx + 2, y + 5);
       cx += colsW[i];
     });
-    y += rowH;
+    y += headH;
+  };
+
+  /** Texto centralizado verticalmente na célula, com até 3 linhas. */
+  const celulaTexto = (texto: string, x: number, larg: number, centro?: boolean) => {
+    const linhas = doc.splitTextToSize(texto, larg - 3).slice(0, 3) as string[];
+    const ty = y + (rowH - linhas.length * 3.05) / 2 + 2.4;
+    if (centro) doc.text(linhas, x + larg / 2, ty, { align: "center" });
+    else doc.text(linhas, x + 1.5, ty);
   };
 
   drawTableHead();
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
 
   for (let idx = 0; idx < t.itens.length; idx++) {
-    await garantirEspaco(rowH + 2);
-    // Se acabou de mudar de página, redesenha cabeçalho da tabela.
-    if (y <= M + 30) { drawSectionTitle("2. Equipamentos de proteção entregues (cont.)"); drawTableHead(); doc.setFont("helvetica", "normal"); doc.setFontSize(8); }
     const it = t.itens[idx];
+    if (y + rowH > H - M - 12) {
+      novaPagina();
+      drawSectionTitle("2. Equipamentos de proteção entregues (cont.)");
+      drawTableHead();
+    }
+
     if (idx % 2 === 1) {
       doc.setFillColor(...GREY_BG);
       doc.rect(tableX, y, tableW, rowH, "F");
@@ -267,28 +342,51 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
     doc.setLineWidth(0.1);
     doc.line(tableX, y + rowH, tableX + tableW, y + rowH);
 
-    const cells = [
+    // Foto (primeira coluna), encaixada preservando proporção.
+    const foto = it.fotoUrl ? fotos.get(it.fotoUrl) : null;
+    if (foto) {
+      const cx = tableX;
+      const maxW = colsW[0] - 4;
+      const maxH = rowH - 3;
+      const escala = Math.min(maxW / foto.w, maxH / foto.h);
+      const iw = foto.w * escala;
+      const ih = foto.h * escala;
+      try {
+        doc.addImage(foto.dataUrl, "PNG", cx + (colsW[0] - iw) / 2, y + (rowH - ih) / 2, iw, ih);
+      } catch { /* segue sem a foto do item */ }
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...TEXT_MUTED);
+      doc.text("sem foto", tableX + colsW[0] / 2, y + rowH / 2 + 1, { align: "center" });
+    }
+
+    const unidade = (it.unidade || "un").trim();
+    const celulas = [
+      "", // foto, já desenhada
       it.epiNome || "—",
       it.ca || "—",
-      String(it.quantidade ?? 1),
+      it.fabricante || "—",
+      `${it.quantidade ?? 1} ${unidade}`,
       it.motivo || "—",
       fmtDate(it.dataEntrega),
       it.dataValidade ? fmtDate(it.dataValidade) : "—",
     ];
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
     doc.setTextColor(...TEXT_DARK);
     let cx = tableX;
-    cells.forEach((c, i) => {
-      const txt = doc.splitTextToSize(String(c), colsW[i] - 3).slice(0, 1);
-      doc.text(txt, cx + 2, y + 5.3);
+    celulas.forEach((c, i) => {
+      if (i > 0) celulaTexto(String(c), cx, colsW[i], COLUNAS[i].centro);
       cx += colsW[i];
     });
     y += rowH;
   }
-  // Borda externa da tabela
   y += 4;
 
   // ============ Seção 3 — Termo de responsabilidade (NR-6) ============
-  await garantirEspaco(60);
+  garantirEspaco(60);
   drawSectionTitle("3. Termo de responsabilidade");
   const nome = (t.funcionario.nome || "____________________").toUpperCase();
   const cpf = t.funcionario.cpf || "________________";
@@ -299,47 +397,99 @@ export async function gerarTermoEpiPDF(t: TermoEpiData) {
     `• Comunicar ao empregador qualquer alteração que os torne impróprios para uso, bem como solicitar a substituição em caso de dano, extravio ou vencimento da validade;\n` +
     `• Devolver o EPI ao término do contrato de trabalho ou quando solicitado;\n` +
     `• Cumprir as determinações do empregador sobre o uso adequado, sob pena das sanções previstas na NR-6 e na legislação trabalhista.`;
-  drawTextBox(texto, 46);
+  drawTextBox(texto, 40);
 
   // ============ Seção 4 — Observações ============
   if (t.observacoes && t.observacoes.trim()) {
-    await garantirEspaco(24);
+    garantirEspaco(24);
     drawSectionTitle("4. Observações");
     drawTextBox(t.observacoes.trim(), 16);
   }
 
   // ============ Assinaturas ============
-  const assinaturasH = 34;
-  await garantirEspaco(assinaturasH + 12);
-  if (y + assinaturasH + 12 > H - M) y = H - M - assinaturasH - 12;
+  // Espaço para assinar, linha, e abaixo dela nome e cargo impressos.
+  const assinaturasH = 36;
+  garantirEspaco(assinaturasH + 6);
+  if (y + assinaturasH + 6 > H - M) y = H - M - assinaturasH - 6;
 
-  const gap = 8;
+  const gap = 10;
   const colW2 = (W - 2 * M - gap) / 2;
-  const cols = [
-    { x: M, label: "Funcionário (recebedor)", nome: t.funcionario.nome, linha2: `CPF: ${t.funcionario.cpf || "____________________"}` },
-    { x: M + colW2 + gap, label: "Responsável pela entrega (GRD)", nome: t.responsavelEntrega, linha2: t.responsavelCargo ? `Cargo: ${t.responsavelCargo}` : "Cargo: ____________________" },
+  const blocos = [
+    {
+      x: M,
+      papel: "Funcionário (recebedor)",
+      nome: t.funcionario.nome,
+      cargo: t.funcionario.cargo,
+      extra: `CPF: ${t.funcionario.cpf || "____________________"}`,
+    },
+    {
+      x: M + colW2 + gap,
+      papel: "Responsável pela entrega — GRD",
+      nome: t.responsavelEntrega,
+      cargo: t.responsavelCargo,
+      extra: `Data: ${fmtDate(t.emissao)}`,
+    },
   ];
-  cols.forEach((c) => {
+
+  blocos.forEach(b => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(b.papel.toUpperCase(), b.x + colW2 / 2, y + 3, { align: "center" });
+
+    // Linha de assinatura, com espaço em branco acima para assinar.
+    const yLinha = y + 17;
     doc.setDrawColor(...TEXT_DARK);
     doc.setLineWidth(0.3);
-    doc.line(c.x, y + 14, c.x + colW2, y + 14);
+    doc.line(b.x, yLinha, b.x + colW2, yLinha);
+
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    doc.setFontSize(9);
     doc.setTextColor(...NAVY);
-    doc.text(c.label, c.x + colW2 / 2, y + 19, { align: "center" });
+    const nomeLinha = doc.splitTextToSize((b.nome || "____________________").toUpperCase(), colW2).slice(0, 1);
+    doc.text(nomeLinha, b.x + colW2 / 2, yLinha + 5, { align: "center" });
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...TEXT_DARK);
-    doc.text(`Nome: ${c.nome || "____________________________________"}`, c.x, y + 24.5);
-    doc.text(c.linha2, c.x, y + 29);
+    const cargoLinha = doc.splitTextToSize(b.cargo || "____________________", colW2).slice(0, 1);
+    doc.text(cargoLinha, b.x + colW2 / 2, yLinha + 9.5, { align: "center" });
+
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text(b.extra, b.x + colW2 / 2, yLinha + 14, { align: "center" });
   });
-  doc.setFontSize(7.5);
-  doc.setTextColor(...TEXT_MUTED);
-  doc.text(`Data: ${fmtDate(t.emissao)}`, M, y + 33.5);
   y += assinaturasH;
 
   desenharRodape();
+}
 
-  const nomeArq = `termo-epi-${(t.funcionario.nome || "funcionario").replace(/\s+/g, "-").toLowerCase()}-${t.numero}.pdf`;
-  doc.save(nomeArq);
+function nomeArquivo(t: TermoEpiData) {
+  const slug = (t.funcionario.nome || "funcionario").replace(/\s+/g, "-").toLowerCase();
+  return `termo-epi-${slug}-${t.numero}.pdf`;
+}
+
+/** Gera e baixa o termo de um funcionário. */
+export async function gerarTermoEpiPDF(t: TermoEpiData) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  await desenharTermo(doc, t);
+  doc.save(nomeArquivo(t));
+}
+
+/**
+ * Gera os termos de vários funcionários num único arquivo, cada termo
+ * começando em página nova — um PDF só evita o bloqueio de downloads
+ * múltiplos do navegador e é mais prático de imprimir em lote.
+ */
+export async function gerarTermosEpiPDF(termos: TermoEpiData[], nomeArq?: string) {
+  if (!termos.length) return;
+  if (termos.length === 1) return gerarTermoEpiPDF(termos[0]);
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  for (let i = 0; i < termos.length; i++) {
+    if (i > 0) doc.addPage();
+    await desenharTermo(doc, termos[i]);
+  }
+  const ano = new Date().getFullYear();
+  doc.save(nomeArq ?? `termos-epi-${ano}-${termos.length}-funcionarios.pdf`);
 }
