@@ -36,12 +36,6 @@ export type Projeto = {
   cliente: string;
   clienteId: string | null;
   orcamentoId: string | null;
-  /**
-   * Número do orçamento de origem (ex.: "ORC 084_2026"), lido da relação
-   * com `orcamentos` — não é coluna de `projetos`. Fica null quando o
-   * projeto foi criado à mão, sem orçamento vinculado.
-   */
-  orcamentoNumero: string | null;
   valorContrato: number;
   local: string;
   descricao: string;
@@ -143,9 +137,7 @@ async function fetchPaginado(
 
 async function fetchAll() {
   const [p, c, n, m] = await Promise.all([
-    // O embed `orcamentos(numero)` traz o número do orçamento pela FK
-    // projetos.orcamento_id — é ele que aparece no card, no lugar do id.
-    supabase.from("projetos").select("*, orcamentos(numero)").order("created_at", { ascending: false }),
+    supabase.from("projetos").select("*").order("created_at", { ascending: false }),
     fetchPaginado("custos", "data"),
     fetchPaginado("notas_fiscais", "data"),
     fetchPaginado("medicoes", "data"),
@@ -159,7 +151,6 @@ async function fetchAll() {
       id: r.id, nome: r.nome ?? "", cliente: r.cliente ?? "",
       clienteId: r.cliente_id ?? null,
       orcamentoId: r.orcamento_id ?? null,
-      orcamentoNumero: r.orcamentos?.numero ?? null,
       valorContrato: num(r.valor_contrato),
       local: r.local ?? "", descricao: r.descricao ?? "",
       responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
@@ -217,7 +208,7 @@ export function calcularValorNota(quantidade: number, valorUnitario: number): nu
 
 export const projetosActions = {
   criarProjeto(
-    input: Omit<Projeto, "id" | "orcamentoId" | "orcamentoNumero" | "valorContrato" | keyof PlanejamentoProjeto>
+    input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato" | keyof PlanejamentoProjeto>
       & { id?: string; orcamentoId?: string | null; valorContrato?: number }
       & Partial<PlanejamentoProjeto>,
   ) {
@@ -226,9 +217,6 @@ export const projetosActions = {
       ...PLANEJAMENTO_ZERADO,
       ...input, id,
       orcamentoId: input.orcamentoId ?? null,
-      // só o fetchAll resolve o número (vem da tabela orcamentos); até a
-      // próxima carga o card do projeto recém-criado fica sem a linha.
-      orcamentoNumero: null,
       valorContrato: input.valorContrato ?? 0,
       // repetidos explicitamente: o spread acima sobrescreveria os zeros
       // com undefined se o chamador passar a chave sem valor.

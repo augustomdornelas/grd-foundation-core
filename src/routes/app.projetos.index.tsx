@@ -135,10 +135,7 @@ function ProjetosList() {
             <Card key={p.id} className="flex flex-col p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  {/* Número do orçamento de origem. A linha fica reservada
-                      mesmo sem orçamento vinculado para que os cards da
-                      mesma fileira alinhem o nome na mesma altura. */}
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">{p.orcamentoNumero || "\u00A0"}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">{p.id}</div>
                   <div className="mt-1 truncate text-base font-bold text-[#213368]">{p.nome}</div>
                   <div className="truncate text-xs text-muted-foreground">{p.cliente} · {p.local}</div>
                 </div>

@@ -14,23 +14,6 @@ export type OrcamentoResumo = {
   planejamento?: PlanejamentoValores | null;
 };
 
-/**
- * Prefixo com o número do orçamento no começo do texto da obra —
- * "ORC 084_2026 - SERVIÇOS DE APOIO...". Vem digitado (ou importado) no
- * campo obra do orçamento; o projeto não precisa dele, porque o número
- * agora é lido da relação com `orcamentos`.
- */
-const PREFIXO_ORCAMENTO = /^\s*ORC[\s._/-]*[\w._/-]*\s*[-–—:]\s*/i;
-
-/** Nome do projeto a partir da obra, sem o número do orçamento colado na frente. */
-export function nomeDaObra(obra: string | null | undefined): string {
-  const texto = (obra ?? "").trim();
-  const limpo = texto.replace(PREFIXO_ORCAMENTO, "").trim();
-  // Se a obra for só o número ("ORC 084_2026"), sobra string vazia — aí
-  // vale mais manter o texto original do que criar projeto sem nome.
-  return limpo || texto;
-}
-
 /** Planejamento no formato das colunas de `projetos`. */
 function linhasPlanejamento(p: PlanejamentoValores) {
   return {
@@ -120,7 +103,7 @@ export async function garantirProjetoDeOrcamento(orc: OrcamentoResumo): Promise<
     const id = crypto.randomUUID();
     const payload = upperizePayload({
       id,
-      nome: nomeDaObra(orc.obra),
+      nome: orc.obra ?? "",
       cliente: orc.cliente ?? "",
       cliente_id: clienteId,
       orcamento_id: orc.id,

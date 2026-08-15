@@ -185,9 +185,7 @@ function ProjetoDetalhe() {
       <Card className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            {p.orcamentoNumero && (
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">{p.orcamentoNumero}</div>
-            )}
+            <div className="text-xs font-semibold uppercase tracking-wider text-[#F37032]">{p.id}</div>
             <h2 className="mt-1 text-2xl font-extrabold text-[#213368]">{p.nome}</h2>
             <div className="text-sm text-muted-foreground">{p.cliente} · {p.local}</div>
           </div>
