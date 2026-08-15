@@ -1,9 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 
+/**
+ * Aparição no scroll.
+ *
+ * O estado inicial (invisível, deslocado 20px) e o plano B ficam no CSS,
+ * em src/styles.css. O JavaScript entra só como refinamento: ao montar,
+ * marca o elemento com `reveal-js` — o que desliga a animação de
+ * fallback — e revela o bloco quando ele entra na tela.
+ *
+ * O motivo de o estado inicial não ser mais um `style` inline: quando o
+ * bundle do cliente não roda, nada removia aquele opacity 0 e a página
+ * inteira ficava invisível, menos o que estava fora do Reveal.
+ */
 export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: IntersectionObserverInit) {
   const ref = useRef<T | null>(null);
   const [visible, setVisible] = useState(false);
+  // Falso no servidor e na primeira renderização do cliente, para a
+  // hidratação casar; vira verdadeiro no efeito, que só roda com JS vivo.
+  const [jsAtivo, setJsAtivo] = useState(false);
   useEffect(() => {
+    setJsAtivo(true);
     const el = ref.current;
     if (!el) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -19,7 +35,7 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: Inte
     io.observe(el);
     return () => io.disconnect();
   }, []);
-  return { ref, visible };
+  return { ref, visible, jsAtivo };
 }
 
 export function Reveal({
@@ -33,19 +49,13 @@ export function Reveal({
   className?: string;
   as?: React.ElementType;
 }) {
-  const { ref, visible } = useReveal<HTMLDivElement>();
+  const { ref, visible, jsAtivo } = useReveal<HTMLDivElement>();
   const Comp: React.ElementType = Tag;
+  const classes = ["reveal", jsAtivo && "reveal-js", visible && "reveal-visivel", className]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <Comp
-      ref={ref}
-      className={className}
-      style={{
-        transition: "opacity 700ms ease-out, transform 700ms ease-out",
-        transitionDelay: `${delay}ms`,
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(20px)",
-      }}
-    >
+    <Comp ref={ref} className={classes} style={{ transitionDelay: `${delay}ms` }}>
       {children}
     </Comp>
   );

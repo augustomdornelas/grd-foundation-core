@@ -103,6 +103,50 @@
   background-size: 32px 32px;
 }
 
+/* ------------------------------------------------------------
+   Reveal (aparição no scroll) — ver src/components/site/Reveal.tsx
+
+   O conteúdo nasce invisível e o JavaScript o revela quando entra na
+   tela. Se o bundle do cliente nao rodar (erro de hidratacao, chunk
+   que nao carrega, JS desativado), nada revelava nada e o site ficava
+   pela metade: so apareciam o menu e a imagem do hero, que estao fora
+   do Reveal. Foi exatamente o que aconteceu no deploy de 15/08/2026.
+
+   Agora a aparicao tem um caminho que nao depende de JavaScript: a
+   animacao abaixo revela o bloco sozinha depois de 1.2s. Quando o JS
+   esta vivo, ele marca o elemento com .reveal-js antes disso e assume
+   o controle, entao a animacao nunca chega a rodar e a experiencia
+   continua igual.
+   ------------------------------------------------------------ */
+@keyframes reveal-fallback {
+  to { opacity: 1; transform: none; }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: reveal-fallback 700ms ease-out 1.2s forwards;
+}
+
+/* JS assumiu: desliga o plano B e deixa a transicao do componente agir. */
+.reveal-js {
+  animation: none;
+  transition: opacity 700ms ease-out, transform 700ms ease-out;
+}
+
+.reveal-js.reveal-visivel {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
 /* Uppercase geral em todo o portal /app */
 .app-layout,
 .app-layout *:not(input[type="password"]):not(input[type="email"]) {
