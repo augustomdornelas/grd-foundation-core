@@ -12,6 +12,7 @@
 // Planejado (BASE_PERCENTUAIS = "custos"). Se aquele arquivo
 // mudar de base, o preview daqui precisa acompanhar.
 // ============================================================
+import { paraNumero, paraTexto } from "@/lib/formato";
 
 /** Os sete campos como number, prontos para gravar. */
 export type PlanejamentoValores = {
@@ -38,19 +39,16 @@ export const CAMPOS_PCT: { chave: keyof PlanejamentoValores; rotulo: string }[] 
 ];
 
 /**
- * Lê um número digitado aceitando vírgula ou ponto como decimal —
- * mesma regra do parseValorBR de app.comercial.tsx: o ponto só é
- * separador de milhar quando existe vírgula, senão "12.5" viraria 125.
+ * Lê um número digitado aceitando vírgula ou ponto como decimal.
+ *
+ * A regra em si mora em @/lib/formato, junto com o resto da formatação
+ * do site. Aqui sobra só o contrato deste módulo: devolver 0 (e não
+ * null) para campo vazio, e recusar negativo — custo e percentual de
+ * planejamento não têm sinal.
  */
 export function parseNumeroBR(texto: string): number {
-  if (!texto) return 0;
-  const limpo = String(texto).trim().replace(/\s|R\$|%/g, "");
-  if (!limpo) return 0;
-  const normalizado = limpo.includes(",")
-    ? limpo.replace(/\./g, "").replace(",", ".")
-    : limpo;
-  const n = Number(normalizado);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
+  const n = paraNumero(texto);
+  return n !== null && n >= 0 ? n : 0;
 }
 
 export function planejamentoFormVazio(): PlanejamentoForm {
@@ -60,10 +58,14 @@ export function planejamentoFormVazio(): PlanejamentoForm {
   };
 }
 
-/** number -> texto; zero vira campo vazio para não poluir a tela. */
+/**
+ * number -> texto; zero vira campo vazio para não poluir a tela.
+ *
+ * Percentual não ganha casa decimal à toa: 10 sai como "10", não
+ * "10,00" — por isso os centavos redondos são cortados.
+ */
 function numParaTexto(v: number | null | undefined): string {
-  const n = Number(v);
-  return Number.isFinite(n) && n !== 0 ? String(n).replace(".", ",") : "";
+  return paraTexto(v, 2).replace(/,00$/, "");
 }
 
 export function valoresParaForm(v: Partial<PlanejamentoValores> | null | undefined): PlanejamentoForm {

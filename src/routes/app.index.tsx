@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { brl } from "@/lib/mock-data";
+import { brl, brlCompacto, inteiro, pct } from "@/lib/formato";
 import { StatusBadge } from "@/components/portal/StatusBadge";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -184,10 +184,10 @@ function PainelHome() {
       {/* SEÇÃO 1 — COMERCIAL */}
       <Section title="Comercial" icon={<FileText className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <Kpi icon={<FileText />} label="Total de orçamentos" value={String(totalOrc)} />
+          <Kpi icon={<FileText />} label="Total de orçamentos" value={inteiro(totalOrc)} />
           <Kpi icon={<DollarSign />} label="Valor total orçado" value={brl(valorOrc)} />
           <Kpi icon={<CheckCircle2 />} label="Aprovados" value={`${aprovados.length} · ${brl(valorAprovado)}`} tone="green" />
-          <Kpi icon={<Percent />} label="Taxa de aprovação" value={`${taxaAprov.toFixed(1)}%`} />
+          <Kpi icon={<Percent />} label="Taxa de aprovação" value={pct(taxaAprov)} />
           <Kpi icon={<Target />} label="Ticket médio" value={brl(ticket)} />
           <Kpi icon={<Handshake />} label="Em negociação" value={`${emNeg.length} · ${brl(valorEmNeg)}`} tone="orange" />
         </div>
@@ -196,9 +196,9 @@ function PainelHome() {
       {/* SEÇÃO 2 — OPERACIONAL */}
       <Section title="Operacional" icon={<FolderKanban className="h-4 w-4" />}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <Kpi icon={<FolderKanban />} label="Projetos em andamento" value={String(projAndamento.length)} tone="orange" />
-          <Kpi icon={<CheckCircle2 />} label="Projetos concluídos" value={String(projConcluidos.length)} tone="green" />
-          <Kpi icon={<ClipboardList />} label="Medições lançadas" value={String(totalMed)} />
+          <Kpi icon={<FolderKanban />} label="Projetos em andamento" value={inteiro(projAndamento.length)} tone="orange" />
+          <Kpi icon={<CheckCircle2 />} label="Projetos concluídos" value={inteiro(projConcluidos.length)} tone="green" />
+          <Kpi icon={<ClipboardList />} label="Medições lançadas" value={inteiro(totalMed)} />
           <Kpi icon={<Wallet />} label="Faturado" value={brl(faturado)} tone="green" />
           <Kpi icon={<TrendingUp />} label="Saldo a faturar" value={brl(saldoFaturar)} />
         </div>
@@ -212,7 +212,7 @@ function PainelHome() {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
               <YAxis yAxisId="l" tick={{ fontSize: 11 }} />
-              <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11 }} tickFormatter={brlCompacto} />
               <Tooltip formatter={(v: number, n: string) => n === "valor" ? brl(v) : v} />
               <Legend />
               <Bar yAxisId="l" dataKey="qtd" name="Qtd" fill={NAVY} radius={[4,4,0,0]} />
@@ -238,7 +238,7 @@ function PainelHome() {
             <BarChart data={previsaoVsFat}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={brlCompacto} />
               <Tooltip formatter={(v: number) => brl(v)} />
               <Legend />
               <Bar dataKey="previsto" name="Previsto" fill={NAVY} radius={[4,4,0,0]} />
@@ -263,7 +263,7 @@ function PainelHome() {
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={topClientes} layout="vertical" margin={{ left: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={brlCompacto} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={140} />
               <Tooltip formatter={(v: number) => brl(v)} />
               <Bar dataKey="valor" name="Valor" fill={NAVY} radius={[0,4,4,0]} />
@@ -276,7 +276,7 @@ function PainelHome() {
             <LineChart data={acumulado}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={brlCompacto} />
               <Tooltip formatter={(v: number) => brl(v)} />
               <Line type="monotone" dataKey="acumulado" name="Acumulado" stroke={ORANGE} strokeWidth={3} dot={{ fill: NAVY, r: 4 }} />
             </LineChart>
@@ -318,7 +318,7 @@ function PainelHome() {
               {projEmObra.length === 0 && <tr><td colSpan={3} className="py-6 text-center text-muted-foreground">Sem projetos em andamento</td></tr>}
               {projEmObra.map(p => {
                 const clienteNome = p.cliente || clientes.find(c => c.id === p.cliente_id)?.nome || "—";
-                const pct = Number(p.progresso) || 0;
+                const avanco = Number(p.progresso) || 0;
                 return (
                   <tr key={p.id} className="border-b last:border-0">
                     <td className="py-2 font-semibold" style={{ color: NAVY }}>{p.nome || "—"}</td>
@@ -326,9 +326,9 @@ function PainelHome() {
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-200">
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: ORANGE }} />
+                          <div className="h-full rounded-full" style={{ width: `${avanco}%`, background: ORANGE }} />
                         </div>
-                        <span className="text-xs font-bold" style={{ color: NAVY }}>{pct}%</span>
+                        <span className="text-xs font-bold" style={{ color: NAVY }}>{pct(avanco)}</span>
                       </div>
                     </td>
                   </tr>

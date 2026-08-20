@@ -30,6 +30,8 @@ import {
   type Funcionario, type Epi,
 } from "@/lib/epis-store";
 import { EntregaEpiDialog } from "@/components/epis/EntregaEpiDialog";
+import { brl, inteiro } from "@/lib/formato";
+import { InputNumero } from "@/components/ui/input-moeda";
 import { CompraEpiDialog } from "@/components/epis/CompraEpiDialog";
 import { gerarTermoEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
 
@@ -51,7 +53,6 @@ function fmtBr(iso?: string) {
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
 }
-const fmtBrl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 function maskCpf(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 11);
   return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
@@ -193,7 +194,7 @@ function EpisPage() {
                       <TableCell className="font-semibold text-[#213368]">{e.numeroTermo || "—"}</TableCell>
                       <TableCell>{func?.nome ?? "—"}</TableCell>
                       <TableCell>{fmtBr(e.dataEntrega)}</TableCell>
-                      <TableCell className="text-center">{qtd}</TableCell>
+                      <TableCell className="text-center">{inteiro(qtd)}</TableCell>
                       <TableCell>
                         {e.assinado
                           ? <Badge className="bg-green-100 text-green-700"><CheckCircle2 className="mr-1 h-3 w-3" /> Assinado</Badge>
@@ -295,8 +296,8 @@ function EpisPage() {
                       <TableCell>{fmtBr(c.dataCompra)}</TableCell>
                       <TableCell className="font-semibold">{c.fornecedorNome || "—"}</TableCell>
                       <TableCell>{c.numeroNota || "—"}</TableCell>
-                      <TableCell className="text-center">{qtd}</TableCell>
-                      <TableCell className="text-right">{fmtBrl(total)}</TableCell>
+                      <TableCell className="text-center">{inteiro(qtd)}</TableCell>
+                      <TableCell className="text-right">{brl(total)}</TableCell>
                       <TableCell className="text-right">
                         <Button size="icon" variant="ghost" title="Excluir compra (devolve o estoque)" onClick={() => setConfirmar({ kind: "compra", id: c.id, label: `compra de ${fmtBr(c.dataCompra)}` })}>
                           <Trash2 className="h-4 w-4 text-red-600" />
@@ -348,7 +349,7 @@ function EpisPage() {
                     <TableCell>{e.ca || "—"}</TableCell>
                     <TableCell>{e.categoria || "—"}</TableCell>
                     <TableCell className="text-center">{e.validadeDias > 0 ? `${e.validadeDias} dias` : "—"}</TableCell>
-                    <TableCell className="text-center">{e.estoque} {e.unidade}</TableCell>
+                    <TableCell className="text-center">{inteiro(e.estoque)} {e.unidade}</TableCell>
                     <TableCell>{e.ativo ? <Badge className="bg-green-100 text-green-700">Ativo</Badge> : <Badge className="bg-gray-100 text-gray-500">Inativo</Badge>}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -455,9 +456,9 @@ function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void 
     categoria: epi?.categoria ?? "",
     descricao: epi?.descricao ?? "",
     fabricante: epi?.fabricante ?? "",
-    validadeDias: epi ? String(epi.validadeDias) : "",
+    validadeDias: epi ? epi.validadeDias : null as number | null,
     caValidade: epi?.caValidade ?? "",
-    estoque: epi ? String(epi.estoque) : "0",
+    estoque: epi ? epi.estoque : 0 as number | null,
     unidade: epi?.unidade ?? "un",
     fotoUrl: epi?.fotoUrl ?? "",
     ativo: epi?.ativo ?? true,
@@ -498,11 +499,11 @@ function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void 
       categoria: form.categoria.trim(),
       descricao: form.descricao.trim(),
       fabricante: form.fabricante.trim(),
-      validadeDias: Math.max(0, Number(form.validadeDias) || 0),
+      validadeDias: Math.max(0, form.validadeDias ?? 0),
       // String vazia (e não undefined) para que limpar a data realmente
       // grave null no banco — atualizarEpi ignora campos undefined.
       caValidade: form.caValidade,
-      estoque: Math.max(0, Number(form.estoque) || 0),
+      estoque: Math.max(0, form.estoque ?? 0),
       unidade: form.unidade.trim() || "un",
       fotoUrl: form.fotoUrl,
       ativo: form.ativo,
@@ -528,9 +529,9 @@ function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void 
           <div><Label>Categoria</Label><Input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} placeholder="Ex.: Proteção da cabeça" /></div>
           <div><Label>Fabricante</Label><Input value={form.fabricante} onChange={e => setForm({ ...form, fabricante: e.target.value })} /></div>
           <div><Label>Validade do C.A.</Label><Input type="date" value={form.caValidade} onChange={e => setForm({ ...form, caValidade: e.target.value })} /></div>
-          <div><Label>Validade de uso (dias)</Label><Input inputMode="numeric" value={form.validadeDias} onChange={e => setForm({ ...form, validadeDias: e.target.value.replace(/\D/g, "") })} placeholder="Ex.: 180" /></div>
+          <div><Label>Validade de uso (dias)</Label><InputNumero valor={form.validadeDias} onChange={v => setForm({ ...form, validadeDias: v })} casas={0} placeholder="Ex.: 180" /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Estoque</Label><Input inputMode="numeric" value={form.estoque} onChange={e => setForm({ ...form, estoque: e.target.value.replace(/\D/g, "") })} /></div>
+            <div><Label>Estoque</Label><InputNumero valor={form.estoque} onChange={v => setForm({ ...form, estoque: v })} casas={0} /></div>
             <div><Label>Unidade</Label><Input value={form.unidade} onChange={e => setForm({ ...form, unidade: e.target.value })} placeholder="un / par / cx" /></div>
           </div>
           <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>

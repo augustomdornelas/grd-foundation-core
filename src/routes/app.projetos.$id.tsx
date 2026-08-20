@@ -8,43 +8,32 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputMoeda, InputNumero } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from "recharts";
 import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { brl } from "@/lib/mock-data";
+import { brl, brlCompacto, num, pct } from "@/lib/formato";
 import { useProjetosStore, projetosActions, resumoProjeto, calcularValorNota, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
 import { UnidadeSelect } from "@/components/portal/UnidadeSelect";
+import { FornecedorSelect } from "@/components/fornecedores/FornecedorSelect";
+import { AbaFornecedores } from "@/components/fornecedores/AbaFornecedores";
 import { useLancamentosProjeto, useExecucaoProjeto, resumoLancamentos, dataDoLancamento } from "@/lib/lancamentos-store";
 import { montarQuadro } from "@/lib/planejamento-execucao";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
 import { PlanejamentoCampos } from "@/components/planejamento/PlanejamentoCampos";
 import { formParaValores, valoresParaForm, type PlanejamentoForm } from "@/lib/planejamento-campos";
 
+// `fornecedorId` só existe na tela: a coluna `notas_fiscais.fornecedor` é
+// texto, e é o NOME que fica gravado. Mesma escolha já feita para a unidade
+// — se o cadastro do fornecedor for renomeado ou removido, as notas antigas
+// continuam mostrando com quem a compra foi feita.
 const NOTA_VAZIA = {
-  data: "", numero: "", fornecedor: "", descricao: "",
-  unidade: "un", quantidade: "1", valorUnitario: "",
+  data: "", numero: "", fornecedor: "", fornecedorId: null as string | null, descricao: "",
+  unidade: "un", quantidade: 1 as number | null, valorUnitario: null as number | null,
 };
-
-/**
- * Lê um número digitado, aceitando vírgula ou ponto como decimal.
- *
- * O formulário antigo usava `replace(/\D/g, "")`, que jogava fora a
- * parte decimal — servia para valor inteiro, mas quebraria o valor
- * unitário, onde centavos são a regra e não a exceção.
- */
-function parseNumero(texto: string): number {
-  const limpo = texto.trim().replace(/\s/g, "");
-  if (!limpo) return 0;
-  // "1.234,56" → tira o separador de milhar e troca a vírgula por ponto.
-  const normalizado = limpo.includes(",")
-    ? limpo.replace(/\./g, "").replace(",", ".")
-    : limpo;
-  const n = Number(normalizado);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
 
 export const Route = createFileRoute("/app/projetos/$id")({
   component: ProjetoDetalhe,
@@ -74,13 +63,14 @@ function ProjetoDetalhe() {
   const [medOpen, setMedOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const [custo, setCusto] = useState({ data: hoje(), descricao: "", categoria: "Insumo" as const, valor: "" });
+  const [custo, setCusto] = useState({ data: hoje(), descricao: "", categoria: "Insumo" as const, valor: null as number | null });
   const [nota, setNota] = useState(NOTA_VAZIA);
-  const [med, setMed] = useState({ data: hoje(), periodo: "", pct: "", valor: "", status: "ENVIADA" as const });
+  const [med, setMed] = useState({ data: hoje(), periodo: "", pct: null as number | null, valor: null as number | null, status: "ENVIADA" as const });
   const [edit, setEdit] = useState({
     nome: p.nome, cliente: p.cliente, clienteId: p.clienteId as string | null,
     local: p.local, descricao: p.descricao, responsavel: p.responsavel,
-    dataInicio: p.dataInicio, prazo: p.prazo, status: p.status, orcado: String(p.orcado), progresso: String(p.progresso),
+    dataInicio: p.dataInicio, prazo: p.prazo, status: p.status,
+    orcado: p.orcado as number | null, progresso: p.progresso as number | null,
   });
 
   const serieFinanceira = useMemo(() => {
@@ -117,16 +107,18 @@ function ProjetoDetalhe() {
   }, [r.medicoes, r.orcado]);
 
   const submitCusto = () => {
-    const valor = Number(custo.valor.replace(/\D/g, ""));
+    // O campo já entrega número: o `replace(/\D/g, "")` que existia aqui
+    // apagava a vírgula junto com o resto e transformava 1.234,56 em 123456.
+    const valor = custo.valor ?? 0;
     if (!custo.descricao.trim() || !valor) return toast.error("Preencha descrição e valor");
     projetosActions.adicionarCusto({ projetoId: id, data: custo.data, descricao: custo.descricao, categoria: custo.categoria, valor });
     toast.success("Custo lançado");
-    setCusto({ data: hoje(), descricao: "", categoria: "Insumo", valor: "" });
+    setCusto({ data: hoje(), descricao: "", categoria: "Insumo", valor: null });
     setCustoOpen(false);
   };
   const submitNota = () => {
-    const quantidade = parseNumero(nota.quantidade);
-    const valorUnitario = parseNumero(nota.valorUnitario);
+    const quantidade = nota.quantidade ?? 0;
+    const valorUnitario = nota.valorUnitario ?? 0;
     // O número da nota deixou de ser obrigatório: nem toda entrada de
     // material chega com nota emitida.
     if (!nota.fornecedor.trim()) return toast.error("Informe o fornecedor");
@@ -145,13 +137,13 @@ function ProjetoDetalhe() {
     setNotaOpen(false);
   };
   const submitMed = () => {
-    const valor = Number(med.valor.replace(/\D/g, ""));
-    const pct = Math.max(0, Math.min(100, Number(med.pct) || 0));
+    const valor = med.valor ?? 0;
+    const percentual = Math.max(0, Math.min(100, med.pct ?? 0));
     if (!med.periodo.trim() || !valor) return toast.error("Preencha período e valor");
     const numero = (r.medicoes.length || 0) + 1;
-    projetosActions.adicionarMedicao({ projetoId: id, numero, data: med.data, periodo: med.periodo, pct, valor, status: med.status });
+    projetosActions.adicionarMedicao({ projetoId: id, numero, data: med.data, periodo: med.periodo, pct: percentual, valor, status: med.status });
     toast.success("Medição registrada");
-    setMed({ data: hoje(), periodo: "", pct: "", valor: "", status: "ENVIADA" });
+    setMed({ data: hoje(), periodo: "", pct: null, valor: null, status: "ENVIADA" });
     setMedOpen(false);
   };
   const submitEdit = () => {
@@ -161,8 +153,8 @@ function ProjetoDetalhe() {
       nome: edit.nome, cliente: edit.cliente, clienteId: edit.clienteId,
       local: edit.local, descricao: edit.descricao,
       responsavel: edit.responsavel, dataInicio: edit.dataInicio, prazo: edit.prazo,
-      status: edit.status, orcado: Number(String(edit.orcado).replace(/\D/g, "")) || 0,
-      progresso: Math.max(0, Math.min(100, Number(edit.progresso) || 0)),
+      status: edit.status, orcado: edit.orcado ?? 0,
+      progresso: Math.max(0, Math.min(100, edit.progresso ?? 0)),
     });
     toast.success("Projeto atualizado");
     setEditOpen(false);
@@ -199,11 +191,11 @@ function ProjetoDetalhe() {
         </div>
         <div className="mt-6 grid gap-6 md:grid-cols-2">
           <div>
-            <div className="mb-1 flex justify-between text-xs font-medium"><span>Avanço físico</span><span>{p.progresso}%</span></div>
+            <div className="mb-1 flex justify-between text-xs font-medium"><span>Avanço físico</span><span>{pct(p.progresso)}</span></div>
             <Progress value={p.progresso} />
           </div>
           <div>
-            <div className="mb-1 flex justify-between text-xs font-medium"><span>Financeiro realizado</span><span>{r.financeiro}%</span></div>
+            <div className="mb-1 flex justify-between text-xs font-medium"><span>Financeiro realizado</span><span>{pct(r.financeiro)}</span></div>
             <Progress value={r.financeiro} />
           </div>
         </div>
@@ -216,6 +208,7 @@ function ProjetoDetalhe() {
           <TabsTrigger value="notas">Notas</TabsTrigger>
           <TabsTrigger value="med">Medições</TabsTrigger>
           <TabsTrigger value="lanc">Lançamentos</TabsTrigger>
+          <TabsTrigger value="forn">Fornecedores</TabsTrigger>
           <TabsTrigger value="plan">Planejamento × Execução</TabsTrigger>
         </TabsList>
 
@@ -237,7 +230,7 @@ function ProjetoDetalhe() {
               <KV label="Executado (custos + notas)" value={brl(r.gasto)} accent="orange" />
               <KV label="Medido" value={brl(r.medido)} />
               <KV label="Saldo" value={brl(r.saldo)} />
-              <KV label="Avanço" value={`${p.progresso}%`} />
+              <KV label="Avanço" value={pct(p.progresso)} />
             </div>
           </Card>
         </TabsContent>
@@ -254,7 +247,7 @@ function ProjetoDetalhe() {
                     <BarChart data={serieFinanceira}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                       <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                      <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                      <YAxis stroke="#6E7280" fontSize={12} tickFormatter={brlCompacto} />
                       <Tooltip formatter={(v: number) => brl(v)} />
                       <Legend />
                       <Bar dataKey="previsto" name="Previsto (medido)" fill="#213368" />
@@ -287,8 +280,8 @@ function ProjetoDetalhe() {
                   <LineChart data={curvaS}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="periodo" stroke="#6E7280" fontSize={12} />
-                    <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => `${v}%`} domain={[0, 100]} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <YAxis stroke="#6E7280" fontSize={12} tickFormatter={v => pct(v, 0)} domain={[0, 100]} />
+                    <Tooltip formatter={(v: number) => pct(v, 0)} />
                     <Legend />
                     <Line type="monotone" dataKey="fisico" name="Físico" stroke="#213368" strokeWidth={2.5} />
                     <Line type="monotone" dataKey="financeiro" name="Financeiro" stroke="#F37032" strokeWidth={2.5} />
@@ -315,7 +308,7 @@ function ProjetoDetalhe() {
                         <SelectContent>{["Insumo", "Serviço", "Locação", "Mão de obra", "Outro"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div><Label>Valor (R$)</Label><Input inputMode="numeric" value={custo.valor} onChange={e => setCusto({ ...custo, valor: e.target.value })} /></div>
+                    <div><Label>Valor</Label><InputMoeda valor={custo.valor} onChange={v => setCusto({ ...custo, valor: v })} placeholder="0,00" /></div>
                   </div>
                   <DialogFooter><Button variant="outline" onClick={() => setCustoOpen(false)}>Cancelar</Button><Button onClick={submitCusto} className="bg-[#213368] text-white">Salvar</Button></DialogFooter>
                 </DialogContent>
@@ -356,7 +349,17 @@ function ProjetoDetalhe() {
                       <Input value={nota.numero} onChange={e => setNota({ ...nota, numero: e.target.value })} placeholder="NF 12345" />
                     </div>
                     <div><Label>Data</Label><Input type="date" value={nota.data} onChange={e => setNota({ ...nota, data: e.target.value })} /></div>
-                    <div className="md:col-span-2"><Label>Fornecedor</Label><Input value={nota.fornecedor} onChange={e => setNota({ ...nota, fornecedor: e.target.value })} /></div>
+                    <div className="md:col-span-2">
+                      <Label>Fornecedor</Label>
+                      {/* Não achou na lista? Dá para cadastrar aqui mesmo, sem
+                          perder a nota que já está pela metade — o recém-criado
+                          volta selecionado. */}
+                      <FornecedorSelect
+                        value={nota.fornecedorId}
+                        fallbackNome={nota.fornecedor}
+                        onChange={(fid, nome) => setNota({ ...nota, fornecedorId: fid, fornecedor: nome })}
+                      />
+                    </div>
                     <div className="md:col-span-2"><Label>Descrição</Label><Input value={nota.descricao} onChange={e => setNota({ ...nota, descricao: e.target.value })} /></div>
                     <div>
                       <Label>Unidade</Label>
@@ -364,11 +367,11 @@ function ProjetoDetalhe() {
                     </div>
                     <div>
                       <Label>Quantidade</Label>
-                      <Input inputMode="decimal" value={nota.quantidade} onChange={e => setNota({ ...nota, quantidade: e.target.value })} placeholder="1" />
+                      <InputNumero valor={nota.quantidade} onChange={v => setNota({ ...nota, quantidade: v })} placeholder="1,00" />
                     </div>
                     <div>
-                      <Label>Valor unitário (R$)</Label>
-                      <Input inputMode="decimal" value={nota.valorUnitario} onChange={e => setNota({ ...nota, valorUnitario: e.target.value })} placeholder="0,00" />
+                      <Label>Valor unitário</Label>
+                      <InputMoeda valor={nota.valorUnitario} onChange={v => setNota({ ...nota, valorUnitario: v })} placeholder="0,00" />
                     </div>
                     <div>
                       <Label>Valor total</Label>
@@ -378,7 +381,7 @@ function ProjetoDetalhe() {
                         aria-live="polite"
                         className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm font-bold text-[#213368]"
                       >
-                        {brl(calcularValorNota(parseNumero(nota.quantidade), parseNumero(nota.valorUnitario)))}
+                        {brl(calcularValorNota(nota.quantidade ?? 0, nota.valorUnitario ?? 0))}
                       </div>
                     </div>
                   </div>
@@ -399,7 +402,7 @@ function ProjetoDetalhe() {
                     <TableCell>{n.descricao}</TableCell>
                     <TableCell>{n.data ? new Date(n.data).toLocaleDateString("pt-BR") : "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {n.quantidade.toLocaleString("pt-BR")}
+                      {num(n.quantidade)}
                       {n.unidade && <span className="ml-1 text-xs text-muted-foreground">{n.unidade}</span>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{n.valorUnitario ? brl(n.valorUnitario) : "—"}</TableCell>
@@ -417,7 +420,7 @@ function ProjetoDetalhe() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-[#213368]">Medições</h3>
-                <p className="text-xs text-muted-foreground">Acumulado: <b>{p.progresso}%</b> · Total medido: <b>{brl(r.medido)}</b></p>
+                <p className="text-xs text-muted-foreground">Acumulado: <b>{pct(p.progresso)}</b> · Total medido: <b>{brl(r.medido)}</b></p>
               </div>
               <Dialog open={medOpen} onOpenChange={setMedOpen}>
                 <DialogTrigger asChild><Button className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Nova medição</Button></DialogTrigger>
@@ -426,8 +429,10 @@ function ProjetoDetalhe() {
                   <div className="grid gap-3 md:grid-cols-2">
                     <div><Label>Data</Label><Input type="date" value={med.data} onChange={e => setMed({ ...med, data: e.target.value })} /></div>
                     <div><Label>Período</Label><Input value={med.periodo} onChange={e => setMed({ ...med, periodo: e.target.value })} placeholder="Ex.: Jun/2026" /></div>
-                    <div><Label>Progresso acumulado (%)</Label><Input inputMode="numeric" value={med.pct} onChange={e => setMed({ ...med, pct: e.target.value })} /></div>
-                    <div><Label>Valor medido (R$)</Label><Input inputMode="numeric" value={med.valor} onChange={e => setMed({ ...med, valor: e.target.value })} /></div>
+                    {/* Percentual com no máximo 1 casa: medição de obra é
+                        "42,5%", não "42,50%". */}
+                    <div><Label>Progresso acumulado</Label><InputNumero valor={med.pct} onChange={v => setMed({ ...med, pct: v })} casas={1} casasMin={0} sufixo="%" placeholder="0" /></div>
+                    <div><Label>Valor medido</Label><InputMoeda valor={med.valor} onChange={v => setMed({ ...med, valor: v })} placeholder="0,00" /></div>
                     <div className="md:col-span-2">
                       <Label>Status</Label>
                       <Select value={med.status} onValueChange={v => setMed({ ...med, status: v as typeof med.status })}>
@@ -450,7 +455,7 @@ function ProjetoDetalhe() {
                     <TableCell>{m.periodo}</TableCell>
                     <TableCell>{new Date(m.data).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="w-1/4">
-                      <div className="flex items-center gap-3"><Progress value={m.pct} className="flex-1" /><span className="text-xs font-semibold">{m.pct}%</span></div>
+                      <div className="flex items-center gap-3"><Progress value={m.pct} className="flex-1" /><span className="text-xs font-semibold">{pct(m.pct)}</span></div>
                     </TableCell>
                     <TableCell>{brl(m.valor)}</TableCell>
                     <TableCell><StatusBadge status={m.status} /></TableCell>
@@ -464,6 +469,13 @@ function ProjetoDetalhe() {
 
         <TabsContent value="lanc" className="mt-4">
           <AbaLancamentos projetoId={id} />
+        </TabsContent>
+
+        {/* Fica aqui, e não numa tela solta, porque é de dentro do projeto
+            que o fornecedor é procurado — na hora de lançar a nota. O Radix
+            só monta a aba ativa, então a lista só é buscada quando abre. */}
+        <TabsContent value="forn" className="mt-4">
+          <AbaFornecedores />
         </TabsContent>
 
         <TabsContent value="plan" className="mt-4">
@@ -481,7 +493,7 @@ function ProjetoDetalhe() {
             <div><Label>Local</Label><Input value={edit.local} onChange={e => setEdit({ ...edit, local: e.target.value })} /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={edit.descricao} onChange={e => setEdit({ ...edit, descricao: e.target.value })} /></div>
             <div><Label>Responsável</Label><Input value={edit.responsavel} onChange={e => setEdit({ ...edit, responsavel: e.target.value })} /></div>
-            <div><Label>Contrato (R$)</Label><Input inputMode="numeric" value={edit.orcado} onChange={e => setEdit({ ...edit, orcado: e.target.value })} /></div>
+            <div><Label>Contrato</Label><InputMoeda valor={edit.orcado} onChange={v => setEdit({ ...edit, orcado: v })} placeholder="0,00" /></div>
             <div><Label>Início</Label><Input type="date" value={edit.dataInicio} onChange={e => setEdit({ ...edit, dataInicio: e.target.value })} /></div>
             <div><Label>Prazo</Label><Input type="date" value={edit.prazo} onChange={e => setEdit({ ...edit, prazo: e.target.value })} /></div>
             <div>
@@ -491,7 +503,7 @@ function ProjetoDetalhe() {
                 <SelectContent>{STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>Avanço (%)</Label><Input inputMode="numeric" value={edit.progresso} onChange={e => setEdit({ ...edit, progresso: e.target.value })} /></div>
+            <div><Label>Avanço</Label><InputNumero valor={edit.progresso} onChange={v => setEdit({ ...edit, progresso: v })} casas={1} casasMin={0} sufixo="%" placeholder="0" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
@@ -509,7 +521,6 @@ function ProjetoDetalhe() {
 // a busca no Supabase só acontece quando o usuário abre a aba.
 // ------------------------------------------------------------
 const dataBR = (iso: string) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("pt-BR") : "—");
-const num = (n: number) => (Number.isFinite(Number(n)) ? Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—");
 
 function AbaLancamentos({ projetoId }: { projetoId: string }) {
   const { lancamentos, carregando } = useLancamentosProjeto(projetoId);

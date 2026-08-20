@@ -17,6 +17,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputMoeda } from "@/components/ui/input-moeda";
+import { brl, brlCompacto, pct } from "@/lib/formato";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -55,9 +57,6 @@ type Medicao = {
 const AZUL = "#213368";
 const LARANJA = "#F37032";
 
-const brl = (v: number) =>
-  (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 function mesLabel(iso: string | null | undefined): string | null {
@@ -67,15 +66,15 @@ function mesLabel(iso: string | null | undefined): string | null {
   return `${MESES[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`;
 }
 
-function statusExecucao(pct: number): { label: string; color: string } {
-  if (pct >= 100) return { label: "CONCLUÍDO", color: "#16A34A" };
-  if (pct > 0) return { label: "EM EXECUÇÃO", color: LARANJA };
+function statusExecucao(executado: number): { label: string; color: string } {
+  if (executado >= 100) return { label: "CONCLUÍDO", color: "#16A34A" };
+  if (executado > 0) return { label: "EM EXECUÇÃO", color: LARANJA };
   return { label: "AGUARDANDO INÍCIO", color: "#94A3B8" };
 }
 
-function corBarra(pct: number): string {
-  if (pct <= 50) return "#16A34A";
-  if (pct <= 90) return LARANJA;
+function corBarra(executado: number): string {
+  if (executado <= 50) return "#16A34A";
+  if (executado <= 90) return LARANJA;
   return AZUL;
 }
 
@@ -309,7 +308,7 @@ export function PrevisaoEntrada() {
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-muted-foreground">% Executado</p>
           <p className="mt-1 text-2xl font-extrabold" style={{ color: AZUL }}>
-            {resumo.pct.toFixed(1)}%
+            {pct(resumo.pct)}
           </p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
             <div
@@ -331,7 +330,7 @@ export function PrevisaoEntrada() {
               <BarChart data={fluxoMensal}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="mes" fontSize={11} />
-                <YAxis fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                <YAxis fontSize={11} tickFormatter={brlCompacto} />
                 <Tooltip formatter={(v: number) => brl(v)} />
                 <Legend />
                 <Bar dataKey="previsto" name="Previsto" fill={AZUL} radius={[6, 6, 0, 0]} />
@@ -407,9 +406,9 @@ export function PrevisaoEntrada() {
                 </tr>
               </thead>
               <tbody>
-                {linhas.map(({ orc, meds, faturado, saldo, pct }) => {
+                {linhas.map(({ orc, meds, faturado, saldo, pct: pctExec }) => {
                   const aberto = expandido === orc.id;
-                  const st = statusExecucao(pct);
+                  const st = statusExecucao(pctExec);
                   return (
                     <>
                       <tr
@@ -428,9 +427,9 @@ export function PrevisaoEntrada() {
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2">
                             <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-100">
-                              <div className="h-full" style={{ width: `${pct}%`, background: corBarra(pct) }} />
+                              <div className="h-full" style={{ width: `${pctExec}%`, background: corBarra(pctExec) }} />
                             </div>
-                            <span className="text-xs font-semibold">{pct.toFixed(0)}%</span>
+                            <span className="text-xs font-semibold">{pct(pctExec, 0)}</span>
                           </div>
                         </td>
                         <td className="px-3 py-3">
@@ -486,7 +485,7 @@ export function PrevisaoEntrada() {
                             <AccordionMedicoes
                               orc={orc}
                               meds={meds}
-                              pct={pct}
+                              pct={pctExec}
                               onEditar={(m) => abrirEditar(orc, m)}
                               onExcluir={excluirMed}
                               onNova={() => abrirNovaMed(orc)}
@@ -572,7 +571,7 @@ function ThSort({
 }
 
 function AccordionMedicoes({
-  orc, meds, pct, onEditar, onExcluir, onNova,
+  orc, meds, pct: pctExec, onEditar, onExcluir, onNova,
 }: {
   orc: Orcamento;
   meds: Medicao[];
@@ -590,10 +589,10 @@ function AccordionMedicoes({
             <span className="font-semibold" style={{ color: AZUL }}>
               Execução do orçamento
             </span>
-            <span className="font-semibold">{pct.toFixed(1)}%</span>
+            <span className="font-semibold">{pct(pctExec)}</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full transition-all" style={{ width: `${pct}%`, background: corBarra(pct) }} />
+            <div className="h-full transition-all" style={{ width: `${pctExec}%`, background: corBarra(pctExec) }} />
           </div>
         </div>
         <Button
@@ -631,7 +630,7 @@ function AccordionMedicoes({
                   <td className="px-3 py-2">{m.descricao || "—"}</td>
                   <td className="px-3 py-2 text-right">{brl(m.valor)}</td>
                   <td className="px-3 py-2 text-right">
-                    {total > 0 ? ((m.valor / total) * 100).toFixed(1) : "0"}%
+                    {pct(total > 0 ? (m.valor / total) * 100 : 0)}
                   </td>
                   <td className="px-3 py-2">
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold">
@@ -755,17 +754,14 @@ function MedicaoModal({
           </div>
 
           <div>
-            <Label className="text-xs">Valor (R$)</Label>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              value={valor}
-              onChange={(e) => setValor(Number(e.target.value) || 0)}
-            />
+            <Label className="text-xs">Valor</Label>
+            {/* Era `type="number"`: no Chrome em português ele recusa a
+                vírgula, então quem digitava "12.500,00" ficava com o campo
+                inválido e o valor zerado. */}
+            <InputMoeda valor={valor} onChange={(v) => setValor(v ?? 0)} placeholder="0,00" />
             <p className="mt-1 text-[11px] text-muted-foreground">
               Saldo restante: <span className="font-semibold">{brl(saldoRestante)}</span> · Esta medição representa{" "}
-              <span className="font-semibold" style={{ color: LARANJA }}>{pctDoSaldo.toFixed(1)}%</span> do saldo.
+              <span className="font-semibold" style={{ color: LARANJA }}>{pct(pctDoSaldo)}</span> do saldo.
             </p>
           </div>
 

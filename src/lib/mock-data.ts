@@ -1,8 +1,11 @@
 // Helpers de formatação. Dados reais vêm do Supabase — não usar seeds aqui.
-export function brl(n: number) {
-  // Rede de segurança: null/undefined/NaN/Infinity chegando de uma conta
-  // com dado ruim não pode virar "NaN" na tela nem quebrar o render.
-  const v = Number(n);
-  if (!Number.isFinite(v)) return "—";
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
+//
+// A formatação mudou de casa: mora em @/lib/formato desde que passou a
+// ser usada em produção por todas as telas. O re-export existe só para
+// não quebrar os imports antigos.
+
+/**
+ * @deprecated Importe `brl` de `@/lib/formato`.
+ * Este re-export some assim que os últimos imports migrarem.
+ */
+export { brl } from "@/lib/formato";

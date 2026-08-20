@@ -16,46 +16,32 @@ import { ShoppingCart, Plus, Trash2, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/current-user";
 import { useEpiStore, epiActions, type NovoCompraItemInput } from "@/lib/epis-store";
+import { brl } from "@/lib/formato";
+import { InputMoeda, InputNumero } from "@/components/ui/input-moeda";
 
 // Valor sentinela do Select para "cadastrar um EPI novo nesta linha".
 const NOVO = "__novo__";
 
 type Linha = {
   epiId: string;
-  quantidade: string;
-  valorUnitario: string;
+  // EPI é contado por peça (un/par/cx), então a quantidade é inteira.
+  // O valor unitário é que precisa dos centavos.
+  quantidade: number | null;
+  valorUnitario: number | null;
   // Preenchidos só quando epiId === NOVO.
   novoNome: string;
   novoCa: string;
   novoFabricante: string;
   novoUnidade: string;
-  novoValidadeDias: string;
+  novoValidadeDias: number | null;
 };
 
 function novaLinha(): Linha {
   return {
-    epiId: "", quantidade: "1", valorUnitario: "",
-    novoNome: "", novoCa: "", novoFabricante: "", novoUnidade: "un", novoValidadeDias: "",
+    epiId: "", quantidade: 1, valorUnitario: null,
+    novoNome: "", novoCa: "", novoFabricante: "", novoUnidade: "un", novoValidadeDias: null,
   };
 }
-
-/**
- * Lê um valor digitado aceitando vírgula ou ponto como decimal — mesma
- * regra do `parseNumero` de app.projetos.$id.tsx: só trata o ponto como
- * separador de milhar quando existe vírgula, senão "12.50" viraria 1250.
- */
-function paraNumero(texto: string): number {
-  const limpo = texto.trim().replace(/\s/g, "");
-  if (!limpo) return 0;
-  const normalizado = limpo.includes(",")
-    ? limpo.replace(/\./g, "").replace(",", ".")
-    : limpo;
-  const n = Number(normalizado);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
-
-const brl = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function CompraEpiDialog({
   open,
@@ -98,7 +84,7 @@ export function CompraEpiDialog({
   const removeLinha = (i: number) =>
     setLinhas(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
 
-  const subtotal = (l: Linha) => Math.max(1, Number(l.quantidade) || 1) * paraNumero(l.valorUnitario);
+  const subtotal = (l: Linha) => Math.max(1, l.quantidade ?? 1) * (l.valorUnitario ?? 0);
   const total = linhas.reduce((a, l) => a + (l.epiId ? subtotal(l) : 0), 0);
 
   const salvar = async () => {
@@ -107,8 +93,8 @@ export function CompraEpiDialog({
     const itens: NovoCompraItemInput[] = [];
     for (const l of linhas) {
       if (!l.epiId) continue;
-      const quantidade = Math.max(1, Number(l.quantidade) || 1);
-      const valorUnitario = paraNumero(l.valorUnitario);
+      const quantidade = Math.max(1, l.quantidade ?? 1);
+      const valorUnitario = l.valorUnitario ?? 0;
       if (l.epiId === NOVO) {
         if (!l.novoNome.trim()) { toast.error("Informe o nome do EPI novo"); return; }
         itens.push({
@@ -117,7 +103,7 @@ export function CompraEpiDialog({
             ca: l.novoCa.trim(),
             fabricante: l.novoFabricante.trim(),
             unidade: l.novoUnidade.trim() || "un",
-            validadeDias: Math.max(0, Number(l.novoValidadeDias) || 0),
+            validadeDias: Math.max(0, l.novoValidadeDias ?? 0),
           },
           quantidade,
           valorUnitario,
@@ -241,18 +227,18 @@ export function CompraEpiDialog({
                   </div>
                   <div className="col-span-3 md:col-span-2">
                     <Label className="text-xs">Qtd</Label>
-                    <Input
-                      inputMode="numeric"
-                      value={l.quantidade}
-                      onChange={e => setLinha(i, { quantidade: e.target.value.replace(/\D/g, "") })}
+                    <InputNumero
+                      valor={l.quantidade}
+                      onChange={v => setLinha(i, { quantidade: v })}
+                      casas={0}
                     />
                   </div>
                   <div className="col-span-4 md:col-span-2">
                     <Label className="text-xs">Valor unit.</Label>
-                    <Input
-                      inputMode="decimal"
-                      value={l.valorUnitario}
-                      onChange={e => setLinha(i, { valorUnitario: e.target.value.replace(/[^\d.,]/g, "") })}
+                    <InputMoeda
+                      valor={l.valorUnitario}
+                      onChange={v => setLinha(i, { valorUnitario: v })}
+                      prefixo={null}
                       placeholder="0,00"
                     />
                   </div>
@@ -290,10 +276,10 @@ export function CompraEpiDialog({
                     </div>
                     <div className="col-span-6 md:col-span-4">
                       <Label className="text-xs">Validade de uso (dias)</Label>
-                      <Input
-                        inputMode="numeric"
-                        value={l.novoValidadeDias}
-                        onChange={e => setLinha(i, { novoValidadeDias: e.target.value.replace(/\D/g, "") })}
+                      <InputNumero
+                        valor={l.novoValidadeDias}
+                        onChange={v => setLinha(i, { novoValidadeDias: v })}
+                        casas={0}
                         placeholder="Ex.: 180"
                       />
                     </div>

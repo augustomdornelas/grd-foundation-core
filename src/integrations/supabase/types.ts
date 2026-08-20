@@ -352,11 +352,14 @@ export type Database = {
           bairro: string | null
           cep: string | null
           cidade: string | null
+          cnpj_cpf: string | null
           contato: string | null
           created_at: string
+          email: string | null
           endereco: string | null
           estado: string | null
           id: string
+          ie_rg: string | null
           nome: string
           observacoes: string | null
           old_id: number | null
@@ -367,11 +370,14 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
+          cnpj_cpf?: string | null
           contato?: string | null
           created_at?: string
+          email?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
+          ie_rg?: string | null
           nome: string
           observacoes?: string | null
           old_id?: number | null
@@ -382,11 +388,14 @@ export type Database = {
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
+          cnpj_cpf?: string | null
           contato?: string | null
           created_at?: string
+          email?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
+          ie_rg?: string | null
           nome?: string
           observacoes?: string | null
           old_id?: number | null

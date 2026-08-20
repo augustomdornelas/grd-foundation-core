@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputNumero } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,10 +24,12 @@ import {
 } from "@/lib/epis-store";
 import { gerarTermosEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
 
-type Linha = { epiId: string; quantidade: string; motivo: MotivoEntrega };
+// Quantidade inteira: EPI é entregue por peça (un/par/cx), então aqui
+// casa decimal seria ruído — ao contrário de metragem e valor.
+type Linha = { epiId: string; quantidade: number | null; motivo: MotivoEntrega };
 
 function novaLinha(): Linha {
-  return { epiId: "", quantidade: "1", motivo: "PRIMEIRA ENTREGA" };
+  return { epiId: "", quantidade: 1, motivo: "PRIMEIRA ENTREGA" };
 }
 
 function fmtBr(iso?: string) {
@@ -137,7 +140,7 @@ export function EntregaEpiDialog({
     if (!funcionarioIds.length) return toast.error("Selecione ao menos um funcionário");
     const itens = linhas
       .filter(l => l.epiId)
-      .map(l => ({ epiId: l.epiId, quantidade: Math.max(1, Number(l.quantidade) || 1), motivo: l.motivo }));
+      .map(l => ({ epiId: l.epiId, quantidade: Math.max(1, l.quantidade ?? 1), motivo: l.motivo }));
     if (!itens.length) return toast.error("Adicione ao menos um EPI");
     if (!dataEntrega) return toast.error("Informe a data de entrega");
 
@@ -289,10 +292,10 @@ export function EntregaEpiDialog({
                   </div>
                   <div className="col-span-4 md:col-span-2">
                     <Label className="text-xs">Qtd</Label>
-                    <Input
-                      inputMode="numeric"
-                      value={l.quantidade}
-                      onChange={e => setLinha(i, { quantidade: e.target.value.replace(/\D/g, "") })}
+                    <InputNumero
+                      valor={l.quantidade}
+                      onChange={v => setLinha(i, { quantidade: v })}
+                      casas={0}
                     />
                   </div>
                   <div className="col-span-8 md:col-span-3">

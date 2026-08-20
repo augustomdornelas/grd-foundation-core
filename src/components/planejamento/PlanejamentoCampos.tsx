@@ -8,16 +8,14 @@
 // planejamento-execucao.ts para montar a coluna Planejado. O
 // valor do contrato aparece só como referência.
 // ============================================================
-import { Input } from "@/components/ui/input";
+import { InputMoeda, InputNumero } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, Wand2 } from "lucide-react";
 import {
   CAMPOS_PCT, parseNumeroBR, somaPercentuais, custosSugeridos,
   type PlanejamentoForm,
 } from "@/lib/planejamento-campos";
-
-const brl = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { brl, paraTexto, pct } from "@/lib/formato";
 
 export function PlanejamentoCampos({
   form,
@@ -56,18 +54,20 @@ export function PlanejamentoCampos({
 
       {/* Custos planejados — base dos percentuais */}
       <div>
-        <Label className="text-xs">Custos planejados (R$)</Label>
+        <Label className="text-xs">Custos planejados</Label>
         <div className="flex items-center gap-2">
-          <Input
-            inputMode="decimal"
-            value={form.custos}
-            onChange={e => set("custos", e.target.value)}
+          {/* O formulário guarda texto (é o formato que vai e volta do
+              banco por planejamento-campos), então o campo converte nas
+              duas pontas em vez de trocar o tipo do estado inteiro. */}
+          <InputMoeda
+            valor={custos || null}
+            onChange={v => set("custos", paraTexto(v))}
             placeholder="0,00"
           />
           {podeSugerir && (
             <button
               type="button"
-              onClick={() => set("custos", String(sugestao).replace(".", ","))}
+              onClick={() => set("custos", paraTexto(sugestao))}
               className="flex shrink-0 items-center gap-1 rounded-md border border-[#213368]/30 px-2 py-1.5 text-xs text-[#213368] hover:bg-[#213368]/5"
               title="Preenche com o valor menos lucro e impostos"
             >
@@ -84,18 +84,22 @@ export function PlanejamentoCampos({
       {/* Percentuais, com o equivalente em reais ao lado */}
       <div className="grid gap-2 sm:grid-cols-2">
         {CAMPOS_PCT.map(c => {
-          const pct = parseNumeroBR(form[c.chave]);
+          const pctCampo = parseNumeroBR(form[c.chave]);
           return (
             <div key={c.chave}>
-              <Label className="text-xs">{c.rotulo} (%)</Label>
-              <Input
-                inputMode="decimal"
-                value={form[c.chave]}
-                onChange={e => set(c.chave, e.target.value)}
+              <Label className="text-xs">{c.rotulo}</Label>
+              {/* Percentual aceita até 2 casas mas não força nenhuma:
+                  "10" continua "10" ao sair do campo. */}
+              <InputNumero
+                valor={pctCampo || null}
+                onChange={v => set(c.chave, paraTexto(v).replace(/,00$/, ""))}
+                casas={2}
+                casasMin={0}
+                sufixo="%"
                 placeholder="0"
               />
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {custos > 0 && pct > 0 ? brl(custos * (pct / 100)) : "—"}
+                {custos > 0 && pctCampo > 0 ? brl(custos * (pctCampo / 100)) : "—"}
               </p>
             </div>
           );
@@ -110,7 +114,7 @@ export function PlanejamentoCampos({
       >
         {excedeu && <AlertTriangle className="h-4 w-4 shrink-0" />}
         <span>
-          Soma dos percentuais: <b>{soma.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</b>
+          Soma dos percentuais: <b>{pct(soma, 2)}</b>
           {excedeu && " — passou de 100%. Dá para salvar assim mesmo, só confira se é isso mesmo."}
         </span>
       </div>

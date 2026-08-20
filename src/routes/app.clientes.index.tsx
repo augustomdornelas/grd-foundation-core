@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, UserCheck, HeartHandshake, DollarSign, Plus, Search, Eye, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { brl, inteiro } from "@/lib/formato";
 
 export const Route = createFileRoute("/app/clientes/")({
   component: ClientesPage,
@@ -37,7 +38,6 @@ type Cliente = {
 
 type Orcamento = { cliente: string; valor: number; status: string };
 
-const BRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function maskCPF(v: string) {
   return v.replace(/\D/g, "").slice(0, 11).replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
@@ -166,10 +166,10 @@ function ClientesPage() {
   }
 
   const kpiCards = [
-    { label: "Total de clientes", value: kpis.total, icon: Users, tone: "#213368" },
-    { label: "Clientes ativos", value: kpis.ativos, icon: UserCheck, tone: "#213368" },
-    { label: "Colaboradores GRD", value: kpis.colabs, icon: HeartHandshake, tone: "#F37032" },
-    { label: "Valor gerado (aprovados)", value: BRL(kpis.valorTotal), icon: DollarSign, tone: "#F37032" },
+    { label: "Total de clientes", value: inteiro(kpis.total), icon: Users, tone: "#213368" },
+    { label: "Clientes ativos", value: inteiro(kpis.ativos), icon: UserCheck, tone: "#213368" },
+    { label: "Colaboradores GRD", value: inteiro(kpis.colabs), icon: HeartHandshake, tone: "#F37032" },
+    { label: "Valor gerado (aprovados)", value: brl(kpis.valorTotal), icon: DollarSign, tone: "#F37032" },
   ];
 
   return (

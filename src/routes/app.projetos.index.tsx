@@ -7,12 +7,13 @@ import { StatusBadge } from "@/components/portal/StatusBadge";
 import { Plus, ArrowRight, Trash2, Pencil, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { InputMoeda, InputNumero } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
-import { brl } from "@/lib/mock-data";
+import { brl, pct } from "@/lib/formato";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
 
 export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList });
@@ -21,12 +22,15 @@ const STATUS_OPTIONS: ProjetoStatus[] = ["PLANEJAMENTO", "EM ANDAMENTO", "PARALI
 
 type FormState = {
   nome: string; cliente: string; clienteId: string | null; local: string; descricao: string; responsavel: string;
-  dataInicio: string; prazo: string; status: ProjetoStatus; orcado: string; progresso: string;
+  dataInicio: string; prazo: string; status: ProjetoStatus;
+  // Number desde o formulário: o campo já devolve o valor lido, então não há
+  // um segundo parsing no submit para discordar do que está na tela.
+  orcado: number | null; progresso: number | null;
 };
 const emptyForm = (): FormState => ({
   nome: "", cliente: "", clienteId: null, local: "", descricao: "", responsavel: "",
   dataInicio: new Date().toISOString().slice(0, 10), prazo: "",
-  status: "PLANEJAMENTO", orcado: "", progresso: "0",
+  status: "PLANEJAMENTO", orcado: null, progresso: 0,
 });
 
 function ProjetosList() {
@@ -61,7 +65,7 @@ function ProjetosList() {
     setForm({
       nome: p.nome, cliente: p.cliente, clienteId: p.clienteId, local: p.local, descricao: p.descricao,
       responsavel: p.responsavel, dataInicio: p.dataInicio, prazo: p.prazo,
-      status: p.status, orcado: String(p.orcado), progresso: String(p.progresso),
+      status: p.status, orcado: p.orcado, progresso: p.progresso,
     });
     setOpen(true);
   };
@@ -70,8 +74,8 @@ function ProjetosList() {
     if (!form.nome.trim()) return toast.error("Preencha o nome do projeto");
     if (!form.clienteId) return toast.error("Selecione um cliente");
     if (!form.local.trim() || !form.prazo) return toast.error("Preencha local e prazo");
-    const orcado = Number(String(form.orcado).replace(/\D/g, "")) || 0;
-    const progresso = Math.max(0, Math.min(100, Number(form.progresso) || 0));
+    const orcado = form.orcado ?? 0;
+    const progresso = Math.max(0, Math.min(100, form.progresso ?? 0));
     const payload = {
       nome: form.nome, cliente: form.cliente, clienteId: form.clienteId,
       local: form.local, descricao: form.descricao,
@@ -106,7 +110,7 @@ function ProjetosList() {
         <Card className="p-5"><div className="text-xs text-muted-foreground">Total de projetos</div><div className="mt-1 text-2xl font-extrabold text-[#213368]">{kpis.total}</div></Card>
         <Card className="p-5"><div className="text-xs text-muted-foreground">EM ANDAMENTO</div><div className="mt-1 text-2xl font-extrabold text-[#213368]">{kpis.emAndamento}</div></Card>
         <Card className="p-5"><div className="text-xs text-muted-foreground">Valor em obras</div><div className="mt-1 text-2xl font-extrabold text-[#F37032]">{brl(kpis.valorTotal)}</div></Card>
-        <Card className="p-5"><div className="text-xs text-muted-foreground">Execução média</div><div className="mt-1 text-2xl font-extrabold">{kpis.execMedia}%</div></Card>
+        <Card className="p-5"><div className="text-xs text-muted-foreground">Execução média</div><div className="mt-1 text-2xl font-extrabold">{pct(kpis.execMedia)}</div></Card>
       </div>
 
       <Card className="p-4">
@@ -143,11 +147,11 @@ function ProjetosList() {
               </div>
               <div className="mt-5 space-y-3">
                 <div>
-                  <div className="mb-1 flex justify-between text-xs font-medium"><span>Avanço físico</span><span>{p.progresso}%</span></div>
+                  <div className="mb-1 flex justify-between text-xs font-medium"><span>Avanço físico</span><span>{pct(p.progresso)}</span></div>
                   <Progress value={p.progresso} />
                 </div>
                 <div>
-                  <div className="mb-1 flex justify-between text-xs font-medium"><span>Financeiro</span><span>{r.financeiro}%</span></div>
+                  <div className="mb-1 flex justify-between text-xs font-medium"><span>Financeiro</span><span>{pct(r.financeiro)}</span></div>
                   <Progress value={r.financeiro} />
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -182,7 +186,7 @@ function ProjetosList() {
             <div><Label>Local / obra *</Label><Input value={form.local} onChange={e => setForm({ ...form, local: e.target.value })} placeholder="Ex.: Cubatão/SP" /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
             <div><Label>Responsável</Label><Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} /></div>
-            <div><Label>Valor do contrato (R$)</Label><Input inputMode="numeric" value={form.orcado} onChange={e => setForm({ ...form, orcado: e.target.value })} placeholder="Ex.: 1500000" /></div>
+            <div><Label>Valor do contrato</Label><InputMoeda valor={form.orcado} onChange={v => setForm({ ...form, orcado: v })} placeholder="1.500.000,00" /></div>
             <div><Label>Data de início</Label><Input type="date" value={form.dataInicio} onChange={e => setForm({ ...form, dataInicio: e.target.value })} /></div>
             <div><Label>Prazo de conclusão *</Label><Input type="date" value={form.prazo} onChange={e => setForm({ ...form, prazo: e.target.value })} /></div>
             <div>
@@ -192,7 +196,7 @@ function ProjetosList() {
                 <SelectContent>{STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>Avanço (%)</Label><Input inputMode="numeric" value={form.progresso} onChange={e => setForm({ ...form, progresso: e.target.value })} /></div>
+            <div><Label>Avanço</Label><InputNumero valor={form.progresso} onChange={v => setForm({ ...form, progresso: v })} casas={1} casasMin={0} sufixo="%" placeholder="0" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

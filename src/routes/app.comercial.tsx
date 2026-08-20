@@ -39,6 +39,8 @@ import {
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
 import { supabase } from "@/integrations/supabase/client";
+import { brl, brlCompacto, paraNumero, pct } from "@/lib/formato";
+import { InputMoeda } from "@/components/ui/input-moeda";
 import { useCurrentUser } from "@/lib/current-user";
 import * as XLSX from "xlsx";
 
@@ -81,10 +83,6 @@ function num(v: unknown): number {
 
 const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
-function brl(n: number) {
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
 // Extrai a parte numérica de "ORC_001_2026" ou "ORC-012" -> 1, 12
 function numeroInt(s: string): number {
   const m = /(\d+)/.exec(s ?? "");
@@ -92,13 +90,11 @@ function numeroInt(s: string): number {
 }
 
 // "1.500,50" | "1500.50" | "1500,50" | "1500" -> 1500.5
+// A leitura em si mora em @/lib/formato (mesma regra do site inteiro);
+// aqui fica só o contrato antigo de devolver 0, e não null, quando não
+// há nada aproveitável — a importação de planilha depende disso.
 function parseValorBR(s: string): number {
-  if (!s) return 0;
-  const t = String(s).trim().replace(/\s|R\$/g, "");
-  // se tem vírgula, assume BR: pontos = milhar, vírgula = decimal
-  const norm = t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : t;
-  const n = Number(norm);
-  return isNaN(n) ? 0 : n;
+  return paraNumero(s) ?? 0;
 }
 
 // ISO "2025-01-31" <-> BR "31/01/2025"
@@ -432,7 +428,7 @@ function Comercial() {
         <Kpi label="Valor total" value={brl(metricas.total)} icon={DollarSign} />
         <Kpi label="Nº de orçamentos" value={String(metricas.qtd)} icon={FileText} />
         <Kpi label="Ticket médio" value={brl(metricas.ticket)} icon={TrendingUp} />
-        <Kpi label="Taxa de conversão" value={`${metricas.conv.toFixed(0)}%`} icon={CheckCircle2} />
+        <Kpi label="Taxa de conversão" value={pct(metricas.conv, 0)} icon={CheckCircle2} />
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
         <Kpi label="EM NEGOCIAÇÃO" value={brl(metricas.emNegociacaoValor)} icon={HandshakeIcon} />
       </div>
@@ -447,7 +443,7 @@ function Comercial() {
                 <ComposedChart data={metricas.meses}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} />
-                  <YAxis yAxisId="left" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000_000).toFixed(1)}M`} />
+                  <YAxis yAxisId="left" stroke="#6E7280" fontSize={12} tickFormatter={brlCompacto} />
                   <YAxis yAxisId="right" orientation="right" stroke="#6E7280" fontSize={12} />
                   <Tooltip formatter={(v: number, n: string) => n === "Valor" ? brl(v) : v} />
                   <Legend />
@@ -492,7 +488,7 @@ function Comercial() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={metricas.topClientes} layout="vertical" margin={{ left: 20, right: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
-                  <XAxis type="number" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
+                  <XAxis type="number" stroke="#6E7280" fontSize={12} tickFormatter={brlCompacto} />
                   <YAxis type="category" dataKey="cliente" stroke="#6E7280" fontSize={12} width={140} />
                   <Tooltip formatter={(v: number) => brl(v)} />
                   <Bar dataKey="valor" name="Valor total" fill="#213368" radius={[0,6,6,0]} />
@@ -515,8 +511,8 @@ function Comercial() {
                 <ComposedChart data={metricas.acompanhamento} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="mes" stroke="#6E7280" fontSize={12} style={{ fontFamily: "Montserrat" }} />
-                  <YAxis yAxisId="left" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#6E7280" fontSize={12} tickFormatter={v => `${(v/1_000).toFixed(0)}k`} />
+                  <YAxis yAxisId="left" stroke="#6E7280" fontSize={12} tickFormatter={brlCompacto} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#6E7280" fontSize={12} tickFormatter={brlCompacto} />
                   <Tooltip
                     formatter={(v: number) => brl(v)}
                     labelStyle={{ fontFamily: "Montserrat", color: "#213368", fontWeight: 700 }}
@@ -727,7 +723,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const valorNum = parseValorBR(form.valor);
+    const valorNum = form.valor ?? 0;
     if (!form.cliente.trim() || !form.obra.trim() || valorNum <= 0) {
       setErro("Cliente, obra e valor são obrigatórios.");
       return;
@@ -809,7 +805,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
           </Campo>
           <Campo label="Obra *" className="md:col-span-2"><Input value={form.obra} onChange={e => setForm({ ...form, obra: e.target.value })} placeholder="Descrição da obra" /></Campo>
           <Campo label="Descrição" className="md:col-span-2"><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></Campo>
-          <Campo label="Valor estimado (R$) *"><Input inputMode="decimal" placeholder="1.500,50" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></Campo>
+          <Campo label="Valor estimado *"><InputMoeda valor={form.valor} onChange={v => setForm({ ...form, valor: v })} placeholder="1.500,50" /></Campo>
 
 
           <Campo label="Status">
@@ -826,7 +822,7 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
             <PlanejamentoCampos
               form={form.planejamento}
               onChange={pl => setForm({ ...form, planejamento: pl })}
-              valorBase={parseValorBR(form.valor)}
+              valorBase={form.valor ?? 0}
             />
           </div>
 
@@ -886,11 +882,10 @@ function defaults(o?: Orcamento, preset?: { descricao?: string; valor?: number }
     tipo: (o?.tipo ?? "") as string,
     obra: o?.obra ?? "",
     descricao: o?.descricao ?? preset?.descricao ?? "",
-    valor: o?.valor
-      ? o.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : (typeof presetValor === "number" && Number.isFinite(presetValor)
-        ? presetValor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : ""),
+    // Number: o campo de valor cuida sozinho de exibir "1.500,50" e de ler
+    // a vírgula de volta, então o formulário não guarda mais texto formatado.
+    valor: (o?.valor
+      ?? (typeof presetValor === "number" && Number.isFinite(presetValor) ? presetValor : null)) as number | null,
     responsavel: o?.responsavel ?? "",
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
@@ -1043,7 +1038,7 @@ type LoteRow = {
   numero: string;
   cliente: string;
   obra: string;
-  valor: string;
+  valor: number | null;
   data: string; // ISO
   status: OrcStatus;
 };
@@ -1053,7 +1048,7 @@ function novaLinha(numero: string): LoteRow {
     numero,
     cliente: "",
     obra: "",
-    valor: "",
+    valor: null,
     data: new Date().toISOString().slice(0, 10),
     status: "LEVANTAMENTO",
   };
@@ -1095,10 +1090,10 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
   function removeRow(i: number) { setRows(rs => rs.length > 1 ? rs.filter((_, idx) => idx !== i) : rs); }
 
   function salvar() {
-    const validas = rows.filter(r => r.cliente.trim() || r.obra.trim() || r.valor.trim());
+    const validas = rows.filter(r => r.cliente.trim() || r.obra.trim() || r.valor !== null);
     if (validas.length === 0) { setErro("Adicione ao menos uma linha preenchida."); return; }
     for (const [i, r] of validas.entries()) {
-      const v = parseValorBR(r.valor);
+      const v = r.valor ?? 0;
       if (!r.cliente.trim() || !r.obra.trim() || v <= 0 || !r.data) {
         setErro(`Linha ${i + 1}: Cliente, Obra, Valor e Data são obrigatórios.`);
         return;
@@ -1113,7 +1108,7 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
         tipo: TIPOS_SERVICO[0],
         obra: r.obra.trim(),
         descricao: "",
-        valor: parseValorBR(r.valor),
+        valor: r.valor ?? 0,
         responsavel: "",
         data: r.data,
         validade: r.data,
@@ -1152,7 +1147,7 @@ function BatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
                   <td className="p-1"><Input value={r.numero} onChange={e => setRow(i, { numero: e.target.value })} className="h-8 w-32" /></td>
                   <td className="p-1"><Input value={r.cliente} onChange={e => setRow(i, { cliente: e.target.value })} className="h-8 min-w-[140px]" /></td>
                   <td className="p-1"><Input value={r.obra} onChange={e => setRow(i, { obra: e.target.value })} className="h-8 min-w-[140px]" /></td>
-                  <td className="p-1"><Input inputMode="decimal" placeholder="1.500,50" value={r.valor} onChange={e => setRow(i, { valor: e.target.value })} className="h-8 w-28" /></td>
+                  <td className="p-1"><InputMoeda valor={r.valor} onChange={v => setRow(i, { valor: v })} prefixo={null} placeholder="1.500,50" className="h-8 w-28" /></td>
                   <td className="p-1 w-36"><DateBRInput value={r.data} onChange={iso => setRow(i, { data: iso })} className="h-8" /></td>
                   <td className="p-1">
                     <Select value={r.status} onValueChange={v => setRow(i, { status: v as OrcStatus })}>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, DollarSign, FileText, Handshake, Calculator, FileClock } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { brl, brlCompacto } from "@/lib/formato";
 
 export const Route = createFileRoute("/app/clientes/$id")({
   component: ClienteDetalhe,
@@ -20,7 +21,6 @@ type Cliente = {
 };
 type Orcamento = { id: string; numero: string; cliente: string; obra: string; valor: number; status: string; data_emissao: string | null; created_at: string };
 
-const BRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -88,7 +88,7 @@ function ClienteDetalhe() {
   const timeline = useMemo(() => {
     const evts: { ts: string; tipo: "orcamento"; titulo: string; sub: string }[] = [];
     for (const o of orcamentos) {
-      evts.push({ ts: o.created_at, tipo: "orcamento", titulo: `Orçamento ${o.numero} criado`, sub: `${o.obra} — ${BRL(Number(o.valor ?? 0))} (${o.status})` });
+      evts.push({ ts: o.created_at, tipo: "orcamento", titulo: `Orçamento ${o.numero} criado`, sub: `${o.obra} — ${brl(Number(o.valor ?? 0))} (${o.status})` });
     }
     return evts.sort((a, b) => (b.ts ?? "").localeCompare(a.ts ?? ""));
   }, [orcamentos]);
@@ -102,10 +102,10 @@ function ClienteDetalhe() {
   );
 
   const kpiCards = [
-    { label: "Total em orçamentos", value: BRL(kpis.total), icon: FileText, tone: "#213368" },
-    { label: "APROVADOS", value: BRL(kpis.aprovado), icon: DollarSign, tone: "#213368" },
-    { label: "EM NEGOCIAÇÃO", value: BRL(kpis.negociacao), icon: Handshake, tone: "#F37032" },
-    { label: "Ticket médio", value: BRL(kpis.ticket), icon: Calculator, tone: "#F37032" },
+    { label: "Total em orçamentos", value: brl(kpis.total), icon: FileText, tone: "#213368" },
+    { label: "APROVADOS", value: brl(kpis.aprovado), icon: DollarSign, tone: "#213368" },
+    { label: "EM NEGOCIAÇÃO", value: brl(kpis.negociacao), icon: Handshake, tone: "#F37032" },
+    { label: "Ticket médio", value: brl(kpis.ticket), icon: Calculator, tone: "#F37032" },
   ];
 
   return (
@@ -156,7 +156,7 @@ function ClienteDetalhe() {
                   <Pie data={donut} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={2}>
                     {donut.map((d, i) => <Cell key={i} fill={STATUS_COLORS[d.name] ?? (i % 2 ? "#F37032" : "#213368")} />)}
                   </Pie>
-                  <Tooltip formatter={(v: number) => BRL(v)} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -171,8 +171,8 @@ function ClienteDetalhe() {
                 <BarChart data={barras}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="mes" />
-                  <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => BRL(v)} />
+                  <YAxis tickFormatter={brlCompacto} />
+                  <Tooltip formatter={(v: number) => brl(v)} />
                   <Bar dataKey="valor" fill="#213368" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -199,7 +199,7 @@ function ClienteDetalhe() {
                   <tr key={o.id} className="border-b">
                     <td className="py-2 pr-3 font-medium">{o.numero}</td>
                     <td className="py-2 pr-3">{o.obra}</td>
-                    <td className="py-2 pr-3">{BRL(Number(o.valor ?? 0))}</td>
+                    <td className="py-2 pr-3">{brl(Number(o.valor ?? 0))}</td>
                     <td className="py-2 pr-3">{fmtDate(o.data_emissao ?? o.created_at)}</td>
                     <td className="py-2 pr-3"><Badge style={{ background: STATUS_COLORS[o.status] ?? "#64748b" }} className="text-white">{o.status}</Badge></td>
                   </tr>
