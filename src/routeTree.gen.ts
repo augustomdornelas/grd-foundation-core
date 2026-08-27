@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as CandidatoRouteImport } from './routes/candidato'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as TrabalheConoscoRouteImport } from './routes/trabalhe-conosco'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
@@ -19,10 +21,20 @@ import { Route as AppEpisRouteImport } from './routes/app.epis'
 import { Route as AppPontoRouteImport } from './routes/app.ponto'
 import { Route as AppPrevisaoRouteImport } from './routes/app.previsao'
 import { Route as AppWebmailRouteImport } from './routes/app.webmail'
+import { Route as VagasSlugRouteImport } from './routes/vagas.$slug'
 import { Route as AppClientesIndexRouteImport } from './routes/app.clientes.index'
 import { Route as AppClientesIdRouteImport } from './routes/app.clientes.$id'
 import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
 import { Route as AppProjetosIdRouteImport } from './routes/app.projetos.$id'
+import { Route as AppRhIndexRouteImport } from './routes/app.rh.index'
+import { Route as AppRhAdmissoesRouteImport } from './routes/app.rh.admissoes'
+import { Route as AppRhCandidatosRouteImport } from './routes/app.rh.candidatos'
+import { Route as AppRhCargosRouteImport } from './routes/app.rh.cargos'
+import { Route as AppRhColaboradoresRouteImport } from './routes/app.rh.colaboradores'
+import { Route as AppRhConfiguracoesRouteImport } from './routes/app.rh.configuracoes'
+import { Route as AppRhDocumentosRouteImport } from './routes/app.rh.documentos'
+import { Route as AppRhSelecaoRouteImport } from './routes/app.rh.selecao'
+import { Route as AppRhVagasRouteImport } from './routes/app.rh.vagas'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,9 +46,19 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CandidatoRoute = CandidatoRouteImport.update({
+  id: '/candidato',
+  path: '/candidato',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrabalheConoscoRoute = TrabalheConoscoRouteImport.update({
+  id: '/trabalhe-conosco',
+  path: '/trabalhe-conosco',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -74,6 +96,11 @@ const AppWebmailRoute = AppWebmailRouteImport.update({
   path: '/webmail',
   getParentRoute: () => AppRoute,
 } as any)
+const VagasSlugRoute = VagasSlugRouteImport.update({
+  id: '/vagas/$slug',
+  path: '/vagas/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppClientesIndexRoute = AppClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -94,109 +121,229 @@ const AppProjetosIdRoute = AppProjetosIdRouteImport.update({
   path: '/projetos/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRhIndexRoute = AppRhIndexRouteImport.update({
+  id: '/rh/',
+  path: '/rh/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhAdmissoesRoute = AppRhAdmissoesRouteImport.update({
+  id: '/rh/admissoes',
+  path: '/rh/admissoes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhCandidatosRoute = AppRhCandidatosRouteImport.update({
+  id: '/rh/candidatos',
+  path: '/rh/candidatos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhCargosRoute = AppRhCargosRouteImport.update({
+  id: '/rh/cargos',
+  path: '/rh/cargos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhColaboradoresRoute = AppRhColaboradoresRouteImport.update({
+  id: '/rh/colaboradores',
+  path: '/rh/colaboradores',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhConfiguracoesRoute = AppRhConfiguracoesRouteImport.update({
+  id: '/rh/configuracoes',
+  path: '/rh/configuracoes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhDocumentosRoute = AppRhDocumentosRouteImport.update({
+  id: '/rh/documentos',
+  path: '/rh/documentos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhSelecaoRoute = AppRhSelecaoRouteImport.update({
+  id: '/rh/selecao',
+  path: '/rh/selecao',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRhVagasRoute = AppRhVagasRouteImport.update({
+  id: '/rh/vagas',
+  path: '/rh/vagas',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/candidato': typeof CandidatoRoute
   '/login': typeof LoginRoute
+  '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
+  '/vagas/$slug': typeof VagasSlugRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
+  '/app/rh/admissoes': typeof AppRhAdmissoesRoute
+  '/app/rh/candidatos': typeof AppRhCandidatosRoute
+  '/app/rh/cargos': typeof AppRhCargosRoute
+  '/app/rh/colaboradores': typeof AppRhColaboradoresRoute
+  '/app/rh/configuracoes': typeof AppRhConfiguracoesRoute
+  '/app/rh/documentos': typeof AppRhDocumentosRoute
+  '/app/rh/selecao': typeof AppRhSelecaoRoute
+  '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
+  '/app/rh/': typeof AppRhIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/candidato': typeof CandidatoRoute
   '/login': typeof LoginRoute
+  '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
+  '/vagas/$slug': typeof VagasSlugRoute
   '/app': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
+  '/app/rh/admissoes': typeof AppRhAdmissoesRoute
+  '/app/rh/candidatos': typeof AppRhCandidatosRoute
+  '/app/rh/cargos': typeof AppRhCargosRoute
+  '/app/rh/colaboradores': typeof AppRhColaboradoresRoute
+  '/app/rh/configuracoes': typeof AppRhConfiguracoesRoute
+  '/app/rh/documentos': typeof AppRhDocumentosRoute
+  '/app/rh/selecao': typeof AppRhSelecaoRoute
+  '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes': typeof AppClientesIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
+  '/app/rh': typeof AppRhIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/candidato': typeof CandidatoRoute
   '/login': typeof LoginRoute
+  '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRoute
   '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
+  '/vagas/$slug': typeof VagasSlugRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
+  '/app/rh/admissoes': typeof AppRhAdmissoesRoute
+  '/app/rh/candidatos': typeof AppRhCandidatosRoute
+  '/app/rh/cargos': typeof AppRhCargosRoute
+  '/app/rh/colaboradores': typeof AppRhColaboradoresRoute
+  '/app/rh/configuracoes': typeof AppRhConfiguracoesRoute
+  '/app/rh/documentos': typeof AppRhDocumentosRoute
+  '/app/rh/selecao': typeof AppRhSelecaoRoute
+  '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
+  '/app/rh/': typeof AppRhIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/app'
+    | '/candidato'
     | '/login'
+    | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
+    | '/vagas/$slug'
     | '/app/'
     | '/app/clientes/$id'
     | '/app/projetos/$id'
+    | '/app/rh/admissoes'
+    | '/app/rh/candidatos'
+    | '/app/rh/cargos'
+    | '/app/rh/colaboradores'
+    | '/app/rh/configuracoes'
+    | '/app/rh/documentos'
+    | '/app/rh/selecao'
+    | '/app/rh/vagas'
     | '/app/clientes/'
     | '/app/projetos/'
+    | '/app/rh/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/candidato'
     | '/login'
+    | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
+    | '/vagas/$slug'
     | '/app'
     | '/app/clientes/$id'
     | '/app/projetos/$id'
+    | '/app/rh/admissoes'
+    | '/app/rh/candidatos'
+    | '/app/rh/cargos'
+    | '/app/rh/colaboradores'
+    | '/app/rh/configuracoes'
+    | '/app/rh/documentos'
+    | '/app/rh/selecao'
+    | '/app/rh/vagas'
     | '/app/clientes'
     | '/app/projetos'
+    | '/app/rh'
   id:
     | '__root__'
     | '/'
     | '/app'
+    | '/candidato'
     | '/login'
+    | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
+    | '/vagas/$slug'
     | '/app/'
     | '/app/clientes/$id'
     | '/app/projetos/$id'
+    | '/app/rh/admissoes'
+    | '/app/rh/candidatos'
+    | '/app/rh/cargos'
+    | '/app/rh/colaboradores'
+    | '/app/rh/configuracoes'
+    | '/app/rh/documentos'
+    | '/app/rh/selecao'
+    | '/app/rh/vagas'
     | '/app/clientes/'
     | '/app/projetos/'
+    | '/app/rh/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CandidatoRoute: typeof CandidatoRoute
   LoginRoute: typeof LoginRoute
+  TrabalheConoscoRoute: typeof TrabalheConoscoRoute
+  VagasSlugRoute: typeof VagasSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -215,11 +362,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/candidato': {
+      id: '/candidato'
+      path: '/candidato'
+      fullPath: '/candidato'
+      preLoaderRoute: typeof CandidatoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trabalhe-conosco': {
+      id: '/trabalhe-conosco'
+      path: '/trabalhe-conosco'
+      fullPath: '/trabalhe-conosco'
+      preLoaderRoute: typeof TrabalheConoscoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -271,6 +432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWebmailRouteImport
       parentRoute: typeof AppRoute
     }
+    '/vagas/$slug': {
+      id: '/vagas/$slug'
+      path: '/vagas/$slug'
+      fullPath: '/vagas/$slug'
+      preLoaderRoute: typeof VagasSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/clientes/': {
       id: '/app/clientes/'
       path: '/clientes'
@@ -299,6 +467,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProjetosIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/rh/': {
+      id: '/app/rh/'
+      path: '/rh'
+      fullPath: '/app/rh/'
+      preLoaderRoute: typeof AppRhIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/admissoes': {
+      id: '/app/rh/admissoes'
+      path: '/rh/admissoes'
+      fullPath: '/app/rh/admissoes'
+      preLoaderRoute: typeof AppRhAdmissoesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/candidatos': {
+      id: '/app/rh/candidatos'
+      path: '/rh/candidatos'
+      fullPath: '/app/rh/candidatos'
+      preLoaderRoute: typeof AppRhCandidatosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/cargos': {
+      id: '/app/rh/cargos'
+      path: '/rh/cargos'
+      fullPath: '/app/rh/cargos'
+      preLoaderRoute: typeof AppRhCargosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/colaboradores': {
+      id: '/app/rh/colaboradores'
+      path: '/rh/colaboradores'
+      fullPath: '/app/rh/colaboradores'
+      preLoaderRoute: typeof AppRhColaboradoresRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/configuracoes': {
+      id: '/app/rh/configuracoes'
+      path: '/rh/configuracoes'
+      fullPath: '/app/rh/configuracoes'
+      preLoaderRoute: typeof AppRhConfiguracoesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/documentos': {
+      id: '/app/rh/documentos'
+      path: '/rh/documentos'
+      fullPath: '/app/rh/documentos'
+      preLoaderRoute: typeof AppRhDocumentosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/selecao': {
+      id: '/app/rh/selecao'
+      path: '/rh/selecao'
+      fullPath: '/app/rh/selecao'
+      preLoaderRoute: typeof AppRhSelecaoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/rh/vagas': {
+      id: '/app/rh/vagas'
+      path: '/rh/vagas'
+      fullPath: '/app/rh/vagas'
+      preLoaderRoute: typeof AppRhVagasRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -312,8 +543,17 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppClientesIdRoute: typeof AppClientesIdRoute
   AppProjetosIdRoute: typeof AppProjetosIdRoute
+  AppRhAdmissoesRoute: typeof AppRhAdmissoesRoute
+  AppRhCandidatosRoute: typeof AppRhCandidatosRoute
+  AppRhCargosRoute: typeof AppRhCargosRoute
+  AppRhColaboradoresRoute: typeof AppRhColaboradoresRoute
+  AppRhConfiguracoesRoute: typeof AppRhConfiguracoesRoute
+  AppRhDocumentosRoute: typeof AppRhDocumentosRoute
+  AppRhSelecaoRoute: typeof AppRhSelecaoRoute
+  AppRhVagasRoute: typeof AppRhVagasRoute
   AppClientesIndexRoute: typeof AppClientesIndexRoute
   AppProjetosIndexRoute: typeof AppProjetosIndexRoute
+  AppRhIndexRoute: typeof AppRhIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -326,8 +566,17 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppClientesIdRoute: AppClientesIdRoute,
   AppProjetosIdRoute: AppProjetosIdRoute,
+  AppRhAdmissoesRoute: AppRhAdmissoesRoute,
+  AppRhCandidatosRoute: AppRhCandidatosRoute,
+  AppRhCargosRoute: AppRhCargosRoute,
+  AppRhColaboradoresRoute: AppRhColaboradoresRoute,
+  AppRhConfiguracoesRoute: AppRhConfiguracoesRoute,
+  AppRhDocumentosRoute: AppRhDocumentosRoute,
+  AppRhSelecaoRoute: AppRhSelecaoRoute,
+  AppRhVagasRoute: AppRhVagasRoute,
   AppClientesIndexRoute: AppClientesIndexRoute,
   AppProjetosIndexRoute: AppProjetosIndexRoute,
+  AppRhIndexRoute: AppRhIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -335,7 +584,10 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CandidatoRoute: CandidatoRoute,
   LoginRoute: LoginRoute,
+  TrabalheConoscoRoute: TrabalheConoscoRoute,
+  VagasSlugRoute: VagasSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

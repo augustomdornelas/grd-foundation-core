@@ -1,20 +1,48 @@
 import { Link, useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, BriefcaseBusiness, TrendingUp, FolderKanban, HardHat, Users, Mail, Users2, Search, LogOut, User as UserIcon, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, BriefcaseBusiness, TrendingUp, FolderKanban, HardHat, Users, Mail, Users2, UserPlus, Search, LogOut, User as UserIcon, Menu, X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEffect, useState, type ReactNode } from "react";
-import { useCurrentUser, sessionActions, iniciaisDe, type ModuloKey } from "@/lib/current-user";
+import { useCurrentUser, sessionActions, iniciaisDe, PERFIS_RH, type ModuloKey } from "@/lib/current-user";
 import { supabase } from "@/integrations/supabase/client";
 
-const items: { to: string; label: string; icon: typeof LayoutDashboard; exact: boolean; perm?: ModuloKey }[] = [
+type NavFilho = { to: string; label: string; perfis: readonly string[] };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+  perm?: ModuloKey;
+  filhos?: NavFilho[];
+};
+
+// O RH entra como grupo, e não como nove entradas soltas: são nove
+// telas e a barra lateral já tem oito itens. Cada filho carrega os
+// perfis que o enxergam, direto da matriz do briefing — o almoxarifado,
+// por exemplo, abre o grupo e vê só colaboradores, documentos e cargos.
+const items: NavItem[] = [
   { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
   { to: "/app/comercial", label: "Comercial", icon: BriefcaseBusiness, exact: false, perm: "comercial" },
   { to: "/app/previsao", label: "Previsão de Entrada", icon: TrendingUp, exact: false, perm: "comercial" },
   { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
   { to: "/app/epis", label: "EPIs", icon: HardHat, exact: false, perm: "epis" },
+  {
+    to: "/app/rh", label: "RH", icon: UserPlus, exact: false, perm: "rh",
+    filhos: [
+      { to: "/app/rh", label: "Painel de RH", perfis: PERFIS_RH.painel },
+      { to: "/app/rh/vagas", label: "Vagas", perfis: PERFIS_RH.vagas },
+      { to: "/app/rh/selecao", label: "Seleção", perfis: PERFIS_RH.selecao },
+      { to: "/app/rh/candidatos", label: "Candidatos", perfis: PERFIS_RH.selecao },
+      { to: "/app/rh/admissoes", label: "Admissões", perfis: PERFIS_RH.admissoes },
+      { to: "/app/rh/colaboradores", label: "Colaboradores", perfis: PERFIS_RH.colaboradores },
+      { to: "/app/rh/documentos", label: "Documentos", perfis: PERFIS_RH.colaboradores },
+      { to: "/app/rh/cargos", label: "Cargos", perfis: PERFIS_RH.cargos },
+      { to: "/app/rh/configuracoes", label: "Configurações", perfis: PERFIS_RH.configuracoes },
+    ],
+  },
   { to: "/app/clientes", label: "Clientes", icon: Users, exact: false },
   { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
   { to: "/app/admin", label: "Admin", icon: Users2, exact: false, perm: "admin" },
@@ -25,12 +53,84 @@ const STORAGE_KEY = "grd:sidebar:collapsed";
 function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: s => s.location.pathname });
   const user = useCurrentUser();
-  const visiveis = items.filter(it => !it.perm || user.permissoes.includes(it.perm));
+  const perfil = user.perfil.toLowerCase();
+  const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
+
+  const filhosVisiveis = (it: NavItem) => (it.filhos ?? []).filter(f => f.perfis.includes(perfil));
+  const visiveis = items.filter(it => {
+    if (it.perm && !user.permissoes.includes(it.perm)) return false;
+    // Grupo sem nenhum filho liberado não aparece: é a diferença entre
+    // "não tem o que ver aqui" e "tem, mas está vazio".
+    if (it.filhos && filhosVisiveis(it).length === 0) return false;
+    return true;
+  });
+
   return (
     <TooltipProvider delayDuration={100}>
       <nav className={`flex flex-col gap-1 ${collapsed ? "p-2" : "p-3"}`}>
         {visiveis.map(it => {
           const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
+
+          if (it.filhos) {
+            const filhos = filhosVisiveis(it);
+            // Com a barra minimizada não cabe submenu: o ícone leva para
+            // a primeira tela que o usuário pode abrir.
+            if (collapsed) {
+              return (
+                <Tooltip key={it.to}>
+                  <TooltipTrigger asChild>
+                    <Link
+                      to={filhos[0].to}
+                      onClick={onNavigate}
+                      className={`flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        active ? "bg-[#F37032] text-white shadow" : "text-white/80 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <it.icon className="h-4 w-4 shrink-0" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{it.label}</TooltipContent>
+                </Tooltip>
+              );
+            }
+            const aberto = gruposAbertos[it.to] ?? active;
+            return (
+              <div key={it.to}>
+                <button
+                  type="button"
+                  aria-expanded={aberto}
+                  onClick={() => setGruposAbertos(g => ({ ...g, [it.to]: !aberto }))}
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    active ? "bg-[#F37032] text-white shadow" : "text-white/80 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <it.icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 truncate text-left">{it.label}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${aberto ? "" : "-rotate-90"}`} />
+                </button>
+                {aberto && (
+                  <div className="mt-1 flex flex-col gap-0.5 border-l border-white/15 pl-3 ml-5">
+                    {filhos.map(f => {
+                      const ativo = f.to === it.to ? pathname === f.to : pathname.startsWith(f.to);
+                      return (
+                        <Link
+                          key={f.to}
+                          to={f.to}
+                          onClick={onNavigate}
+                          className={`rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+                            ativo ? "bg-white/15 font-semibold text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          {f.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const link = (
             <Link
               key={it.to}

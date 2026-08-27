@@ -29,14 +29,19 @@ export const PAINEL_MODULO: Record<PainelKey, ModuloKey> = {
     financeiro: "financeiro",
 };
 
-export const MODULO_KEYS: ModuloKey[] = ["comercial", "projetos", "epis", "webmail", "financeiro", "admin"];
+export const MODULO_KEYS: ModuloKey[] = ["comercial", "projetos", "epis", "rh", "rh_remuneracao", "webmail", "financeiro", "admin"];
 export const MODULO_LABEL: Record<ModuloKey, string> = {
     comercial: "Comercial",
     projetos: "Projetos",
     epis: "EPIs",
+    rh: "RH / DP",
+    rh_remuneracao: "RH — remuneracao",
     webmail: "Webmail",
     financeiro: "Financeiro",
     admin: "Administracao",
+};
+export const MODULO_AJUDA: Partial<Record<ModuloKey, string>> = {
+    rh_remuneracao: "Salario, faixa salarial e pretensao. Desmarcar aqui esconde na tela; quem barra de verdade e a RLS das tabelas de remuneracao no banco.",
 };
 
 export type ModuloAcesso = { ver: boolean; editar: boolean };
@@ -80,10 +85,16 @@ async function persist(userId: string) {
 export function defaultModulosDoPerfil(perfil: string): Record<ModuloKey, ModuloAcesso> {
     const permitidos = new Set(permissoesDoPerfil(perfil));
     const isAdmin = perfil === "Administrador";
+    const p = perfil.toLowerCase();
+    // Editar RH e de Diretoria e RH/DP. Administrativo, Engenharia e
+    // Almoxarifado entram so como leitura (matriz do briefing).
+    const editaRh = isAdmin || p === "diretoria" || p === "rh";
     return {
           comercial: { ver: permitidos.has("comercial"), editar: isAdmin || perfil === "Comercial" },
           projetos: { ver: permitidos.has("projetos"), editar: isAdmin || perfil === "Projetos" },
           epis: { ver: permitidos.has("epis"), editar: isAdmin || perfil === "Almoxarifado" },
+          rh: { ver: permitidos.has("rh"), editar: editaRh },
+          rh_remuneracao: { ver: permitidos.has("rh_remuneracao"), editar: editaRh },
           webmail: { ver: permitidos.has("webmail"), editar: permitidos.has("webmail") },
           financeiro: { ver: permitidos.has("financeiro"), editar: isAdmin },
           admin: { ver: isAdmin, editar: isAdmin },

@@ -17,7 +17,12 @@ export type ModuloKey =
   | "epis"
   | "webmail"
   | "admin"
-  | "financeiro";
+  | "financeiro"
+  | "rh"
+  /** Permissão à parte, e não um módulo com menu: é ela que libera
+   *  salário, faixa salarial e pretensão. No banco quem manda é a RLS
+   *  das tabelas de remuneração; aqui só decide o que a tela mostra. */
+  | "rh_remuneracao";
 
 export type CurrentUser = {
     id: string;
@@ -28,21 +33,48 @@ export type CurrentUser = {
 };
 
 // Mapa perfil -> permissoes (mesma matriz do modulo Admin).
+// Os perfis Diretoria, RH, Administrativo, Engenharia e Campo entraram
+// com o modulo de RH: a matriz do briefing distingue os cinco, e antes
+// deles so existiam Administrador/Comercial/Projetos/Almoxarifado.
+// "projetos" continua valendo como Engenharia enquanto as contas nao
+// forem reclassificadas na tela de Admin.
 export function permissoesDoPerfil(perfil: string): ModuloKey[] {
     switch (perfil.toLowerCase()) {
       case "administrador":
       case "admin":
-              return ["comercial", "projetos", "epis", "webmail", "admin", "financeiro"];
+              return ["comercial", "projetos", "epis", "webmail", "admin", "financeiro", "rh", "rh_remuneracao"];
+      case "diretoria":
+              return ["comercial", "projetos", "epis", "webmail", "financeiro", "rh", "rh_remuneracao"];
+      case "rh":
+              return ["webmail", "rh", "rh_remuneracao"];
+      case "administrativo":
+              return ["webmail", "rh"];
+      case "engenharia":
+              return ["projetos", "webmail", "financeiro", "rh"];
       case "comercial":
               return ["comercial", "webmail"];
       case "projetos":
-              return ["projetos", "webmail", "financeiro"];
+              return ["projetos", "webmail", "financeiro", "rh"];
       case "almoxarifado":
-              return ["epis", "webmail"];
+              return ["epis", "webmail", "rh"];
+      case "campo":
+              return ["webmail"];
       default:
               return ["webmail"];
     }
 }
+
+/** Perfis, em minusculas, que enxergam cada tela do modulo de RH.
+ *  E a matriz do briefing transcrita: campo nao aparece em nenhuma. */
+export const PERFIS_RH = {
+    painel: ["administrador", "admin", "diretoria", "rh", "administrativo"],
+    vagas: ["administrador", "admin", "diretoria", "rh", "administrativo", "engenharia", "projetos"],
+    selecao: ["administrador", "admin", "diretoria", "rh", "administrativo", "engenharia", "projetos"],
+    admissoes: ["administrador", "admin", "diretoria", "rh", "administrativo", "engenharia", "projetos"],
+    colaboradores: ["administrador", "admin", "diretoria", "rh", "administrativo", "engenharia", "projetos", "almoxarifado"],
+    cargos: ["administrador", "admin", "diretoria", "rh", "administrativo", "engenharia", "projetos", "almoxarifado"],
+    configuracoes: ["administrador", "admin", "diretoria", "rh"],
+} as const;
 const GUEST_USER: CurrentUser = {
     id: "",
     nome: "",

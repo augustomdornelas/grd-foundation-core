@@ -27,28 +27,42 @@ export function Header() {
       className={`sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur transition-shadow ${scrolled ? "shadow-md" : "shadow-none"}`}
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link to="/"><Logo /></Link>
+        <Link to="/">
+          <Logo />
+        </Link>
         <nav className="hidden items-center gap-7 md:flex">
-          {nav.map(n => (
-            <a key={n.href} href={n.href} className="text-sm font-medium text-foreground/80 transition hover:text-[#F37032]">
+          {nav.map((n) => (
+            <a
+              key={n.href}
+              href={n.href}
+              className="text-sm font-medium text-foreground/80 transition hover:text-[#F37032]"
+            >
               {n.label}
             </a>
           ))}
         </nav>
         <div className="hidden md:block">
-          <Button asChild className="bg-[#F37032] font-semibold text-white shadow-sm hover:bg-[#ff8850]">
+          <Button
+            asChild
+            className="bg-[#F37032] font-semibold text-white shadow-sm hover:bg-[#ff8850]"
+          >
             <Link to="/login">Portal GRD</Link>
           </Button>
         </div>
-        <button className="md:hidden" onClick={() => setOpen(v => !v)} aria-label="Menu">
+        <button className="md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Menu">
           {open ? <X /> : <Menu />}
         </button>
       </div>
       {open && (
         <div className="border-t bg-white md:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3">
-            {nav.map(n => (
-              <a key={n.href} href={n.href} className="rounded px-2 py-2 text-sm font-medium hover:bg-muted" onClick={() => setOpen(false)}>
+            {nav.map((n) => (
+              <a
+                key={n.href}
+                href={n.href}
+                className="rounded px-2 py-2 text-sm font-medium hover:bg-muted"
+                onClick={() => setOpen(false)}
+              >
                 {n.label}
               </a>
             ))}

@@ -17,20 +17,18 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PortfolioAdmin } from "@/components/portal/PortfolioAdmin";
 import { ResponsaveisAdmin } from "@/components/portal/ResponsaveisAdmin";
+import { permissoesDoPerfil as permissoesCanonicas, type ModuloKey } from "@/lib/current-user";
+import { MODULO_KEYS, MODULO_LABEL, MODULO_AJUDA } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
-type ModuloKey = "comercial" | "projetos" | "epis" | "webmail" | "admin" | "financeiro";
 type PainelKey = "comercial" | "previsao" | "projetos" | "financeiro";
 
-const MODULOS: { key: ModuloKey; label: string }[] = [
-  { key: "comercial", label: "Comercial" },
-  { key: "projetos", label: "Projetos" },
-  { key: "epis", label: "EPIs" },
-  { key: "webmail", label: "Webmail" },
-  { key: "financeiro", label: "Financeiro" },
-  { key: "admin", label: "Administração" },
-];
+// A lista de módulos era declarada de novo aqui e já tinha começado a
+// divergir da de access-store. Agora vem de lá: acrescentar um módulo
+// passa a ser uma edição só, e não duas que podem discordar.
+const MODULOS: { key: ModuloKey; label: string; ajuda?: string }[] =
+  MODULO_KEYS.map(key => ({ key, label: MODULO_LABEL[key], ajuda: MODULO_AJUDA[key] }));
 
 const PAINEIS: { key: PainelKey; label: string; modulo: ModuloKey }[] = [
   { key: "comercial", label: "Comercial", modulo: "comercial" },
@@ -39,7 +37,21 @@ const PAINEIS: { key: PainelKey; label: string; modulo: ModuloKey }[] = [
   { key: "financeiro", label: "Financeiro", modulo: "financeiro" },
 ];
 
-const PERFIS = ["Administrador", "Comercial", "Projetos", "Almoxarifado", "Colaborador"];
+// Diretoria, RH, Administrativo, Engenharia e Campo entraram com o
+// módulo de RH. "Projetos" continua na lista porque as contas atuais
+// usam esse perfil; ele vale como Engenharia até serem reclassificadas.
+const PERFIS = [
+  "Administrador",
+  "Diretoria",
+  "RH",
+  "Administrativo",
+  "Comercial",
+  "Engenharia",
+  "Projetos",
+  "Almoxarifado",
+  "Campo",
+  "Colaborador",
+];
 
 type Usuario = {
   id: string;
@@ -51,20 +63,12 @@ type Usuario = {
   paineis: Record<string, boolean>;
 };
 
+// Mesma fonte de verdade do menu e do access-store.
 function permissoesDoPerfil(perfil: string): Record<ModuloKey, boolean> {
-  switch (perfil) {
-    case "Administrador":
-    case "admin":
-      return { comercial: true, projetos: true, epis: true, webmail: true, admin: true, financeiro: true };
-    case "Comercial":
-      return { comercial: true, projetos: false, epis: false, webmail: true, admin: false, financeiro: false };
-    case "Projetos":
-      return { comercial: false, projetos: true, epis: false, webmail: true, admin: false, financeiro: true };
-    case "Almoxarifado":
-      return { comercial: false, projetos: false, epis: true, webmail: true, admin: false, financeiro: false };
-    default:
-      return { comercial: false, projetos: false, epis: false, webmail: true, admin: false, financeiro: false };
-  }
+  const liberados = new Set(permissoesCanonicas(perfil));
+  return Object.fromEntries(
+    MODULO_KEYS.map(k => [k, liberados.has(k)]),
+  ) as Record<ModuloKey, boolean>;
 }
 
 function Admin() {
@@ -202,7 +206,7 @@ function Admin() {
               <tr className="border-b">
                 <th className="py-2 pr-4 text-left font-semibold text-[#213368]">Usuário</th>
                 {MODULOS.map(m => (
-                  <th key={m.key} colSpan={2} className="px-2 py-2 text-center font-semibold text-[#213368]">{m.label}</th>
+                  <th key={m.key} colSpan={2} title={m.ajuda} className="px-2 py-2 text-center font-semibold text-[#213368]">{m.label}</th>
                 ))}
                 <th className="px-2 py-2 text-center font-semibold text-[#213368]">Padrão</th>
               </tr>
