@@ -79,6 +79,8 @@ export type Orcamento = {
     /** max(orcamento_notas.created_at), mantido por trigger no banco. */
     ultimaNotaEm: string | null;
     criadoEm: string;
+    /** sum(orcamento_custos.subtotal), mantido por trigger. Nunca escrito daqui. */
+    custoTotal: number;
 };
 
 export const TIPOS_SERVICO: TipoServico[] = [
@@ -151,6 +153,7 @@ type OrcamentoRow = {
     responsavel_comercial_id: string | null;
     ultima_nota_em: string | null;
     created_at: string | null;
+    custo_total: number | string | null;
 };
 
 function fromRow(r: OrcamentoRow): Orcamento {
@@ -187,6 +190,7 @@ function fromRow(r: OrcamentoRow): Orcamento {
           responsavelComercialId: r.responsavel_comercial_id ?? null,
           ultimaNotaEm: r.ultima_nota_em ?? null,
           criadoEm: r.created_at ?? "",
+          custoTotal: pnum(r.custo_total),
     };
 }
 
@@ -286,7 +290,8 @@ export const orcamentosActions = {
   async criar(
     input: Omit<Orcamento,
       | "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao" | "planejamento"
-      | "ultimaNotaEm" | "criadoEm" | "responsavelTecnicoId" | "responsavelComercialId">
+      | "ultimaNotaEm" | "criadoEm" | "custoTotal"
+      | "responsavelTecnicoId" | "responsavelComercialId">
       & {
         numero?: string;
         planejamento?: PlanejamentoValores;
@@ -303,7 +308,7 @@ export const orcamentosActions = {
       ultimaAtualizacao: agora.slice(0, 10), timeline: [], notas: [],
       responsavelTecnicoId: input.responsavelTecnicoId ?? null,
       responsavelComercialId: input.responsavelComercialId ?? null,
-      ultimaNotaEm: null, criadoEm: agora,
+      ultimaNotaEm: null, criadoEm: agora, custoTotal: 0,
     }, ...state];
     emit();
     const { data, error } = await supabase
@@ -419,7 +424,7 @@ export const orcamentosActions = {
     // orçamento original, não acompanham a duplicata.
     state = [{
       ...input, id: tempId, numero, timeline: [], notas: [],
-      ultimaNotaEm: null, criadoEm: new Date().toISOString(),
+      ultimaNotaEm: null, criadoEm: new Date().toISOString(), custoTotal: 0,
     }, ...state];
     emit();
     void (async () => {

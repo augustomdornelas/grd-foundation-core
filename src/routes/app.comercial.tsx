@@ -43,6 +43,7 @@ import { brl, brlCompacto, paraNumero, pct } from "@/lib/formato";
 import { InputMoeda } from "@/components/ui/input-moeda";
 import { StatusComNotaDialog, type MudancaPendente } from "@/components/comercial/StatusComNotaDialog";
 import { HistoricoNotas } from "@/components/comercial/HistoricoNotas";
+import { CustosOrcamento } from "@/components/comercial/CustosOrcamento";
 import { InatividadeBadge } from "@/components/comercial/InatividadeBadge";
 import { contadorInatividade } from "@/lib/orcamento-notas";
 import { ResponsavelSelect } from "@/components/portal/ResponsavelSelect";
@@ -1064,6 +1065,8 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
               Toda mudança de status pede uma nota — as duas gravam juntas.
             </p>
           </div>
+
+          <CustosOrcamento orcamentoId={o.id} valorVenda={o.valor} />
 
           <HistoricoNotas orcamentoId={o.id} recarregarEm={versaoNotas} />
 
