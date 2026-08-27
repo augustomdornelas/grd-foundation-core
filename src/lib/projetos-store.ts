@@ -39,7 +39,11 @@ export type Projeto = {
   valorContrato: number;
   local: string;
   descricao: string;
+  /** Campo de texto livre antigo — mantido como fallback dos projetos
+   *  lançados antes do pré-cadastro `responsaveis` existir. */
   responsavel: string;
+  responsavelTecnicoId: string | null;
+  responsavelComercialId: string | null;
   dataInicio: string;
   prazo: string;
   status: ProjetoStatus;
@@ -153,7 +157,10 @@ async function fetchAll() {
       orcamentoId: r.orcamento_id ?? null,
       valorContrato: num(r.valor_contrato),
       local: r.local ?? "", descricao: r.descricao ?? "",
-      responsavel: r.responsavel ?? "", dataInicio: r.data_inicio ?? "",
+      responsavel: r.responsavel ?? "",
+      responsavelTecnicoId: r.responsavel_tecnico_id ?? null,
+      responsavelComercialId: r.responsavel_comercial_id ?? null,
+      dataInicio: r.data_inicio ?? "",
       prazo: r.prazo ?? "", status: r.status ?? "PLANEJAMENTO",
       // num() em tudo que entra em conta: colunas numeric podem chegar
       // como string e "10" - 5 daria NaN na tela.
@@ -208,8 +215,13 @@ export function calcularValorNota(quantidade: number, valorUnitario: number): nu
 
 export const projetosActions = {
   criarProjeto(
-    input: Omit<Projeto, "id" | "orcamentoId" | "valorContrato" | keyof PlanejamentoProjeto>
-      & { id?: string; orcamentoId?: string | null; valorContrato?: number }
+    input: Omit<Projeto,
+      "id" | "orcamentoId" | "valorContrato" | "responsavelTecnicoId" | "responsavelComercialId"
+      | keyof PlanejamentoProjeto>
+      & {
+        id?: string; orcamentoId?: string | null; valorContrato?: number;
+        responsavelTecnicoId?: string | null; responsavelComercialId?: string | null;
+      }
       & Partial<PlanejamentoProjeto>,
   ) {
     const id = input.id || crypto.randomUUID();
@@ -218,6 +230,8 @@ export const projetosActions = {
       ...input, id,
       orcamentoId: input.orcamentoId ?? null,
       valorContrato: input.valorContrato ?? 0,
+      responsavelTecnicoId: input.responsavelTecnicoId ?? null,
+      responsavelComercialId: input.responsavelComercialId ?? null,
       // repetidos explicitamente: o spread acima sobrescreveria os zeros
       // com undefined se o chamador passar a chave sem valor.
       planejadoLucroPct: input.planejadoLucroPct ?? 0,
@@ -235,6 +249,8 @@ export const projetosActions = {
       id, nome: input.nome, cliente: input.cliente, cliente_id: input.clienteId ?? null,
       orcamento_id: input.orcamentoId ?? null, valor_contrato: input.valorContrato ?? 0,
       local: input.local, descricao: input.descricao, responsavel: input.responsavel,
+      responsavel_tecnico_id: input.responsavelTecnicoId ?? null,
+      responsavel_comercial_id: input.responsavelComercialId ?? null,
       data_inicio: input.dataInicio, prazo: input.prazo,
       status: input.status, progresso: input.progresso, orcado: input.orcado,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
@@ -250,6 +266,8 @@ export const projetosActions = {
     if (patch.local !== undefined) row.local = patch.local;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.responsavel !== undefined) row.responsavel = patch.responsavel;
+    if (patch.responsavelTecnicoId !== undefined) row.responsavel_tecnico_id = patch.responsavelTecnicoId;
+    if (patch.responsavelComercialId !== undefined) row.responsavel_comercial_id = patch.responsavelComercialId;
     if (patch.dataInicio !== undefined) row.data_inicio = patch.dataInicio;
     if (patch.prazo !== undefined) row.prazo = patch.prazo;
     if (patch.status !== undefined) row.status = patch.status;

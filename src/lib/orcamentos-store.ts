@@ -71,6 +71,14 @@ export type Orcamento = {
     notas: Nota[];
     /** Planejamento copiado para as colunas planejado_* do projeto. */
     planejamento: PlanejamentoValores;
+    /** Vínculo com o pré-cadastro `responsaveis`. Os campos de texto
+     *  `responsavel` (comercial) e `cnpj` (técnico) seguem como fallback
+     *  dos orçamentos lançados antes do cadastro existir. */
+    responsavelTecnicoId: string | null;
+    responsavelComercialId: string | null;
+    /** max(orcamento_notas.created_at), mantido por trigger no banco. */
+    ultimaNotaEm: string | null;
+    criadoEm: string;
 };
 
 export const TIPOS_SERVICO: TipoServico[] = [
@@ -138,6 +146,11 @@ type OrcamentoRow = {
     planejado_administrativo_pct: number | null;
     planejado_imposto_pct: number | null;
     planejado_lucro_pct: number | null;
+
+    responsavel_tecnico_id: string | null;
+    responsavel_comercial_id: string | null;
+    ultima_nota_em: string | null;
+    created_at: string | null;
 };
 
 function fromRow(r: OrcamentoRow): Orcamento {
@@ -170,10 +183,20 @@ function fromRow(r: OrcamentoRow): Orcamento {
                 impostoPct: pnum(r.planejado_imposto_pct),
                 lucroPct: pnum(r.planejado_lucro_pct),
           },
+          responsavelTecnicoId: r.responsavel_tecnico_id ?? null,
+          responsavelComercialId: r.responsavel_comercial_id ?? null,
+          ultimaNotaEm: r.ultima_nota_em ?? null,
+          criadoEm: r.created_at ?? "",
     };
 }
 
-function toRow(o: Partial<Orcamento>) {
+/**
+ * `incluirStatus` só é ligado na criação. Em atualização o status nunca
+ * viaja por aqui: ele muda exclusivamente por `mudarStatusComNota`, que
+ * grava status e nota na mesma transação (Requisito 1 — não existe
+ * caminho alternativo).
+ */
+function toRow(o: Partial<Orcamento>, incluirStatus = false) {
     const row: Record<string, unknown> = {};
     if (o.numero !== undefined) row.numero = o.numero;
     if (o.cliente !== undefined) row.cliente = o.cliente;
@@ -185,7 +208,9 @@ function toRow(o: Partial<Orcamento>) {
     if (o.responsavel !== undefined) row.responsavel = o.responsavel;
     if (o.data !== undefined) row.data_emissao = o.data;
     if (o.validade !== undefined) row.prazo_validade = o.validade;
-    if (o.status !== undefined) row.status = o.status;
+    if (incluirStatus && o.status !== undefined) row.status = o.status;
+    if (o.responsavelTecnicoId !== undefined) row.responsavel_tecnico_id = o.responsavelTecnicoId;
+    if (o.responsavelComercialId !== undefined) row.responsavel_comercial_id = o.responsavelComercialId;
 
     if (o.probabilidade !== undefined) row.probabilidade = o.probabilidade;
     if (o.observacoes !== undefined) row.observacoes = o.observacoes;
@@ -258,15 +283,32 @@ export const orcamentosActions = {
   proximoNumero,
   // `planejamento` e opcional: o lancamento em lote nao preenche esses
   // campos, e forcar o objeto ali so criaria ruido.
-  async criar(input: Omit<Orcamento, "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao" | "planejamento"> & { numero?: string; planejamento?: PlanejamentoValores }): Promise<{ id: string | null; error: { message?: string } | null }> {
+  async criar(
+    input: Omit<Orcamento,
+      | "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao" | "planejamento"
+      | "ultimaNotaEm" | "criadoEm" | "responsavelTecnicoId" | "responsavelComercialId">
+      & {
+        numero?: string;
+        planejamento?: PlanejamentoValores;
+        responsavelTecnicoId?: string | null;
+        responsavelComercialId?: string | null;
+      },
+  ): Promise<{ id: string | null; error: { message?: string } | null }> {
     const numero = input.numero || proximoNumero();
     const planejamento = input.planejamento ?? planejamentoZerado();
     const tempId = uid();
-    state = [{ ...input, planejamento, id: tempId, numero, ultimaAtualizacao: new Date().toISOString().slice(0, 10), timeline: [], notas: [] }, ...state];
+    const agora = new Date().toISOString();
+    state = [{
+      ...input, planejamento, id: tempId, numero,
+      ultimaAtualizacao: agora.slice(0, 10), timeline: [], notas: [],
+      responsavelTecnicoId: input.responsavelTecnicoId ?? null,
+      responsavelComercialId: input.responsavelComercialId ?? null,
+      ultimaNotaEm: null, criadoEm: agora,
+    }, ...state];
     emit();
     const { data, error } = await supabase
       .from("orcamentos")
-      .insert(toRow({ ...input, numero, planejamento }))
+      .insert(toRow({ ...input, numero, planejamento }, true))
       .select()
       .single();
     if (error) {
@@ -278,13 +320,25 @@ export const orcamentosActions = {
     emit();
     const novo = fromRow(data as OrcamentoRow);
     if (novo.status === "APROVADO") {
-      void garantirProjetoDeOrcamento({ id: novo.id, obra: novo.obra, cliente: novo.cliente, valor: novo.valor, responsavel: novo.responsavel, planejamento: novo.planejamento });
+      void garantirProjetoDeOrcamento({
+        id: novo.id, obra: novo.obra, cliente: novo.cliente, valor: novo.valor,
+        responsavel: novo.responsavel,
+        responsavelTecnicoId: novo.responsavelTecnicoId,
+        responsavelComercialId: novo.responsavelComercialId,
+        planejamento: novo.planejamento,
+      });
     }
     return { id: (data as OrcamentoRow).id, error: null };
   },
   async atualizar(id: string, patch: Partial<Orcamento>): Promise<{ error: { message?: string } | null }> {
     const atual = state.find(o => o.id === id);
     if (!atual) return { error: { message: "Orçamento não encontrado" } };
+    // Trava explícita em vez de descartar em silêncio: quem tentar mudar
+    // status por aqui recebe um erro em vez de um salvamento que parece
+    // ter funcionado e não mudou nada.
+    if (patch.status !== undefined && patch.status !== atual.status) {
+      return { error: { message: "Mudança de status exige nota — use mudarStatusComNota." } };
+    }
     const novoPatch: Partial<Orcamento> = { ...patch };
     const anterior = atual;
     state = state.map(o => o.id === id ? { ...o, ...novoPatch } : o);
@@ -304,9 +358,49 @@ export const orcamentosActions = {
       state = state.map(o => o.id === id ? fromRow(data as OrcamentoRow) : o);
       emit();
     }
+    // A criação do projeto ao aprovar mora em `mudarStatusComNota`: como o
+    // status não muda mais por aqui, este caminho nunca chegaria a APROVADO.
+    return { error: null };
+  },
+  /**
+   * Único caminho para mudar o status. Chama a função
+   * public.orcamento_mudar_status, que grava a nota e o status na mesma
+   * transação: se a nota falhar, o status não muda.
+   */
+  async mudarStatusComNota(
+    id: string,
+    novoStatus: OrcStatus,
+    texto: string,
+    autor: { id: string; nome: string },
+  ): Promise<{ error: { message?: string } | null }> {
+    const anterior = state.find(o => o.id === id);
+    if (!anterior) return { error: { message: "Orçamento não encontrado" } };
+
+    const { data, error } = await supabase.rpc("orcamento_mudar_status", {
+      p_orcamento_id: id,
+      p_status_novo: novoStatus,
+      p_texto: texto.trim(),
+      p_autor_id: autor.id || null,
+      p_autor_nome: autor.nome,
+    });
+    if (error) return { error };
+
+    // A função devolve a linha já atualizada; o trigger de ultima_nota_em
+    // roda antes do RETURNING, então a data da nota nova vem junto.
+    if (data) {
+      state = state.map(o => o.id === id ? fromRow(data as OrcamentoRow) : o);
+      emit();
+    }
+
     const atualizado = state.find(o => o.id === id);
     if (atualizado && atualizado.status === "APROVADO" && anterior.status !== "APROVADO") {
-      void garantirProjetoDeOrcamento({ id: atualizado.id, obra: atualizado.obra, cliente: atualizado.cliente, valor: atualizado.valor, responsavel: atualizado.responsavel, planejamento: atualizado.planejamento });
+      void garantirProjetoDeOrcamento({
+        id: atualizado.id, obra: atualizado.obra, cliente: atualizado.cliente,
+        valor: atualizado.valor, responsavel: atualizado.responsavel,
+        responsavelTecnicoId: atualizado.responsavelTecnicoId,
+        responsavelComercialId: atualizado.responsavelComercialId,
+        planejamento: atualizado.planejamento,
+      });
     }
     return { error: null };
   },
@@ -321,12 +415,17 @@ export const orcamentosActions = {
     };
 
     const tempId = uid();
-    state = [{ ...input, id: tempId, numero, timeline: [], notas: [] }, ...state];
+    // A cópia nasce sem histórico: notas e contador de inatividade são do
+    // orçamento original, não acompanham a duplicata.
+    state = [{
+      ...input, id: tempId, numero, timeline: [], notas: [],
+      ultimaNotaEm: null, criadoEm: new Date().toISOString(),
+    }, ...state];
     emit();
     void (async () => {
       const { data, error } = await supabase
         .from("orcamentos")
-        .insert(toRow({ ...input, numero }))
+        .insert(toRow({ ...input, numero }, true))
         .select()
         .single();
       if (error) { toastErr("Falha ao duplicar orçamento", error); state = state.filter(o => o.id !== tempId); emit(); return; }

@@ -11,6 +11,8 @@ export type OrcamentoResumo = {
   cliente?: string | null;
   valor?: number | null;
   responsavel?: string | null;
+  responsavelTecnicoId?: string | null;
+  responsavelComercialId?: string | null;
   planejamento?: PlanejamentoValores | null;
 };
 
@@ -110,6 +112,10 @@ export async function garantirProjetoDeOrcamento(orc: OrcamentoResumo): Promise<
       valor_contrato: Number(orc.valor ?? 0) || 0,
       orcado: Number(orc.valor ?? 0) || 0,
       responsavel: orc.responsavel ?? "",
+      // Os vínculos do orçamento seguem para o projeto, senão o projeto
+      // nasceria sem responsável e teria de ser preenchido de novo à mão.
+      responsavel_tecnico_id: orc.responsavelTecnicoId ?? null,
+      responsavel_comercial_id: orc.responsavelComercialId ?? null,
       status: "PLANEJAMENTO",
       progresso: 0,
       // Planejamento montado no orçamento segue junto para o projeto; sem
