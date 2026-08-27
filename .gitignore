@@ -7,6 +7,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Segredos: nunca versionar.
+.env
+.env.*
+!.env.example
+
 node_modules
 dist
 dist-ssr
@@ -30,3 +35,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ------------------------------------------------------------
+# NOTA sobre o .env versionado
+# ------------------------------------------------------------
+# O arquivo .env esta rastreado pelo git desde antes desta regra, e
+# este repositorio e publico. O que ha nele hoje sao apenas as chaves
+# anon/publishable do Supabase, a URL e o project id - todas embarcadas
+# no bundle do navegador por natureza (prefixo VITE_), ou seja, nao sao
+# segredo.
+#
+# Ainda assim, NUNCA acrescente credencial de verdade ali: senha, chave
+# service_role, token de API. O git ja rastreia o arquivo, entao a
+# proxima linha adicionada vai junto no proximo commit, para um
+# repositorio publico.
+#
+# Tirar do indice (git rm --cached .env) nao foi feito de proposito:
+# se o build da Hostinger ou do Lovable le as VITE_* desse arquivo
+# versionado, remove-lo quebra o deploy. Decidir junto antes.

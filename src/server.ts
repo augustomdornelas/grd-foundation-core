@@ -83,10 +83,83 @@ function aplicarCabecalhos(response: Response, nonce: string, url: URL): Respons
   });
 }
 
+// ------------------------------------------------------------
+// Gatilho dos jobs da Secullum
+// ------------------------------------------------------------
+// Esta versão do TanStack Start não tem rota de API baseada em
+// arquivo, e um agendador externo (cron da Hostinger, cron-job.org)
+// precisa de uma URL simples para chamar. Então o gatilho fica aqui,
+// no mesmo ponto por onde já passam os três ambientes.
+//
+// Protegido por segredo compartilhado no header, e não por sessão: quem
+// chama é uma máquina às 5h da manhã, não uma pessoa logada.
+const ROTA_SYNC = "/api/secullum/sync";
+
+async function tratarSync(request: Request, url: URL): Promise<Response> {
+  const responder = (corpo: unknown, status: number) =>
+    new Response(JSON.stringify(corpo, null, 2), {
+      status,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+
+  const segredo = process.env.SECULLUM_SYNC_TOKEN;
+  if (!segredo) {
+    return responder(
+      {
+        ok: false,
+        erro:
+          "SECULLUM_SYNC_TOKEN não está no ambiente do servidor. " +
+          "Sem ele o gatilho fica desligado — é o que impede a internet inteira de disparar os jobs.",
+      },
+      503,
+    );
+  }
+  if (request.headers.get("x-sync-token") !== segredo) {
+    return responder({ ok: false, erro: "Token de sincronização inválido." }, 401);
+  }
+
+  const tipo = url.searchParams.get("tipo") ?? "funcionarios";
+  const { JOBS, syncBatidas, syncTotais } = await import("./lib/secullum-sync");
+
+  try {
+    if (tipo === "batidas") {
+      return responder(await syncBatidas(url.searchParams.get("dia") ?? undefined), 200);
+    }
+    if (tipo === "totais") {
+      return responder(await syncTotais(url.searchParams.get("competencia") ?? undefined), 200);
+    }
+    const job = JOBS[tipo as keyof typeof JOBS];
+    if (!job) {
+      return responder(
+        {
+          ok: false,
+          erro: `tipo inválido: ${tipo}. Use funcionarios, batidas, totais ou catalogos.`,
+        },
+        400,
+      );
+    }
+    return responder(await job(), 200);
+  } catch (error) {
+    // Job que falha devolve 200 com ok:false pelo caminho normal; cair
+    // aqui é falha antes de abrir o diário — configuração ausente, em
+    // geral. 500 para o agendador tratar como falha de verdade.
+    console.error(error);
+    return responder(
+      { ok: false, tipo, erro: error instanceof Error ? error.message : String(error) },
+      500,
+    );
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     const nonce = gerarNonce();
     const url = new URL(request.url);
+
+    if (url.pathname === ROTA_SYNC) {
+      return tratarSync(request, url);
+    }
+
     try {
       const handler = await getServerEntry();
       // O render acontece dentro do contexto: é assim que getRouter()

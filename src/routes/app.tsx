@@ -28,15 +28,18 @@ const titles: Record<string, string> = {
   "/app/rh/documentos": "Documentos e Vencimentos",
   "/app/rh/cargos": "Catálogo de Cargos",
   "/app/rh/configuracoes": "Configurações do RH",
+  "/app/rh/integracoes/secullum": "Integração Secullum Ponto Web",
   "/app/clientes": "Clientes",
   "/app/webmail": "Webmail",
   "/app/admin": "Administração",
 };
 
 function AppLayout() {
-  const pathname = useRouterState({ select: s => s.location.pathname });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   let title = titles[pathname] ?? "Portal";
-  if (pathname.startsWith("/app/projetos/") && pathname !== "/app/projetos") title = "Detalhe do Projeto";
-  if (pathname.startsWith("/app/clientes/") && pathname !== "/app/clientes") title = "Detalhe do Cliente";
+  if (pathname.startsWith("/app/projetos/") && pathname !== "/app/projetos")
+    title = "Detalhe do Projeto";
+  if (pathname.startsWith("/app/clientes/") && pathname !== "/app/clientes")
+    title = "Detalhe do Cliente";
   return <PortalLayout title={title} />;
 }

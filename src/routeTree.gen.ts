@@ -36,6 +36,7 @@ import { Route as AppRhConfiguracoesRouteImport } from './routes/app.rh.configur
 import { Route as AppRhDocumentosRouteImport } from './routes/app.rh.documentos'
 import { Route as AppRhSelecaoRouteImport } from './routes/app.rh.selecao'
 import { Route as AppRhVagasRouteImport } from './routes/app.rh.vagas'
+import { Route as AppRhIntegracoesSecullumRouteImport } from './routes/app.rh.integracoes.secullum'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -172,6 +173,12 @@ const AppRhVagasRoute = AppRhVagasRouteImport.update({
   path: '/rh/vagas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRhIntegracoesSecullumRoute =
+  AppRhIntegracoesSecullumRouteImport.update({
+    id: '/rh/integracoes/secullum',
+    path: '/rh/integracoes/secullum',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/app/clientes/': typeof AppClientesIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
   '/app/rh/': typeof AppRhIndexRoute
+  '/app/rh/integracoes/secullum': typeof AppRhIntegracoesSecullumRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -229,6 +237,7 @@ export interface FileRoutesByTo {
   '/app/clientes': typeof AppClientesIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
   '/app/rh': typeof AppRhIndexRoute
+  '/app/rh/integracoes/secullum': typeof AppRhIntegracoesSecullumRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -259,6 +268,7 @@ export interface FileRoutesById {
   '/app/clientes/': typeof AppClientesIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
   '/app/rh/': typeof AppRhIndexRoute
+  '/app/rh/integracoes/secullum': typeof AppRhIntegracoesSecullumRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/app/clientes/'
     | '/app/projetos/'
     | '/app/rh/'
+    | '/app/rh/integracoes/secullum'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/app/clientes'
     | '/app/projetos'
     | '/app/rh'
+    | '/app/rh/integracoes/secullum'
   id:
     | '__root__'
     | '/'
@@ -347,6 +359,7 @@ export interface FileRouteTypes {
     | '/app/clientes/'
     | '/app/projetos/'
     | '/app/rh/'
+    | '/app/rh/integracoes/secullum'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -550,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRhVagasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/rh/integracoes/secullum': {
+      id: '/app/rh/integracoes/secullum'
+      path: '/rh/integracoes/secullum'
+      fullPath: '/app/rh/integracoes/secullum'
+      preLoaderRoute: typeof AppRhIntegracoesSecullumRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -574,6 +594,7 @@ interface AppRouteChildren {
   AppClientesIndexRoute: typeof AppClientesIndexRoute
   AppProjetosIndexRoute: typeof AppProjetosIndexRoute
   AppRhIndexRoute: typeof AppRhIndexRoute
+  AppRhIntegracoesSecullumRoute: typeof AppRhIntegracoesSecullumRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -597,6 +618,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppClientesIndexRoute: AppClientesIndexRoute,
   AppProjetosIndexRoute: AppProjetosIndexRoute,
   AppRhIndexRoute: AppRhIndexRoute,
+  AppRhIntegracoesSecullumRoute: AppRhIntegracoesSecullumRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
