@@ -53,6 +53,11 @@ export function Footer() {
               </Link>
             </li>
             <li>
+              <Link to="/ponto" className="hover:text-[#F37032]">
+                Bater ponto
+              </Link>
+            </li>
+            <li>
               <a href="#contato" className="hover:text-[#F37032]">
                 Seja nosso fornecedor
               </a>

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as CandidatoRouteImport } from './routes/candidato'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PontoRouteImport } from './routes/ponto'
 import { Route as TrabalheConoscoRouteImport } from './routes/trabalhe-conosco'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
@@ -54,6 +55,11 @@ const CandidatoRoute = CandidatoRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PontoRoute = PontoRouteImport.update({
+  id: '/ponto',
+  path: '/ponto',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrabalheConoscoRoute = TrabalheConoscoRouteImport.update({
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/candidato': typeof CandidatoRoute
   '/login': typeof LoginRoute
+  '/ponto': typeof PontoRoute
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/candidato': typeof CandidatoRoute
   '/login': typeof LoginRoute
+  '/ponto': typeof PontoRoute
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
@@ -228,6 +236,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/candidato': typeof CandidatoRoute
   '/login': typeof LoginRoute
+  '/ponto': typeof PontoRoute
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/candidato'
     | '/login'
+    | '/ponto'
     | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/'
     | '/candidato'
     | '/login'
+    | '/ponto'
     | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/candidato'
     | '/login'
+    | '/ponto'
     | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
@@ -342,6 +354,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   CandidatoRoute: typeof CandidatoRoute
   LoginRoute: typeof LoginRoute
+  PontoRoute: typeof PontoRoute
   TrabalheConoscoRoute: typeof TrabalheConoscoRoute
   VagasSlugRoute: typeof VagasSlugRoute
 }
@@ -374,6 +387,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ponto': {
+      id: '/ponto'
+      path: '/ponto'
+      fullPath: '/ponto'
+      preLoaderRoute: typeof PontoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trabalhe-conosco': {
@@ -586,6 +606,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   CandidatoRoute: CandidatoRoute,
   LoginRoute: LoginRoute,
+  PontoRoute: PontoRoute,
   TrabalheConoscoRoute: TrabalheConoscoRoute,
   VagasSlugRoute: VagasSlugRoute,
 }
