@@ -10,6 +10,7 @@ import {
 import { type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { nonceAtual } from "@/lib/csp-nonce";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -47,7 +48,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Tentar novamente
@@ -69,23 +73,50 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // O cliente lê o nonce daqui para carimbar o que ele injetar
+      // depois da hidratação. O nome `csp-nonce` não é escolha nossa:
+      // é o que o TanStack Router procura.
+      ...(nonceAtual() ? [{ property: "csp-nonce", content: nonceAtual()! }] : []),
       { title: "Grupo GRD" },
-      { name: "description", content: "Grupo GRD — construção com segurança, qualidade e profissionalismo. Conheça a empresa, nossos serviços e projetos, e fale direto com a nossa" },
+      {
+        name: "description",
+        content:
+          "Grupo GRD — construção com segurança, qualidade e profissionalismo. Conheça a empresa, nossos serviços e projetos, e fale direto com a nossa",
+      },
       { property: "og:title", content: "Grupo GRD" },
-      { property: "og:description", content: "Grupo GRD — construção com segurança, qualidade e profissionalismo. Conheça a empresa, nossos serviços e projetos, e fale direto com a nossa" },
+      {
+        property: "og:description",
+        content:
+          "Grupo GRD — construção com segurança, qualidade e profissionalismo. Conheça a empresa, nossos serviços e projetos, e fale direto com a nossa",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Grupo GRD" },
-      { name: "twitter:description", content: "Grupo GRD — construção com segurança, qualidade e profissionalismo. Conheça a empresa, nossos serviços e projetos, e fale direto com a nossa" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b4699825-b4a9-42ed-bc40-2bbab1bd7c11/id-preview-f58b4bb0--e5e39e13-5616-4573-8dc1-e1239eb04216.lovable.app-1783345546686.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b4699825-b4a9-42ed-bc40-2bbab1bd7c11/id-preview-f58b4bb0--e5e39e13-5616-4573-8dc1-e1239eb04216.lovable.app-1783345546686.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Grupo GRD — construção com segurança, qualidade e profissionalismo. Conheça a empresa, nossos serviços e projetos, e fale direto com a nossa",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b4699825-b4a9-42ed-bc40-2bbab1bd7c11/id-preview-f58b4bb0--e5e39e13-5616-4573-8dc1-e1239eb04216.lovable.app-1783345546686.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b4699825-b4a9-42ed-bc40-2bbab1bd7c11/id-preview-f58b4bb0--e5e39e13-5616-4573-8dc1-e1239eb04216.lovable.app-1783345546686.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -97,8 +128,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }

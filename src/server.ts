@@ -1,7 +1,11 @@
 import "./lib/error-capture";
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { instalarLeitorDeNonce } from "./lib/csp-nonce";
+import { cabecalhosDeSeguranca, gerarNonce } from "./lib/security-headers";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -44,18 +48,62 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// ------------------------------------------------------------
+// Cabeçalhos de segurança
+// ------------------------------------------------------------
+// Ficam AQUI, e não em server-node.mjs, por um motivo concreto: o
+// wrangler.toml aponta `main = "dist/server/server.js"`, ou seja, no
+// Cloudflare o server-node.mjs nunca é executado. Este arquivo é o
+// único ponto por onde passam os três caminhos — Vite em
+// desenvolvimento, Node na Hostinger e worker no Cloudflare. Posto
+// aqui, o header existe nos três; posto lá, existiria em um.
+//
+// Continua sendo header de resposta (e não meta tag), que é o que
+// permite `frame-ancestors`.
+const contextoDoNonce = new AsyncLocalStorage<string>();
+instalarLeitorDeNonce(() => contextoDoNonce.getStore());
+
+/** Só documento HTML recebe CSP; imagem e JS não têm o que executar. */
+function ehDocumentoHtml(response: Response): boolean {
+  return (response.headers.get("content-type") ?? "").includes("text/html");
+}
+
+function aplicarCabecalhos(response: Response, nonce: string, url: URL): Response {
+  if (!ehDocumentoHtml(response)) return response;
+  // Response.headers de uma resposta já construída pode ser imutável;
+  // clonar é o caminho seguro e preserva o corpo em streaming.
+  const headers = new Headers(response.headers);
+  for (const [nome, valor] of Object.entries(cabecalhosDeSeguranca(nonce, url))) {
+    headers.set(nome, valor);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const nonce = gerarNonce();
+    const url = new URL(request.url);
     try {
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      // O render acontece dentro do contexto: é assim que getRouter()
+      // enxerga o nonce desta requisição, e não o de outra em paralelo.
+      const response = await contextoDoNonce.run(nonce, () => handler.fetch(request, env, ctx));
+      const normalizada = await normalizeCatastrophicSsrResponse(response);
+      return aplicarCabecalhos(normalizada, nonce, url);
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return aplicarCabecalhos(
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+        nonce,
+        url,
+      );
     }
   },
 };
