@@ -41,7 +41,13 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { brl, brlCompacto, paraNumero, pct } from "@/lib/formato";
 import { InputMoeda } from "@/components/ui/input-moeda";
-import { useCurrentUser } from "@/lib/current-user";
+import { StatusComNotaDialog, type MudancaPendente } from "@/components/comercial/StatusComNotaDialog";
+import { HistoricoNotas } from "@/components/comercial/HistoricoNotas";
+import { InatividadeBadge } from "@/components/comercial/InatividadeBadge";
+import { contadorInatividade } from "@/lib/orcamento-notas";
+import { ResponsavelSelect } from "@/components/portal/ResponsavelSelect";
+import { ResponsavelFiltro, FiltroChip } from "@/components/portal/ResponsavelFiltro";
+import { useResponsaveis, nomeDoResponsavel } from "@/lib/responsaveis-store";
 import * as XLSX from "xlsx";
 
 
@@ -160,9 +166,13 @@ function Comercial() {
   // ---------- Filtros da tabela ----------
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState<string>("todos");
+  const [fTecnicos, setFTecnicos] = useState<string[]>([]);
+  const [fComerciais, setFComerciais] = useState<string[]>([]);
+  const [fDias, setFDias] = useState<string>("todos");
   const [sortBy, setSortBy] = useState<keyof Orcamento>("numero");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pagina, setPagina] = useState(1);
+  const responsaveis = useResponsaveis(s => s);
 
   // ---------- Modais / drawer ----------
   const [novoOpen, setNovoOpen] = useState(false);
@@ -284,6 +294,18 @@ function Comercial() {
       o.obra.toLowerCase().includes(qLower),
     );
     if (fStatus !== "todos") list = list.filter(o => o.status === fStatus);
+    if (fTecnicos.length) list = list.filter(o => o.responsavelTecnicoId && fTecnicos.includes(o.responsavelTecnicoId));
+    if (fComerciais.length) list = list.filter(o => o.responsavelComercialId && fComerciais.includes(o.responsavelComercialId));
+    if (fDias !== "todos") {
+      // O contador só existe em EM NEGOCIAÇÃO e AGUARDANDO RETORNO; nos
+      // demais status contadorInatividade devolve null e o orçamento sai
+      // do resultado, que é o esperado num filtro por dias parados.
+      const minimo = Number(fDias);
+      list = list.filter(o => {
+        const c = contadorInatividade(o);
+        return c !== null && c.dias > minimo;
+      });
+    }
     list.sort((a, b) => {
       let cmp: number;
       if (sortBy === "numero") {
@@ -298,7 +320,12 @@ function Comercial() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [orcamentos, q, fStatus, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
+  }, [orcamentos, q, fStatus, fTecnicos, fComerciais, fDias, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
+
+  const temFiltro = fStatus !== "todos" || fTecnicos.length > 0 || fComerciais.length > 0 || fDias !== "todos" || q !== "";
+  function limparFiltros() {
+    setQ(""); setFStatus("todos"); setFTecnicos([]); setFComerciais([]); setFDias("todos"); setPagina(1);
+  }
 
   const porPagina = 10;
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / porPagina));
@@ -317,6 +344,8 @@ function Comercial() {
       const [y, m, d] = iso.slice(0, 10).split("-");
       return d && m && y ? `${d}/${m}/${y}` : iso;
     };
+    // Mesma resolução do drawer: o nome vinculado ganha do texto antigo, para
+    // a planilha não mostrar uma grafia diferente da que está na tela.
     const dataRows = filtered.map(o => [
       o.numero,
       o.cliente,
@@ -324,8 +353,8 @@ function Comercial() {
       Number(o.valor || 0),
       fmtData(o.data),
       o.status,
-      o.responsavel,
-      o.cnpj,
+      nomeDoResponsavel(responsaveis, o.responsavelComercialId) || o.responsavel,
+      nomeDoResponsavel(responsaveis, o.responsavelTecnicoId) || o.cnpj,
       (o.probabilidade || 0) / 100,
     ]);
     const totalValor = filtered.reduce((s, o) => s + (o.valor || 0), 0);
@@ -550,9 +579,47 @@ function Comercial() {
                 {STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
+            <ResponsavelFiltro
+              papel="tecnico" rotulo="Técnico" className="w-44"
+              selecionados={fTecnicos}
+              onChange={ids => { setFTecnicos(ids); setPagina(1); }}
+            />
+            <ResponsavelFiltro
+              papel="comercial" rotulo="Comercial" className="w-44"
+              selecionados={fComerciais}
+              onChange={ids => { setFComerciais(ids); setPagina(1); }}
+            />
+            <Select value={fDias} onValueChange={v => { setFDias(v); setPagina(1); }}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Dias parados" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Qualquer tempo parado</SelectItem>
+                <SelectItem value="7">Mais de 7 dias parados</SelectItem>
+                <SelectItem value="15">Mais de 15 dias parados</SelectItem>
+                <SelectItem value="30">Mais de 30 dias parados</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline" onClick={exportCSV}><Download className="mr-1 h-4 w-4" /> Exportar</Button>
           </div>
         </div>
+
+        {temFiltro && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {q && <FiltroChip label={`Busca: ${q}`} onRemove={() => { setQ(""); setPagina(1); }} />}
+            {fStatus !== "todos" && <FiltroChip label={fStatus} onRemove={() => { setFStatus("todos"); setPagina(1); }} />}
+            {fTecnicos.map(id => (
+              <FiltroChip key={id} label={`Técnico: ${nomeDoResponsavel(responsaveis, id) || "—"}`}
+                onRemove={() => { setFTecnicos(v => v.filter(x => x !== id)); setPagina(1); }} />
+            ))}
+            {fComerciais.map(id => (
+              <FiltroChip key={id} label={`Comercial: ${nomeDoResponsavel(responsaveis, id) || "—"}`}
+                onRemove={() => { setFComerciais(v => v.filter(x => x !== id)); setPagina(1); }} />
+            ))}
+            {fDias !== "todos" && <FiltroChip label={`Parados há mais de ${fDias} dias`} onRemove={() => { setFDias("todos"); setPagina(1); }} />}
+            <button type="button" onClick={limparFiltros} className="text-xs font-semibold text-[#F37032] hover:underline">
+              Limpar filtros
+            </button>
+          </div>
+        )}
 
         <div className="mt-5 overflow-x-auto">
           <Table>
@@ -581,7 +648,7 @@ function Comercial() {
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <span>{o.ultimaAtualizacao ? new Date(o.ultimaAtualizacao).toLocaleDateString("pt-BR") : "—"}</span>
-                      <AtualizacaoBadge iso={o.ultimaAtualizacao} />
+                      <InatividadeBadge orcamento={o} />
                     </div>
                   </TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
@@ -671,31 +738,6 @@ function SortableTh({ label, col, sortBy, sortDir, onClick }: {
   );
 }
 
-function diasSemAtualizacao(iso: string): number {
-  if (!iso) return Infinity;
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const d = new Date(iso);
-  d.setHours(0, 0, 0, 0);
-  const diff = hoje.getTime() - d.getTime();
-  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-}
-
-function AtualizacaoBadge({ iso }: { iso: string }) {
-  const dias = diasSemAtualizacao(iso);
-  let label = "EM DIA";
-  let cls = "bg-green-600";
-  if (dias > 90) { label = "PARADO"; cls = "bg-slate-700"; }
-  else if (dias > 30) { label = "CRÍTICO"; cls = "bg-red-600"; }
-  else if (dias > 15) { label = "ALERTA"; cls = "bg-[#F37032]"; }
-  else if (dias > 7) { label = "ATENÇÃO"; cls = "bg-yellow-500"; }
-  return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${cls}`}>
-      {dias === Infinity ? "—" : `${dias} DIA${dias === 1 ? "" : "S"}`} · {label}
-    </span>
-  );
-}
-
 // ------------------------------------------------------------
 // Formulário (Novo / Editar)
 // ------------------------------------------------------------
@@ -713,6 +755,9 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
   const [sobrescrever, setSobrescrever] = useState<
     { projetoId: string; planejamento: PlanejamentoValores } | null
   >(null);
+  // Mudança de status pedida pelo formulário: o resto já foi salvo e só
+  // falta a nota. Enquanto ela não é confirmada, o status não muda.
+  const [mudanca, setMudanca] = useState<MudancaPendente | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -720,6 +765,21 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
   }, [open]);
   useMemo(() => { if (open) { setForm(defaults(orcamento, preset)); setErro(""); } }, [open, orcamento?.id, preset?.descricao, preset?.valor]);
 
+
+  /**
+   * Último passo da edição: o projeto não é atualizado em silêncio — se o
+   * planejamento mudou, pergunta antes de sobrescrever o que está no projeto.
+   */
+  async function finalizar(orcamentoId: string, novoPlan: PlanejamentoValores) {
+    if (!planejamentoVazio(novoPlan)) {
+      const proj = await projetoDoOrcamento(orcamentoId);
+      if (proj && !mesmoPlanejamento(proj.planejamento, novoPlan)) {
+        setSobrescrever({ projetoId: proj.id, planejamento: novoPlan });
+        return;
+      }
+    }
+    onOpenChange(false);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -737,6 +797,8 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
       descricao: form.descricao.trim(),
       valor: valorNum,
       responsavel: form.responsavel.trim(),
+      responsavelTecnicoId: form.responsavelTecnicoId,
+      responsavelComercialId: form.responsavelComercialId,
       data: toISODate(form.data) as unknown as string,
       validade: toISODate(form.validade) as unknown as string,
       status: form.status as OrcStatus,
@@ -747,24 +809,26 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
 
 
     if (editing && orcamento) {
-      const { error } = await orcamentosActions.atualizar(orcamento.id, payload);
+      // `status` sai do patch: a mudança de status nunca viaja junto com o
+      // resto do formulário, ela passa pelo diálogo de nota.
+      const { status: _status, ...semStatus } = payload;
+      const { error } = await orcamentosActions.atualizar(orcamento.id, semStatus);
       if (error) {
         toast.error(`Erro ao salvar orçamento: ${error.message ?? "erro desconhecido"}`);
         return;
       }
       toast.success("Orçamento atualizado.");
 
-      // O projeto não é atualizado em silêncio: se o planejamento mudou,
-      // pergunta antes de sobrescrever o que já está no projeto.
-      const novoPlan = payload.planejamento;
-      if (!planejamentoVazio(novoPlan)) {
-        const proj = await projetoDoOrcamento(orcamento.id);
-        if (proj && !mesmoPlanejamento(proj.planejamento, novoPlan)) {
-          setSobrescrever({ projetoId: proj.id, planejamento: novoPlan });
-          return;
-        }
+      if (payload.status !== orcamento.status) {
+        setMudanca({
+          orcamentoId: orcamento.id,
+          numero: orcamento.numero,
+          de: orcamento.status,
+          para: payload.status,
+        });
+        return;
       }
-      onOpenChange(false);
+      await finalizar(orcamento.id, payload.planejamento);
       return;
     }
     const { error } = await orcamentosActions.criar(payload);
@@ -796,12 +860,24 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
               </div>
             )}
           </Campo>
-          <Campo label="Técnico responsável"><Input value={form.cnpj} onChange={e => setForm({ ...form, cnpj: e.target.value })} placeholder="Nome do técnico responsável" /></Campo>
+          <Campo label="Técnico responsável">
+            <ResponsavelSelect
+              papel="tecnico"
+              value={form.responsavelTecnicoId}
+              fallbackNome={form.cnpj}
+              onChange={id => setForm({ ...form, responsavelTecnicoId: id })}
+            />
+          </Campo>
           <Campo label="Tipo de serviço">
             <Input value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} placeholder="Tipo de serviço" />
           </Campo>
           <Campo label="Responsável comercial">
-            <Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} placeholder="Nome do responsável comercial" />
+            <ResponsavelSelect
+              papel="comercial"
+              value={form.responsavelComercialId}
+              fallbackNome={form.responsavel}
+              onChange={id => setForm({ ...form, responsavelComercialId: id })}
+            />
           </Campo>
           <Campo label="Obra *" className="md:col-span-2"><Input value={form.obra} onChange={e => setForm({ ...form, obra: e.target.value })} placeholder="Descrição da obra" /></Campo>
           <Campo label="Descrição" className="md:col-span-2"><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></Campo>
@@ -813,6 +889,11 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            {editing && form.status !== orcamento?.status && (
+              <p className="text-xs text-[#F37032]">
+                Ao salvar, será pedida uma nota explicando a mudança de status.
+              </p>
+            )}
           </Campo>
 
           <Campo label={`Probabilidade de fechamento — ${form.probabilidade}%`} className="md:col-span-2">
@@ -835,6 +916,22 @@ function OrcamentoForm({ open, onOpenChange, orcamento, preset }: {
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <StatusComNotaDialog
+        mudanca={mudanca}
+        onCancelar={() => {
+          // O resto do formulário já foi salvo; só o status ficou como estava.
+          setMudanca(null);
+          toast.info("Status mantido — a mudança precisa de uma nota.");
+          onOpenChange(false);
+        }}
+        onConcluido={() => {
+          const pendente = mudanca;
+          setMudanca(null);
+          if (pendente) void finalizar(pendente.orcamentoId, formParaValores(form.planejamento));
+          else onOpenChange(false);
+        }}
+      />
 
       <AlertDialog open={!!sobrescrever} onOpenChange={o => { if (!o) { setSobrescrever(null); onOpenChange(false); } }}>
         <AlertDialogContent>
@@ -887,6 +984,8 @@ function defaults(o?: Orcamento, preset?: { descricao?: string; valor?: number }
     valor: (o?.valor
       ?? (typeof presetValor === "number" && Number.isFinite(presetValor) ? presetValor : null)) as number | null,
     responsavel: o?.responsavel ?? "",
+    responsavelTecnicoId: o?.responsavelTecnicoId ?? null,
+    responsavelComercialId: o?.responsavelComercialId ?? null,
     data: o?.data ?? hoje,
     validade: o?.validade ?? val30.toISOString().slice(0, 10),
     status: (o?.status ?? "LEVANTAMENTO") as string,
@@ -910,49 +1009,17 @@ function Campo({ label, children, className = "" }: { label: string; children: R
 // ------------------------------------------------------------
 // Drawer de detalhes
 // ------------------------------------------------------------
-type NotaRow = { id: string; orcamento_id: string; texto: string; tipo: string; autor: string; created_at: string };
-
 function DetalheDrawer({ orcamento, onClose, onEdit }: {
   orcamento: Orcamento | null; onClose: () => void; onEdit: (o: Orcamento) => void;
 }) {
-  const [nota, setNota] = useState("");
-  const [notas, setNotas] = useState<NotaRow[]>([]);
-  const [salvando, setSalvando] = useState(false);
-  const usuario = useCurrentUser();
   const atual = useOrcamentos(s => s.find(x => x.id === orcamento?.id));
+  const responsaveis = useResponsaveis(s => s);
   const o = atual ?? orcamento;
-  const orcId = orcamento?.id;
-
-  useEffect(() => {
-    if (!orcId) { setNotas([]); return; }
-    let ativo = true;
-    void (async () => {
-      const { data, error } = await supabase
-        .from("orcamento_notas")
-        .select("*")
-        .eq("orcamento_id", orcId)
-        .order("created_at", { ascending: false });
-      if (!ativo) return;
-      if (error) { toast.error(`Erro ao carregar notas: ${error.message}`); setNotas([]); return; }
-      setNotas((data ?? []) as NotaRow[]);
-    })();
-    return () => { ativo = false; };
-  }, [orcId]);
-
-  async function salvarNota() {
-    if (!o || !nota.trim() || salvando) return;
-    setSalvando(true);
-    const { data, error } = await supabase
-      .from("orcamento_notas")
-      .insert({ orcamento_id: o.id, texto: nota.trim(), tipo: "NOTA", autor: usuario.nome || o.responsavel || "" })
-      .select()
-      .single();
-    setSalvando(false);
-    if (error) { toast.error(`Erro ao salvar nota: ${error.message}`); return; }
-    setNotas(prev => [data as NotaRow, ...prev]);
-    setNota("");
-    toast.success("Nota adicionada.");
-  }
+  // Mudança de status pedida pelo select do drawer, aguardando a nota.
+  const [mudanca, setMudanca] = useState<MudancaPendente | null>(null);
+  // Incrementado quando uma nota é gravada fora do histórico (mudança de
+  // status), para o componente recarregar a lista.
+  const [versaoNotas, setVersaoNotas] = useState(0);
 
   if (!o) return null;
 
@@ -963,10 +1030,10 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
           <SheetTitle className="text-[#213368]">{o.numero} · {o.cliente}</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <StatusBadge status={o.status} />
           <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold">{o.tipo}</span>
-
+          <InatividadeBadge orcamento={o} />
         </div>
 
         <div className="mt-6 space-y-4">
@@ -975,48 +1042,42 @@ function DetalheDrawer({ orcamento, onClose, onEdit }: {
           <div className="grid grid-cols-2 gap-4">
             <Info label="Valor" value={brl(o.valor)} />
             <Info label="Probabilidade" value={`${o.probabilidade}%`} />
-            <Info label="Responsável comercial" value={o.responsavel} />
-            <Info label="Técnico responsável" value={o.cnpj || "—"} />
+            <Info label="Responsável comercial" value={nomeDoResponsavel(responsaveis, o.responsavelComercialId) || o.responsavel || "—"} />
+            <Info label="Técnico responsável" value={nomeDoResponsavel(responsaveis, o.responsavelTecnicoId) || o.cnpj || "—"} />
             <Info label="Emissão" value={new Date(o.data).toLocaleDateString("pt-BR")} />
           </div>
           {o.observacoes && <Info label="Observações" value={o.observacoes} />}
 
           <div>
             <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Alterar status</div>
-            <Select value={o.status} onValueChange={async (v) => { const { error } = await orcamentosActions.atualizar(o.id, { status: v as OrcStatus }); if (error) toast.error(`Erro ao atualizar status: ${error.message ?? ""}`); else toast.success("Status atualizado."); }}>
+            <Select
+              value={o.status}
+              onValueChange={v => {
+                if (v === o.status) return;
+                setMudanca({ orcamentoId: o.id, numero: o.numero, de: o.status, para: v as OrcStatus });
+              }}
+            >
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>{STATUS_LIST.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Toda mudança de status pede uma nota — as duas gravam juntas.
+            </p>
           </div>
 
-          <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notas</div>
-            <div className="space-y-2">
-              {notas.length === 0 && <div className="text-xs text-muted-foreground">Nenhuma nota ainda.</div>}
-              {notas.map(n => (
-                <div key={n.id} className="rounded-md border bg-muted/30 p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString("pt-BR")} · {n.autor}</div>
-                    {n.tipo === "STATUS" && (
-                      <span className="rounded-full bg-[#F37032] px-2 py-0.5 text-[10px] font-bold text-white">STATUS</span>
-                    )}
-                  </div>
-                  <div className="text-sm">{n.texto}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 flex gap-2">
-              <Textarea rows={2} value={nota} onChange={e => setNota(e.target.value)} placeholder="Adicionar uma nota..." />
-              <Button onClick={() => void salvarNota()} disabled={salvando}
-                      className="bg-[#213368] text-white hover:bg-[#213368]/90">Salvar</Button>
-            </div>
-          </div>
+          <HistoricoNotas orcamentoId={o.id} recarregarEm={versaoNotas} />
 
           <div className="flex flex-wrap gap-2 border-t pt-4">
             <Button onClick={() => onEdit(o)} className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Pencil className="mr-1 h-4 w-4" /> Editar</Button>
             <Button variant="outline" onClick={() => { orcamentosActions.duplicar(o.id); toast.success("Duplicado."); onClose(); }}><Copy className="mr-1 h-4 w-4" /> Duplicar</Button>
           </div>
         </div>
+
+        <StatusComNotaDialog
+          mudanca={mudanca}
+          onCancelar={() => setMudanca(null)}
+          onConcluido={() => { setMudanca(null); setVersaoNotas(v => v + 1); }}
+        />
       </SheetContent>
     </Sheet>
   );

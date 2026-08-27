@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import { useProjetosStore, projetosActions, resumoProjeto, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
 import { brl, pct } from "@/lib/formato";
 import { ClienteSelect } from "@/components/portal/ClienteSelect";
+import { ResponsavelSelect } from "@/components/portal/ResponsavelSelect";
+import { ResponsavelFiltro, FiltroChip } from "@/components/portal/ResponsavelFiltro";
+import { useResponsaveis, nomeDoResponsavel } from "@/lib/responsaveis-store";
 
 export const Route = createFileRoute("/app/projetos/")({ component: ProjetosList });
 
@@ -22,6 +25,7 @@ const STATUS_OPTIONS: ProjetoStatus[] = ["PLANEJAMENTO", "EM ANDAMENTO", "PARALI
 
 type FormState = {
   nome: string; cliente: string; clienteId: string | null; local: string; descricao: string; responsavel: string;
+  responsavelTecnicoId: string | null; responsavelComercialId: string | null;
   dataInicio: string; prazo: string; status: ProjetoStatus;
   // Number desde o formulário: o campo já devolve o valor lido, então não há
   // um segundo parsing no submit para discordar do que está na tela.
@@ -29,6 +33,7 @@ type FormState = {
 };
 const emptyForm = (): FormState => ({
   nome: "", cliente: "", clienteId: null, local: "", descricao: "", responsavel: "",
+  responsavelTecnicoId: null, responsavelComercialId: null,
   dataInicio: new Date().toISOString().slice(0, 10), prazo: "",
   status: "PLANEJAMENTO", orcado: null, progresso: 0,
 });
@@ -42,15 +47,23 @@ function ProjetosList() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState<string>("todos");
+  const [fTecnicos, setFTecnicos] = useState<string[]>([]);
+  const [fComerciais, setFComerciais] = useState<string[]>([]);
+  const responsaveis = useResponsaveis(s => s);
 
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return projetos.filter(p => {
       const okQ = !q || p.nome.toLowerCase().includes(q) || p.cliente.toLowerCase().includes(q);
       const okS = statusFiltro === "todos" || p.status === statusFiltro;
-      return okQ && okS;
+      const okT = !fTecnicos.length || (p.responsavelTecnicoId !== null && fTecnicos.includes(p.responsavelTecnicoId));
+      const okC = !fComerciais.length || (p.responsavelComercialId !== null && fComerciais.includes(p.responsavelComercialId));
+      return okQ && okS && okT && okC;
     });
-  }, [projetos, busca, statusFiltro]);
+  }, [projetos, busca, statusFiltro, fTecnicos, fComerciais]);
+
+  const temFiltro = busca !== "" || statusFiltro !== "todos" || fTecnicos.length > 0 || fComerciais.length > 0;
+  const limparFiltros = () => { setBusca(""); setStatusFiltro("todos"); setFTecnicos([]); setFComerciais([]); };
 
   const kpis = useMemo(() => {
     const emAndamento = projetos.filter(p => p.status === "EM ANDAMENTO").length;
@@ -64,7 +77,9 @@ function ProjetosList() {
     setEditId(p.id);
     setForm({
       nome: p.nome, cliente: p.cliente, clienteId: p.clienteId, local: p.local, descricao: p.descricao,
-      responsavel: p.responsavel, dataInicio: p.dataInicio, prazo: p.prazo,
+      responsavel: p.responsavel,
+      responsavelTecnicoId: p.responsavelTecnicoId, responsavelComercialId: p.responsavelComercialId,
+      dataInicio: p.dataInicio, prazo: p.prazo,
       status: p.status, orcado: p.orcado, progresso: p.progresso,
     });
     setOpen(true);
@@ -79,7 +94,10 @@ function ProjetosList() {
     const payload = {
       nome: form.nome, cliente: form.cliente, clienteId: form.clienteId,
       local: form.local, descricao: form.descricao,
-      responsavel: form.responsavel, dataInicio: form.dataInicio, prazo: form.prazo,
+      responsavel: form.responsavel,
+      responsavelTecnicoId: form.responsavelTecnicoId,
+      responsavelComercialId: form.responsavelComercialId,
+      dataInicio: form.dataInicio, prazo: form.prazo,
       status: form.status, orcado, progresso,
     };
     if (editId) { projetosActions.atualizarProjeto(editId, payload); toast.success("Projeto atualizado"); }
@@ -126,7 +144,33 @@ function ProjetosList() {
               {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <ResponsavelFiltro
+            papel="tecnico" rotulo="Resp. técnico" className="w-[190px]"
+            selecionados={fTecnicos} onChange={setFTecnicos}
+          />
+          <ResponsavelFiltro
+            papel="comercial" rotulo="Resp. comercial" className="w-[190px]"
+            selecionados={fComerciais} onChange={setFComerciais}
+          />
         </div>
+
+        {temFiltro && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {busca && <FiltroChip label={`Busca: ${busca}`} onRemove={() => setBusca("")} />}
+            {statusFiltro !== "todos" && <FiltroChip label={statusFiltro} onRemove={() => setStatusFiltro("todos")} />}
+            {fTecnicos.map(id => (
+              <FiltroChip key={id} label={`Técnico: ${nomeDoResponsavel(responsaveis, id) || "—"}`}
+                onRemove={() => setFTecnicos(v => v.filter(x => x !== id))} />
+            ))}
+            {fComerciais.map(id => (
+              <FiltroChip key={id} label={`Comercial: ${nomeDoResponsavel(responsaveis, id) || "—"}`}
+                onRemove={() => setFComerciais(v => v.filter(x => x !== id))} />
+            ))}
+            <button type="button" onClick={limparFiltros} className="text-xs font-semibold text-[#F37032] hover:underline">
+              Limpar filtros
+            </button>
+          </div>
+        )}
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -162,6 +206,10 @@ function ProjetosList() {
                   <span>Início: {p.dataInicio ? new Date(p.dataInicio).toLocaleDateString("pt-BR") : "—"}</span>
                   <span>Prazo: {p.prazo ? new Date(p.prazo).toLocaleDateString("pt-BR") : "—"}</span>
                 </div>
+                <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                  <span className="truncate">Téc.: {nomeDoResponsavel(responsaveis, p.responsavelTecnicoId) || p.responsavel || "—"}</span>
+                  <span className="truncate">Com.: {nomeDoResponsavel(responsaveis, p.responsavelComercialId) || "—"}</span>
+                </div>
               </div>
               <div className="mt-5 flex items-center justify-between">
                 <Link to="/app/projetos/$id" params={{ id: p.id }} className="inline-flex items-center text-sm font-semibold text-[#213368] hover:text-[#F37032]">
@@ -185,7 +233,23 @@ function ProjetosList() {
             <div><Label>Cliente *</Label><ClienteSelect value={form.clienteId} fallbackNome={form.cliente} onChange={(id, nome) => setForm({ ...form, clienteId: id, cliente: nome })} /></div>
             <div><Label>Local / obra *</Label><Input value={form.local} onChange={e => setForm({ ...form, local: e.target.value })} placeholder="Ex.: Cubatão/SP" /></div>
             <div className="md:col-span-2"><Label>Descrição</Label><Textarea rows={2} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} /></div>
-            <div><Label>Responsável</Label><Input value={form.responsavel} onChange={e => setForm({ ...form, responsavel: e.target.value })} /></div>
+            <div>
+              <Label>Responsável técnico</Label>
+              <ResponsavelSelect
+                papel="tecnico"
+                value={form.responsavelTecnicoId}
+                fallbackNome={form.responsavelTecnicoId ? undefined : form.responsavel}
+                onChange={id => setForm({ ...form, responsavelTecnicoId: id })}
+              />
+            </div>
+            <div>
+              <Label>Responsável comercial</Label>
+              <ResponsavelSelect
+                papel="comercial"
+                value={form.responsavelComercialId}
+                onChange={id => setForm({ ...form, responsavelComercialId: id })}
+              />
+            </div>
             <div><Label>Valor do contrato</Label><InputMoeda valor={form.orcado} onChange={v => setForm({ ...form, orcado: v })} placeholder="1.500.000,00" /></div>
             <div><Label>Data de início</Label><Input type="date" value={form.dataInicio} onChange={e => setForm({ ...form, dataInicio: e.target.value })} /></div>
             <div><Label>Prazo de conclusão *</Label><Input type="date" value={form.prazo} onChange={e => setForm({ ...form, prazo: e.target.value })} /></div>

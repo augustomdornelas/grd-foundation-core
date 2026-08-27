@@ -16,6 +16,7 @@ import { Pencil, Trash2, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PortfolioAdmin } from "@/components/portal/PortfolioAdmin";
+import { ResponsaveisAdmin } from "@/components/portal/ResponsaveisAdmin";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
 
@@ -289,6 +290,8 @@ function Admin() {
           </table>
         </div>
       </Card>
+
+      <ResponsaveisAdmin />
 
       <PortfolioAdmin />
 
