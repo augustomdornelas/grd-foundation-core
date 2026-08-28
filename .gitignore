@@ -53,3 +53,4 @@ dist-ssr
 # Tirar do indice (git rm --cached .env) nao foi feito de proposito:
 # se o build da Hostinger ou do Lovable le as VITE_* desse arquivo
 # versionado, remove-lo quebra o deploy. Decidir junto antes.
+dist-extracao/
