@@ -27,7 +27,8 @@ import { projetoDoOrcamento, aplicarPlanejamentoNoProjeto } from "@/lib/projeto-
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Eye, Pencil, Copy, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, HandshakeIcon, FolderOpen,
+  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, HandshakeIcon,
+  FolderOpen, Info as InfoIcon,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -197,6 +198,20 @@ function Comercial() {
 
 
   // ---------- Métricas do período ----------
+  //
+  // AQUI O ORÇAMENTO SEM DATA CONTINUA DE FORA, e é de propósito — o
+  // contrário da listagem logo abaixo.
+  //
+  // KPI e gráfico respondem "quanto foi orçado NESTE período". Sem data
+  // de emissão não há período: incluir a linha somaria valor a um mês ao
+  // qual ela não pertence, e trocaria um total honesto por um total
+  // errado. Deixá-la de fora mantém a soma correta — desde que a tela
+  // diga que ela existe, que é o papel do aviso `semData` abaixo.
+  //
+  // Uma linha sem data também não tem valor preenchido hoje (nasce
+  // vazia), então na prática ela some do numerador e do denominador ao
+  // mesmo tempo. Isso pode mudar quando alguém editar; o aviso é o que
+  // impede a diferença de passar despercebida.
   const metricas = useMemo(() => {
     const range = rangeDoPeriodo(periodo);
     const rangeAnt = rangeAnterior(periodo);
@@ -288,7 +303,21 @@ function Comercial() {
   const filtered = useMemo(() => {
     const range = rangeDoPeriodo(periodo);
     const qLower = q.toLowerCase();
-    let list = orcamentos.filter(o => dentro(o.data, range));
+    // ORÇAMENTO SEM DATA DE EMISSÃO APARECE SEMPRE, em qualquer período.
+    //
+    // `dentro()` devolve false para data vazia, e até 28/08/2026 isso
+    // sumia com a linha inteira da listagem: 16 orçamentos existiam no
+    // banco e não apareciam em tela nenhuma — 7 lançados à mão em 20/08
+    // e 9 trazidos do OneDrive, que nascem sem data porque a data não
+    // está no nome da pasta.
+    //
+    // Não dá para "consertar" isso atribuindo uma data: nem a criação da
+    // pasta nem o `created_at` são a data de emissão do orçamento, e
+    // qualquer uma das duas colocaria a linha num mês a que ela não
+    // pertence. Vazio é vazio; quem for editar preenche.
+    //
+    // Os TOTAIS continuam excluindo quem não tem data — ver `metricas`.
+    let list = orcamentos.filter(o => !o.data || dentro(o.data, range));
     if (q) list = list.filter(o =>
       o.cliente.toLowerCase().includes(qLower) ||
       o.numero.toLowerCase().includes(qLower) ||
@@ -322,6 +351,11 @@ function Comercial() {
     });
     return list;
   }, [orcamentos, q, fStatus, fTecnicos, fComerciais, fDias, sortBy, sortDir, periodo.tipo, periodo.ini, periodo.fim]);
+
+  /** Quantos dos que a listagem mostra estão fora dos totais por não ter
+   *  data. Conta sobre `filtered`, e não sobre a tabela inteira: o aviso
+   *  fala do que está na tela agora, com os filtros que estão aplicados. */
+  const semData = useMemo(() => filtered.filter(o => !o.data).length, [filtered]);
 
   const temFiltro = fStatus !== "todos" || fTecnicos.length > 0 || fComerciais.length > 0 || fDias !== "todos" || q !== "";
   function limparFiltros() {
@@ -462,6 +496,22 @@ function Comercial() {
         <Kpi label="Em aberto" value={`${metricas.abertoNum} · ${brl(metricas.abertoValor)}`} icon={Clock} />
         <Kpi label="EM NEGOCIAÇÃO" value={brl(metricas.emNegociacaoValor)} icon={HandshakeIcon} />
       </div>
+
+      {/* A diferença entre a listagem e os totais, dita em voz alta.
+          Sem isto, quem somar a coluna Valor à mão acharia divergência
+          dos KPIs e não teria como descobrir o motivo. */}
+      {semData > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-dashed border-muted-foreground/30 px-3 py-2 text-xs text-muted-foreground">
+          <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            <b>{semData}</b> orçamento{semData > 1 ? "s" : ""} sem data de emissão{" "}
+            {semData > 1 ? "aparecem" : "aparece"} na listagem, mas{" "}
+            {semData > 1 ? "ficam" : "fica"} fora dos KPIs e dos gráficos — sem data não há período
+            a que pertencer. Preencha a data de emissão para {semData > 1 ? "entrarem" : "entrar"}{" "}
+            nos totais.
+          </span>
+        </div>
+      )}
 
       {/* Gráficos linha 1 */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -655,6 +705,7 @@ function Comercial() {
                     <div className="flex flex-col gap-1">
                       <span>{o.ultimaAtualizacao ? new Date(o.ultimaAtualizacao).toLocaleDateString("pt-BR") : "—"}</span>
                       <InatividadeBadge orcamento={o} />
+                      <SemDataBadge orcamento={o} />
                     </div>
                   </TableCell>
                   <TableCell><StatusBadge status={o.status} /></TableCell>
@@ -745,6 +796,27 @@ function SeloImportado({ orcamento }: { orcamento: Orcamento }) {
           <FolderOpen className="h-3 w-3" /> pasta
         </a>
       )}
+    </span>
+  );
+}
+
+/**
+ * Falta a data de emissão. PENDÊNCIA NORMAL DE RASCUNHO, e a marca é
+ * do tamanho disso: cinza, minúscula, sem ícone de alerta. Não é erro —
+ * é campo que ninguém preencheu ainda.
+ *
+ * Ela existe porque a linha aparece na listagem e NÃO aparece nos KPIs,
+ * e quem abre a tela precisa conseguir descobrir o porquê olhando a
+ * própria linha, sem ter que ler o aviso do topo.
+ */
+function SemDataBadge({ orcamento }: { orcamento: Orcamento }) {
+  if (orcamento.data) return null;
+  return (
+    <span
+      className="text-[10px] italic text-muted-foreground"
+      title="Sem data de emissão: aparece na listagem, mas fica fora dos KPIs e dos gráficos."
+    >
+      sem data de emissão
     </span>
   );
 }

@@ -442,6 +442,127 @@ const MAX_PAGINAS = 50;
  * @param deltaLinkAnterior o `@odata.deltaLink` guardado da última
  *        execução bem-sucedida, ou null para varrer do zero.
  */
+/**
+ * Os filhos de um item qualquer, pelo id. É como se desce uma pasta de
+ * orçamento para achar os documentos lá dentro.
+ */
+export async function lerFilhosDe(itemId: string): Promise<ItemDrive[]> {
+  const c = exigirCredenciais();
+  const itens: ItemDrive[] = [];
+  let proxima: string | null =
+    `/drives/${encodeURIComponent(c.driveId)}/items/${encodeURIComponent(itemId)}/children?$top=200`;
+  for (let pagina = 0; pagina < MAX_PAGINAS && proxima; pagina++) {
+    const r: RespostaDelta = await graphFetch<RespostaDelta>(proxima);
+    if (Array.isArray(r.value)) itens.push(...r.value);
+    proxima = r["@odata.nextLink"] ?? null;
+  }
+  return itens;
+}
+
+/**
+ * O CONTEÚDO de um arquivo, em bytes.
+ *
+ * Não passa por `graphFetch` porque aquele parseia JSON, e aqui o corpo é
+ * um .docx ou .xlsx. O que se repete é o essencial: Bearer válido,
+ * timeout e retry só em 429/5xx honrando Retry-After.
+ *
+ * `limiteBytes` existe porque o acervo tem projeto executivo de 16 MB
+ * dormindo ao lado da proposta. Baixar isso por engano é minuto de job e
+ * memória à toa, então quem chama declara o teto e o excesso vira recusa
+ * explícita — nunca um download silencioso de dezenas de MB.
+ */
+export async function baixarArquivo(
+  itemId: string,
+  limiteBytes = 12 * 1024 * 1024,
+): Promise<Uint8Array> {
+  const c = exigirCredenciais();
+  const url = `${GRAPH}/drives/${encodeURIComponent(c.driveId)}/items/${encodeURIComponent(itemId)}/content`;
+  let ultimoErro: OneDriveErro | null = null;
+
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    const token = await obterToken(c);
+    let resposta: Response;
+    try {
+      resposta = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        // Mais folgado que o de JSON: aqui trafegam megabytes.
+        signal: AbortSignal.timeout(60_000),
+      });
+    } catch (e) {
+      ultimoErro = new OneDriveErro(`Falha ao baixar o arquivo: ${mensagemDeRede(e)}`);
+      if (tentativa < TENTATIVAS) {
+        await esperar(esperaDaTentativa(tentativa, null));
+        continue;
+      }
+      throw ultimoErro;
+    }
+
+    if (resposta.status === 429 || resposta.status >= 500) {
+      ultimoErro = new OneDriveErro(descreverStatus(resposta.status, "content"), resposta.status);
+      if (tentativa < TENTATIVAS) {
+        await esperar(esperaDaTentativa(tentativa, resposta));
+        continue;
+      }
+      throw ultimoErro;
+    }
+    if (!resposta.ok) {
+      throw new OneDriveErro(descreverStatus(resposta.status, "content"), resposta.status);
+    }
+
+    const declarado = Number(resposta.headers.get("content-length") ?? 0);
+    if (declarado > limiteBytes) {
+      throw new OneDriveErro(
+        `Arquivo grande demais: ${(declarado / 1024 / 1024).toFixed(1)} MB, teto de ${(limiteBytes / 1024 / 1024).toFixed(0)} MB.`,
+      );
+    }
+    const bytes = new Uint8Array(await resposta.arrayBuffer());
+    if (bytes.byteLength > limiteBytes) {
+      throw new OneDriveErro(
+        `Arquivo grande demais: ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB.`,
+      );
+    }
+    return bytes;
+  }
+
+  throw ultimoErro ?? new OneDriveErro("Falha desconhecida ao baixar o arquivo.");
+}
+
+/**
+ * As FILHAS DIRETAS da pasta, sem delta nenhum.
+ *
+ * É o estado, não a mudança — e é essa a diferença que importa. O delta
+ * responde "o que mexeu desde a última vez" e, consumido o token, não
+ * repete: uma pasta que o job deixou para trás por qualquer motivo nunca
+ * mais aparece nele. `/children` responde "o que existe agora", toda vez,
+ * e por isso é o que serve para duas coisas:
+ *
+ *   1. a VARREDURA COMPLETA, que reconcilia o que ficou para trás;
+ *   2. a CONFERÊNCIA no fim de toda execução — inclusive das
+ *      incrementais —, que é o que impede o diário de dizer "ok" com
+ *      pasta faltando.
+ *
+ * Custa uma requisição por 200 itens. Com ~100 pastas, é uma.
+ *
+ * Só o primeiro nível, de propósito: pasta de orçamento é filha direta
+ * da pasta do ano, e não descer poupa as centenas de arquivos e
+ * subpastas de trabalho que o delta é obrigado a trazer.
+ */
+export async function lerFilhos(): Promise<{ itens: ItemDrive[]; requisicoes: number }> {
+  const c = exigirCredenciais();
+  const itens: ItemDrive[] = [];
+  let requisicoes = 0;
+
+  let proxima: string | null = `${caminhoDaPasta(c)}/children?$top=200`;
+  for (let pagina = 0; pagina < MAX_PAGINAS && proxima; pagina++) {
+    const resposta: RespostaDelta = await graphFetch<RespostaDelta>(proxima);
+    requisicoes += 1;
+    if (Array.isArray(resposta.value)) itens.push(...resposta.value);
+    proxima = resposta["@odata.nextLink"] ?? null;
+  }
+
+  return { itens, requisicoes };
+}
+
 export async function lerDelta(deltaLinkAnterior: string | null): Promise<ResultadoDelta> {
   const c = exigirCredenciais();
   const itens: ItemDrive[] = [];

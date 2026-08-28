@@ -277,7 +277,11 @@ async function tratarSync(request: Request, url: URL): Promise<Response> {
 //   ?ano=2026    qual ano de pastas varrer. Sem ele, o ano corrente.
 //                Existe porque a pasta de 2025 tem o mesmo padrão de
 //                nome e um dia alguém vai querer trazê-la.
-//   ?completo=1  ignora o delta guardado e varre a pasta inteira. É o
+//   ?completo=1  VARREDURA COMPLETA: ignora o delta e lê /children, ou
+//                seja, o que existe agora em vez do que mudou. É a
+//                reconciliação — recupera qualquer pasta que o
+//                incremental tenha deixado para trás, porque o delta,
+//                consumido o token, não repete o que não mudou. É o
 //                que se usa quando há suspeita de pasta perdida; o
 //                índice único cuida de não duplicar nada.
 const ROTA_ONEDRIVE_SYNC = "/api/onedrive/sync";
