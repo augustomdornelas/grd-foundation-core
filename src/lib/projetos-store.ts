@@ -105,9 +105,16 @@ type State = {
   custos: Custo[];
   notas: NotaFiscal[];
   medicoes: Medicao[];
+  /**
+   * false enquanto o primeiro fetchAll não voltou. Existe porque lista
+   * vazia aqui tem dois significados opostos — "não há obra nenhuma" e
+   * "ainda não perguntei" — e quem decide CRIAR obra a partir da
+   * ausência precisa saber qual dos dois é.
+   */
+  carregado: boolean;
 };
 
-const SSR: State = { projetos: [], custos: [], notas: [], medicoes: [] };
+const SSR: State = { projetos: [], custos: [], notas: [], medicoes: [], carregado: false };
 let state: State = SSR;
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach(l => l()); }
@@ -191,11 +198,22 @@ async function fetchAll() {
       periodo: r.periodo ?? "", data: r.data ?? "",
       pct: num(r.pct), valor: num(r.valor), status: r.status ?? "EM ANÁLISE",
     })),
+    carregado: true,
   };
   emit();
 }
 
 if (typeof window !== "undefined") void fetchAll();
+
+/**
+ * Relê tudo do banco. Quem cria projeto por fora das actions daqui — a
+ * carga inicial da Secullum cria obra a partir do departamento — chama
+ * isto depois; senão o store fica sem a obra recém-criada e a próxima
+ * execução a cria de novo, porque projetos não tem unique em nome.
+ */
+export async function recarregarProjetos(): Promise<void> {
+  await fetchAll();
+}
 
 export function useProjetosStore<T>(selector: (s: State) => T): T {
   return useSyncExternalStore(subscribe, () => selector(state), () => selector(SSR));
@@ -291,6 +309,7 @@ export const projetosActions = {
       custos: state.custos.filter(c => c.projetoId !== id),
       notas: state.notas.filter(n => n.projetoId !== id),
       medicoes: state.medicoes.filter(m => m.projetoId !== id),
+      carregado: state.carregado,
     };
     emit();
     void supabase.from("projetos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));

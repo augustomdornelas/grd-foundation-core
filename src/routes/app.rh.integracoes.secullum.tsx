@@ -48,11 +48,12 @@ import { useColaboradores } from "@/lib/rh-colaboradores-store";
 import {
   obterEstadoSecullum,
   obterCatalogosSecullum,
-  obterPessoasSecullum,
+  obterCadastroSecullum,
+  type CadastroSecullum,
   type CatalogosSecullum,
   type EstadoIntegracao,
-  type PessoasSecullum,
 } from "@/lib/secullum-server";
+import { CargaInicialSecullum } from "@/components/rh/CargaInicialSecullum";
 
 export const Route = createFileRoute("/app/rh/integracoes/secullum")({
   ssr: false,
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/app/rh/integracoes/secullum")({
 function PainelSecullum() {
   const [estado, setEstado] = useState<EstadoIntegracao | null>(null);
   const [catalogos, setCatalogos] = useState<CatalogosSecullum | null>(null);
-  const [pessoas, setPessoas] = useState<PessoasSecullum | null>(null);
+  const [cadastro, setCadastro] = useState<CadastroSecullum | null>(null);
   const [carregando, setCarregando] = useState(false);
 
   const colaboradores = useColaboradores((s) => s.colaboradores);
@@ -73,12 +74,12 @@ function PainelSecullum() {
     const e = await obterEstadoSecullum();
     setEstado(e);
     if (e.configurado && !e.erro) {
-      const [c, p] = await Promise.all([obterCatalogosSecullum(), obterPessoasSecullum()]);
+      const [c, p] = await Promise.all([obterCatalogosSecullum(), obterCadastroSecullum()]);
       setCatalogos(c);
-      setPessoas(p);
+      setCadastro(p);
     } else {
       setCatalogos(null);
-      setPessoas(null);
+      setCadastro(null);
     }
     setCarregando(false);
   }, []);
@@ -89,10 +90,10 @@ function PainelSecullum() {
 
   // ---------- Conciliação ----------
   const conciliacao = useMemo(() => {
-    if (!pessoas || !portalCarregado) return null;
+    if (!cadastro || !portalCarregado) return null;
 
-    const ativosSecullum = pessoas.pessoas.filter((p) => p.ativo && p.cpf.length === 11);
-    const semCpf = pessoas.pessoas.filter((p) => p.ativo && p.cpf.length !== 11).length;
+    const ativosSecullum = cadastro.ativos.filter((p) => p.cpf.length === 11);
+    const semCpf = cadastro.ativos.length - ativosSecullum.length;
 
     const indicePortal = indexarPorDocumento(colaboradores, (c) => c.cpf);
     const indiceSecullum = indexarPorDocumento(ativosSecullum, (p) => p.cpf);
@@ -107,15 +108,15 @@ function PainelSecullum() {
     );
 
     return {
-      totalSecullum: pessoas.total,
-      demitidos: pessoas.total - pessoas.pessoas.filter((p) => p.ativo).length,
+      totalSecullum: cadastro.total,
+      demitidos: cadastro.demitidos,
       ativosSecullum: ativosSecullum.length,
       semCpf,
       emAmbos: emAmbos.length,
       soNaSecullum,
       soNoPortal,
     };
-  }, [pessoas, colaboradores, portalCarregado]);
+  }, [cadastro, colaboradores, portalCarregado]);
 
   return (
     <RhTela
@@ -202,6 +203,18 @@ function PainelSecullum() {
             {/* ---------- Trava de licença ---------- */}
             {estado.licenca && <CartaoLicenca licenca={estado.licenca} />}
 
+            {/* ---------- Etapa 0: a carga inicial ---------- */}
+            {/* Fica ANTES das abas, e não dentro de uma delas, de
+                propósito: enquanto houver gente batendo ponto fora do
+                cadastro do Portal, é o assunto mais importante desta
+                tela. Some sozinho quando a carga termina. */}
+            {cadastro && !cadastro.erro && (
+              <CargaInicialSecullum
+                ativos={cadastro.ativos}
+                camposAusentes={cadastro.camposAusentes}
+              />
+            )}
+
             {/* ---------- Dados ---------- */}
             <Tabs defaultValue="conciliacao">
               <TabsList className="w-full flex-wrap">
@@ -220,7 +233,7 @@ function PainelSecullum() {
               </TabsList>
 
               <TabsContent value="conciliacao" className="mt-4">
-                <Conciliacao dados={conciliacao} pessoas={pessoas} carregado={portalCarregado} />
+                <Conciliacao dados={conciliacao} cadastro={cadastro} carregado={portalCarregado} />
               </TabsContent>
 
               <TabsContent value="departamentos" className="mt-4">
@@ -430,25 +443,25 @@ type DadosConciliacao = {
 
 function Conciliacao({
   dados,
-  pessoas,
+  cadastro,
   carregado,
 }: {
   dados: DadosConciliacao | null;
-  pessoas: PessoasSecullum | null;
+  cadastro: CadastroSecullum | null;
   carregado: boolean;
 }) {
-  if (pessoas?.erro) {
+  if (cadastro?.erro) {
     return (
       <Card className="border-red-200 bg-red-50 p-5">
         <div className="flex gap-3">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
           <div>
             <p className="font-semibold text-red-900">
-              {pessoas.ehLgpd
+              {cadastro.ehLgpd
                 ? "Dados de funcionário bloqueados (LGPD)"
                 : "Não foi possível ler os funcionários"}
             </p>
-            <p className="mt-1 text-sm text-red-800">{pessoas.erro}</p>
+            <p className="mt-1 text-sm text-red-800">{cadastro.erro}</p>
           </div>
         </div>
       </Card>

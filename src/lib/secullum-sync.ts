@@ -23,6 +23,7 @@ if (typeof window !== "undefined") {
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { soDigitos } from "@/lib/documento";
+import { campo, texto, inteiro, data, hora, paraMinutos } from "@/lib/secullum-formato";
 import {
   lerConfig,
   secullum,
@@ -51,66 +52,15 @@ function pausar(ms: number): Promise<void> {
 // ------------------------------------------------------------
 // Leitura tolerante
 // ------------------------------------------------------------
+// Mudaram de casa para secullum-formato.ts quando a carga inicial
+// passou a precisar das mesmas: duas cópias de `campo()` seriam dois
+// lugares para o mapeamento divergir em silêncio.
 type Registro = Record<string, unknown>;
 
-/** Lê um campo aceitando variação de caixa e de nome. */
-function campo(obj: unknown, ...nomes: string[]): unknown {
-  if (!obj || typeof obj !== "object") return undefined;
-  const r = obj as Registro;
-  for (const nome of nomes) {
-    if (nome in r) return r[nome];
-    const achado = Object.keys(r).find((k) => k.toLowerCase() === nome.toLowerCase());
-    if (achado !== undefined) return r[achado];
-  }
-  return undefined;
-}
-
-function texto(v: unknown): string {
-  return v === null || v === undefined ? "" : String(v);
-}
-
-function inteiro(v: unknown): number | null {
-  if (v === null || v === undefined || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.trunc(n) : null;
-}
-
-/** ISO ou "2026-08-27T00:00:00" viram "2026-08-27". Vazio vira null. */
-function data(v: unknown): string | null {
-  const t = texto(v).trim();
-  if (!t) return null;
-  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  const d = new Date(t);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-}
-
-/** "07:58", "07:58:00" ou ISO com hora viram "07:58:00". */
-function hora(v: unknown): string | null {
-  const t = texto(v).trim();
-  if (!t) return null;
-  const hm = t.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (!hm) return null;
-  const h = hm[1].padStart(2, "0");
-  return `${h}:${hm[2]}:${hm[3] ?? "00"}`;
-}
-
-/**
- * "08:48" vira 528 minutos. Aceita negativo ("-01:30"), que aparece em
- * coluna de saldo. Número puro é tratado como minutos.
- */
-export function paraMinutos(v: unknown): number {
-  if (typeof v === "number" && Number.isFinite(v)) return Math.trunc(v);
-  const t = texto(v).trim();
-  if (!t) return 0;
-  const m = t.match(/^(-)?(\d{1,4}):(\d{2})(?::(\d{2}))?$/);
-  if (m) {
-    const sinal = m[1] ? -1 : 1;
-    return sinal * (Number(m[2]) * 60 + Number(m[3]));
-  }
-  const n = Number(t.replace(",", "."));
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-}
+// Reexportado porque o mapeamento de `/Calcular/SomenteTotais` ainda
+// não foi confirmado contra a API real, e quem for ajustá-lo espera
+// achar a conversão de horas ao lado de `extrairTotais`.
+export { paraMinutos };
 
 // ------------------------------------------------------------
 // Diário do job

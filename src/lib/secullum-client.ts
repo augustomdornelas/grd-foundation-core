@@ -305,6 +305,16 @@ export type FuncaoSecullum = { Id?: number; Descricao?: string };
 export type EmpresaSecullum = { Id?: number; Descricao?: string; Documento?: string };
 export type HorarioSecullum = { Numero?: number; Descricao?: string; Desativar?: boolean };
 
+/**
+ * O que /Funcionarios devolve. Os campos estão TODOS opcionais de
+ * propósito: o payload traz 392 KB e mais de trinta chaves por pessoa,
+ * e a Secullum não publica contrato campo a campo.
+ *
+ * Os pares `...Id` e `...Descricao` convivem porque o endpoint entrega
+ * ora um, ora outro, conforme a conta. Quem lê usa `campo()` de
+ * secullum-formato.ts e resolve o id contra /Departamentos e /Funcoes
+ * quando só o id vier — nunca assume qual dos dois chegou.
+ */
 export type FuncionarioSecullum = {
   Id?: number;
   Nome?: string;
@@ -314,9 +324,16 @@ export type FuncionarioSecullum = {
   Demissao?: string | null;
   Admissao?: string | null;
   DepartamentoId?: number;
+  DepartamentoDescricao?: string;
   FuncaoId?: number;
+  FuncaoDescricao?: string;
   EmpresaId?: number;
   HorarioId?: number;
+  HorarioNumero?: number;
+  /** Data de nascimento — alimenta a faixa etária da Etapa 2. */
+  Nascimento?: string | null;
+  Masculino?: boolean;
+  EscolaridadeId?: number;
 };
 
 // ------------------------------------------------------------

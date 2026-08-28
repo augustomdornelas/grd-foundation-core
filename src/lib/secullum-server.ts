@@ -18,6 +18,7 @@
 // ============================================================
 
 import { createServerFn } from "@tanstack/react-start";
+import type { PessoaImportavel } from "@/lib/secullum-carga";
 
 // ------------------------------------------------------------
 // Formatos devolvidos para a tela
@@ -28,14 +29,6 @@ export type HorarioResumo = {
   numero: number | null;
   descricao: string;
   desativar: boolean;
-};
-
-export type PessoaSecullum = {
-  /** Só dígitos — é a chave de conciliação. */
-  cpf: string;
-  nome: string;
-  numeroFolha: string;
-  ativo: boolean;
 };
 
 export type SituacaoLicencaDto = {
@@ -73,11 +66,21 @@ export type CatalogosSecullum = {
   horarios: HorarioResumo[];
 };
 
-export type PessoasSecullum = {
+/** O que a carga inicial precisa: os ativos com o cadastro inteiro. */
+export type CadastroSecullum = {
   erro: string | null;
   ehLgpd: boolean;
+  /** Todos os registros do endpoint, ativos e demitidos. */
   total: number;
-  pessoas: PessoaSecullum[];
+  /** Quantos tinham data de demissão — ficam de fora da carga. */
+  demitidos: number;
+  ativos: PessoaImportavel[];
+  /**
+   * Nomes de campo que não foram encontrados em NENHUM registro. É o
+   * aviso de que o payload mudou e o mapeamento precisa de ajuste — e
+   * aparece na tela, em vez de virar coluna vazia sem explicação.
+   */
+  camposAusentes: string[];
 };
 
 // ------------------------------------------------------------
@@ -202,47 +205,150 @@ export const obterCatalogosSecullum = createServerFn({ method: "GET" }).handler(
 );
 
 // ------------------------------------------------------------
-// Pessoas — só o necessário para conciliar
+// Cadastro completo dos ativos — insumo da carga inicial
 // ------------------------------------------------------------
-export const obterPessoasSecullum = createServerFn({ method: "GET" }).handler(
-  async (): Promise<PessoasSecullum> => {
+/**
+ * A única leitura de /Funcionarios que a tela faz. Traz o que vai
+ * virar cadastro no Portal: admissão, departamento, função e horário.
+ * Endereço, RG e telefone ficam na Secullum — o Portal não tem o que
+ * fazer com eles hoje, e dado pessoal que não é usado é dado pessoal
+ * que não devia trafegar.
+ *
+ * DUAS DECISÕES QUE VALEM EXPLICAÇÃO
+ *
+ * 1. Departamento e função são resolvidos AQUI, contra /Departamentos
+ *    e /Funcoes. O endpoint de funcionários entrega ora a descrição
+ *    (`DepartamentoDescricao`), ora só o id (`DepartamentoId`) — e o
+ *    que a carga precisa é sempre o nome, porque é por nome que ela
+ *    casa com a obra do Portal. Resolver no servidor custa duas
+ *    chamadas que já eram feitas para a aba de catálogos e evita que a
+ *    tela receba um número onde esperava um texto.
+ *
+ * 2. Só os ATIVOS atravessam. Os 108 demitidos ficam do lado de lá:
+ *    importar quem já saiu encheria o cadastro do Portal de gente que
+ *    nunca vai bater ponto de novo, e dado pessoal que não é usado é
+ *    dado pessoal que não devia trafegar.
+ */
+export const obterCadastroSecullum = createServerFn({ method: "GET" }).handler(
+  async (): Promise<CadastroSecullum> => {
     const { lerConfig, secullum, SecullumErro, chaveDeDocumento } =
       await import("@/lib/secullum-client");
+    const { campo, texto, inteiro, data } = await import("@/lib/secullum-formato");
+
+    const vazio: CadastroSecullum = {
+      erro: null,
+      ehLgpd: false,
+      total: 0,
+      demitidos: 0,
+      ativos: [],
+      camposAusentes: [],
+    };
 
     const config = lerConfig();
-    if (!config) {
-      return {
-        erro: "Integração não configurada no servidor.",
-        ehLgpd: false,
-        total: 0,
-        pessoas: [],
-      };
-    }
+    if (!config) return { ...vazio, erro: "Integração não configurada no servidor." };
 
     try {
-      const lista = await secullum.funcionarios(config);
+      const [lista, departamentos, funcoes] = await Promise.all([
+        secullum.funcionarios(config),
+        secullum.departamentos(config),
+        secullum.funcoes(config),
+      ]);
+
+      const nomePorId = (itens: { Id?: number; Descricao?: string }[]) => {
+        const mapa = new Map<number, string>();
+        for (const i of itens ?? []) {
+          const id = inteiro(campo(i, "Id", "id"));
+          const desc = texto(campo(i, "Descricao", "descricao", "Nome"));
+          if (id !== null && desc) mapa.set(id, desc);
+        }
+        return mapa;
+      };
+      const deptoPorId = nomePorId(departamentos);
+      const funcaoPorId = nomePorId(funcoes);
+
+      /** Descrição direta quando vier; senão, a resolvida pelo id. */
+      const descrever = (
+        registro: unknown,
+        campoDescricao: string[],
+        campoId: string[],
+        mapa: Map<number, string>,
+      ): string => {
+        const direta = texto(campo(registro, ...campoDescricao)).trim();
+        if (direta && !/^\d+$/.test(direta)) return direta;
+        const id = inteiro(campo(registro, ...campoId));
+        if (id !== null) return mapa.get(id) ?? "";
+        return "";
+      };
+
+      // Quais campos o payload não trouxe em registro nenhum. Um
+      // `HorarioNumero` ausente em todos é mudança de contrato, não
+      // pessoa sem horário — e a diferença precisa aparecer.
+      const vistos = { admissao: false, departamento: false, funcao: false, horario: false };
+
+      let demitidos = 0;
+      const ativos: PessoaImportavel[] = [];
+
+      for (const f of lista ?? []) {
+        const demissao = data(campo(f, "Demissao", "demissao"));
+        if (demissao) {
+          demitidos += 1;
+          continue;
+        }
+
+        const admissao = data(campo(f, "Admissao", "admissao"));
+        const departamento = descrever(
+          f,
+          ["DepartamentoDescricao", "Departamento", "departamento"],
+          ["DepartamentoId", "departamentoId"],
+          deptoPorId,
+        );
+        const funcao = descrever(
+          f,
+          ["FuncaoDescricao", "Funcao", "funcao"],
+          ["FuncaoId", "funcaoId"],
+          funcaoPorId,
+        );
+        const horarioNumero = inteiro(campo(f, "HorarioNumero", "HorarioId", "horarioId"));
+
+        if (admissao) vistos.admissao = true;
+        if (departamento) vistos.departamento = true;
+        if (funcao) vistos.funcao = true;
+        if (horarioNumero !== null) vistos.horario = true;
+
+        ativos.push({
+          secullumId: inteiro(campo(f, "Id", "id")),
+          cpf: chaveDeDocumento(texto(campo(f, "Cpf", "cpf"))),
+          nome: texto(campo(f, "Nome", "nome")).trim(),
+          numeroFolha: texto(campo(f, "NumeroFolha", "numeroFolha")).trim(),
+          admissao,
+          departamento,
+          funcao,
+          horarioNumero,
+        });
+      }
+
+      const camposAusentes: string[] = [];
+      if (ativos.length > 0) {
+        if (!vistos.admissao) camposAusentes.push("Admissao");
+        if (!vistos.departamento) camposAusentes.push("Departamento");
+        if (!vistos.funcao) camposAusentes.push("Funcao");
+        if (!vistos.horario) camposAusentes.push("HorarioNumero");
+      }
+
       return {
         erro: null,
         ehLgpd: false,
         total: lista?.length ?? 0,
-        // Vai para a tela só o que a conciliação precisa. Endereço,
-        // RG e telefone ficam na Secullum: o Portal não tem o que
-        // fazer com eles hoje, e dado pessoal que não é usado é dado
-        // pessoal que não devia trafegar.
-        pessoas: (lista ?? []).map((f) => ({
-          cpf: chaveDeDocumento(f.Cpf),
-          nome: f.Nome ?? "",
-          numeroFolha: f.NumeroFolha ?? "",
-          ativo: !f.Demissao,
-        })),
+        demitidos,
+        ativos,
+        camposAusentes,
       };
     } catch (e) {
       const erro = e instanceof SecullumErro ? e : null;
       return {
+        ...vazio,
         erro: erro?.message ?? (e instanceof Error ? e.message : String(e)),
         ehLgpd: erro?.ehLgpd ?? false,
-        total: 0,
-        pessoas: [],
       };
     }
   },
