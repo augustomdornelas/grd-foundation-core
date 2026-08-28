@@ -37,7 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { RefreshCw, Clock, ShieldAlert } from "lucide-react";
+import { RefreshCw, Clock, ShieldAlert, DatabaseZap, Loader2, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { PontoTela } from "@/components/ponto/PontoTela";
 import { FaixaHoje } from "@/components/ponto/FaixaHoje";
 import {
@@ -49,7 +50,8 @@ import {
   AbaDivergencias,
 } from "@/components/ponto/abas-ponto";
 import { usePaleta } from "@/components/ponto/graficos";
-import { PERFIS_PONTO, useHasPermission } from "@/lib/current-user";
+import { PERFIS_PONTO, useCurrentUser, useHasPermission } from "@/lib/current-user";
+import { sincronizarPonto, type TipoJob } from "@/lib/ponto-sync-client";
 import {
   buscarDadosPonto,
   competenciaDe,
@@ -92,7 +94,14 @@ function Painel() {
   const hoje = useMemo(() => hojeLocal(), []);
   const [dados, setDados] = useState<DadosPonto>(DADOS_VAZIOS);
   const [carregando, setCarregando] = useState(true);
+  const [sincronizando, setSincronizando] = useState<string | null>(null);
   const podeVerCusto = useHasPermission("rh_remuneracao");
+
+  // Quem dispara job é quem edita RH. A checagem aqui é só para não
+  // mostrar um botão que o servidor vai recusar — quem decide de
+  // verdade é o servidor, que confere o perfil de novo.
+  const perfil = useCurrentUser().perfil.toLowerCase();
+  const podeSincronizar = ["administrador", "admin", "diretoria", "rh"].includes(perfil);
 
   const [filtro, setFiltro] = useState<FiltroPonto>({
     competencia: competenciaDe(hoje),
@@ -108,6 +117,37 @@ function Painel() {
 
   useEffect(() => {
     void carregar();
+  }, [carregar]);
+
+  const sincronizar = useCallback(async () => {
+    setSincronizando("iniciando");
+    const { resultados, erroDeSessao } = await sincronizarPonto(undefined, (tipo: TipoJob) =>
+      setSincronizando(tipo),
+    );
+    setSincronizando(null);
+
+    if (erroDeSessao) {
+      toast.error(erroDeSessao);
+      return;
+    }
+
+    const bons = resultados.filter((r) => r.ok);
+    const ruins = resultados.filter((r) => !r.ok);
+    const registros = bons.reduce((soma, r) => soma + r.registros, 0);
+
+    if (bons.length > 0) {
+      toast.success(
+        `${bons.length} de ${resultados.length} job(s) concluído(s) · ${registros} registro(s).`,
+      );
+    }
+    // Cada falha com o nome do job: "a sincronização falhou" sozinho não
+    // diz se o problema é o cadastro ou só o endpoint de batidas, que
+    // nunca foi confirmado contra a conta da GRD.
+    for (const r of ruins) {
+      toast.error(`${r.tipo}: ${r.erro ?? "falhou sem mensagem"}`);
+    }
+
+    await carregar();
   }, [carregar]);
 
   const opcoes = useMemo(() => opcoesDeFiltro(dados), [dados]);
@@ -152,6 +192,40 @@ function Painel() {
     );
   }
 
+  // ORDEM DOS ESTADOS, e ela importa:
+  //   1. tabela faltando  -> instalação pendente, não é falha
+  //   2. erro de verdade  -> cartão vermelho
+  //   3. tudo vazio       -> os jobs ainda não rodaram
+  // Trocar 1 por 2 foi o bug relatado: "Could not find the table" virava
+  // tela vermelha, quando na verdade faltava rodar o SQL.
+  if (dados.fontesAusentesEssenciais.length > 0) {
+    return (
+      <div className="space-y-4">
+        <CarimboDeFrescor dados={dados} aoAtualizar={() => void carregar()} />
+        <EstadoDeInstalacao
+          ausentes={dados.fontesAusentesEssenciais}
+          aoRecarregar={() => void carregar()}
+        />
+      </div>
+    );
+  }
+
+  const semNenhumDado =
+    dados.funcionarios.length === 0 && dados.batidas.length === 0 && dados.totais.length === 0;
+
+  if (!dados.erro && semNenhumDado) {
+    return (
+      <div className="space-y-4">
+        <CarimboDeFrescor dados={dados} aoAtualizar={() => void carregar()} />
+        <EstadoSemSincronizacao
+          podeSincronizar={podeSincronizar}
+          sincronizando={sincronizando}
+          aoSincronizar={() => void sincronizar()}
+        />
+      </div>
+    );
+  }
+
   if (dados.erro) {
     return (
       <Card className="border-red-200 bg-red-50 p-5">
@@ -161,9 +235,11 @@ function Painel() {
             <p className="font-semibold text-red-900">Não foi possível ler os dados de ponto</p>
             <p className="mt-1 text-sm text-red-800">{dados.erro}</p>
             <p className="mt-2 text-xs text-red-800">
-              Se a mensagem fala em permissão, é a RLS: as tabelas de ponto exigem
-              <code className="mx-1 rounded bg-red-100 px-1">rh_pode_ler()</code>. Se fala em
-              relação inexistente, a migration do dashboard ainda não foi aplicada.
+              As tabelas existem — tabela faltando tem tela própria. Se a mensagem fala em
+              permissão, é a RLS: a leitura exige
+              <code className="mx-1 rounded bg-red-100 px-1">rh_pode_ler()</code>, ou o vínculo de
+              obra em <code className="mx-1 rounded bg-red-100 px-1">rh_usuario_projetos</code> se o
+              seu perfil for de engenharia.
             </p>
             <Button variant="outline" size="sm" className="mt-3" onClick={() => void carregar()}>
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -179,6 +255,10 @@ function Painel() {
     <TooltipProvider delayDuration={200}>
       <div className="space-y-5">
         <CarimboDeFrescor dados={dados} aoAtualizar={() => void carregar()} />
+
+        {dados.fontesAusentes.length > 0 && (
+          <AvisoFontesOpcionais ausentes={dados.fontesAusentes} />
+        )}
 
         {/* ---------- Filtros, numa linha só ---------- */}
         <div className="flex flex-wrap items-center gap-2">
@@ -244,6 +324,30 @@ function Painel() {
               Limpar filtros
             </Button>
           )}
+
+          {podeSincronizar && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto h-9"
+              disabled={sincronizando !== null}
+              onClick={() => void sincronizar()}
+            >
+              {sincronizando ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  {sincronizando === "iniciando"
+                    ? "Iniciando..."
+                    : `Sincronizando ${sincronizando}...`}
+                </>
+              ) : (
+                <>
+                  <DatabaseZap className="mr-1.5 h-3.5 w-3.5" />
+                  Sincronizar agora
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* ---------- HOJE, fora das abas ---------- */}
@@ -293,6 +397,172 @@ function Painel() {
         </Tabs>
       </div>
     </TooltipProvider>
+  );
+}
+
+// ------------------------------------------------------------
+// Estado 1: o banco ainda não tem as tabelas
+// ------------------------------------------------------------
+/**
+ * Não é erro, é instalação pendente — e a tela trata como tal.
+ *
+ * O sintoma que gerou isto foi "Could not find the table
+ * 'public.secullum_funcionarios' in the schema cache" aparecendo como
+ * cartão vermelho de falha. Vermelho manda procurar o que quebrou;
+ * aqui não quebrou nada, falta rodar um SQL. A tela diz exatamente
+ * qual arquivo e o que ele cria.
+ *
+ * Não há botão de sincronizar aqui de propósito: sem tabela, o job
+ * não teria onde gravar, e oferecer o botão só produziria um segundo
+ * erro em cima do primeiro.
+ */
+function EstadoDeInstalacao({
+  ausentes,
+  aoRecarregar,
+}: {
+  ausentes: string[];
+  aoRecarregar: () => void;
+}) {
+  return (
+    <Card className="border-amber-200 bg-amber-50 p-5 sm:p-6">
+      <div className="flex gap-3">
+        <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+        <div className="min-w-0">
+          <p className="font-semibold text-amber-900">O banco ainda não tem as tabelas de ponto</p>
+          <p className="mt-1 max-w-3xl text-sm text-amber-800">
+            O dashboard lê só tabelas locais, e {ausentes.length === 1 ? "uma delas" : "algumas"}{" "}
+            ainda não {ausentes.length === 1 ? "existe" : "existem"} neste banco. Não há o que
+            consertar no código — falta rodar o SQL de instalação uma vez.
+          </p>
+
+          <ol className="mt-3 max-w-3xl list-decimal space-y-1.5 pl-5 text-sm text-amber-800">
+            <li>
+              Abra o <strong>SQL Editor</strong> do Supabase.
+            </li>
+            <li>
+              Cole o conteúdo de{" "}
+              <code className="rounded bg-amber-100 px-1 text-xs">
+                supabase/manual/ponto-dashboard-completo.sql
+              </code>{" "}
+              e rode. Ele é idempotente: pode rodar de novo sem estragar nada.
+            </li>
+            <li>Volte aqui e recarregue.</li>
+          </ol>
+
+          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-amber-900">
+            Faltando ({ausentes.length})
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {ausentes.map((t) => (
+              <Badge
+                key={t}
+                variant="outline"
+                className="border-amber-400 font-mono text-[11px] text-amber-900"
+              >
+                {t}
+              </Badge>
+            ))}
+          </div>
+
+          <Button variant="outline" size="sm" className="mt-4" onClick={aoRecarregar}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Já rodei o SQL — verificar de novo
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------
+// Aviso: falta uma tabela do lado Portal
+// ------------------------------------------------------------
+/**
+ * Discreto e específico. O dashboard funciona sem estas; o que a tela
+ * não pode fazer é mostrar coluna vazia sem dizer por quê — quem olha
+ * um telefone em branco conclui que o cadastro está incompleto, e não
+ * que a tabela não existe.
+ */
+function AvisoFontesOpcionais({ ausentes }: { ausentes: string[] }) {
+  const perdas: Record<string, string> = {
+    funcionarios: "telefone na lista de faltantes e a conciliação por CPF",
+    rh_funcionario_documentos: "o alerta de ASO e NR vencidos",
+    rh_funcionario_remuneracao: "o custo estimado da hora extra",
+  };
+
+  return (
+    <div className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
+      <span className="font-medium text-[#213368]">Parte do lado Portal não está no banco.</span>{" "}
+      Sem {ausentes.map((t) => perdas[t] ?? t).join("; sem ")}. O resto do dashboard não depende
+      disso.
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Estado 2: as tabelas existem e estão vazias
+// ------------------------------------------------------------
+/**
+ * Tabela vazia não é zero: é "os jobs ainda não rodaram".
+ *
+ * A diferença aparece na tela porque as duas levam a ações opostas —
+ * zero manda investigar por que ninguém bateu ponto, vazio manda
+ * apertar o botão.
+ */
+function EstadoSemSincronizacao({
+  podeSincronizar,
+  sincronizando,
+  aoSincronizar,
+}: {
+  podeSincronizar: boolean;
+  sincronizando: string | null;
+  aoSincronizar: () => void;
+}) {
+  return (
+    <Card className="p-6 sm:p-8">
+      <div className="mx-auto max-w-xl text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#213368]/10">
+          <DatabaseZap className="h-5 w-5 text-[#213368]" />
+        </div>
+        <h3 className="text-base font-bold text-[#213368]">
+          As tabelas existem, mas ainda estão vazias
+        </h3>
+        <p className="mx-auto mt-1.5 max-w-lg text-sm text-muted-foreground">
+          Nenhum job de sincronização gravou nada até agora. Isto não quer dizer que ninguém bateu
+          ponto — quer dizer que os dados da Secullum ainda não foram trazidos para cá.
+        </p>
+
+        {podeSincronizar ? (
+          <>
+            <Button className="mt-5" disabled={sincronizando !== null} onClick={aoSincronizar}>
+              {sincronizando ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {sincronizando === "iniciando"
+                    ? "Iniciando..."
+                    : `Sincronizando ${sincronizando}...`}
+                </>
+              ) : (
+                <>
+                  <DatabaseZap className="mr-2 h-4 w-4" />
+                  Sincronizar agora
+                </>
+              )}
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Roda cadastro, catálogos, afastamentos, pendências, batidas e totais — nesta ordem, um
+              de cada vez. A API da Secullum tem teto de requisições por hora, e disparar tudo junto
+              é a forma mais rápida de bater nele.
+            </p>
+          </>
+        ) : (
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Peça à Diretoria ou ao RH para rodar a primeira sincronização.
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }
 

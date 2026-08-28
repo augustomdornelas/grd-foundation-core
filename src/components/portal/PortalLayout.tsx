@@ -167,7 +167,30 @@ const items: NavItem[] = [
 ];
 
 const STORAGE_KEY = "grd:sidebar:collapsed";
-const GRUPOS_KEY = "grd:sidebar:grupos";
+// v2 porque o formato mudou de significado, e não de forma: a versão
+// anterior gravava TAMBÉM a abertura automática do grupo da rota
+// ativa, então bastava visitar /app/rh uma vez para o RH ficar
+// marcado como aberto para sempre — inclusive em /app/ponto. O valor
+// antigo é indistinguível de uma preferência de verdade, então não dá
+// para migrar: é descartado, e o menu volta ao padrão fechado.
+const GRUPOS_KEY = "grd:sidebar:grupos:v2";
+
+/**
+ * Fica só com as chaves que valem: objeto simples, valores booleanos.
+ *
+ * Qualquer outra coisa é descartada em silêncio em vez de migrada —
+ * um valor gravado por uma versão anterior não tem como ser
+ * interpretado com confiança, e adivinhar produziria justamente o
+ * menu abrindo sozinho que isto veio consertar.
+ */
+function apenasBooleanos(bruto: unknown): Record<string, boolean> {
+  if (!bruto || typeof bruto !== "object" || Array.isArray(bruto)) return {};
+  const limpo: Record<string, boolean> = {};
+  for (const [k, v] of Object.entries(bruto as Record<string, unknown>)) {
+    if (typeof v === "boolean") limpo[k] = v;
+  }
+  return limpo;
+}
 
 function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -201,8 +224,10 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
     if (!chaveGrupos) return;
     try {
       const bruto = localStorage.getItem(chaveGrupos);
-      setGruposAbertos(bruto ? (JSON.parse(bruto) as Record<string, boolean>) : {});
+      setGruposAbertos(bruto ? apenasBooleanos(JSON.parse(bruto)) : {});
     } catch {
+      // JSON corrompido é o mesmo caso do formato antigo: sem
+      // preferência. Menu fechado é um padrão seguro.
       setGruposAbertos({});
     }
   }, [chaveGrupos]);
@@ -222,17 +247,25 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
     });
   };
 
-  // O grupo da rota atual abre sozinho. Só abre: nada aqui fecha o que
-  // a pessoa deixou aberto, e vários grupos convivem abertos.
+  // NÃO existe efeito abrindo o grupo da rota ativa, e a ausência é
+  // o conserto. Antes havia um, e ele CHAMAVA definirGrupo — ou seja,
+  // gravava no localStorage. Visitar /app/rh uma vez deixava o RH
+  // marcado como aberto para sempre, e o grupo aparecia expandido em
+  // /app/ponto/dashboard.
   //
-  // chaveGrupos entra nas dependências porque a sessão chega depois da
-  // primeira pintura: o efeito acima recarrega o que estava salvo e
-  // sobrescreveria este, deixando fechado o grupo da página aberta.
-  const grupoAtivo = visiveis.find((it) => it.filhos && contemAtiva(it))?.key;
-  useEffect(() => {
-    if (grupoAtivo) definirGrupo(grupoAtivo, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grupoAtivo, chaveGrupos]);
+  // A abertura automática não é estado: é derivada da rota, e vive em
+  // `abertoDoGrupo()` abaixo. O que se guarda é só o que a pessoa
+  // decidiu na mão.
+
+  /**
+   * Um grupo está aberto quando a pessoa mandou abrir; na falta de
+   * decisão dela, quando contém a rota atual.
+   *
+   * A ordem importa e é o resto do conserto: a preferência vem PRIMEIRO.
+   * Quem fechou o RH continua com o RH fechado ao navegar para dentro
+   * dele — trocar de rota não desfaz o que a pessoa decidiu.
+   */
+  const abertoDoGrupo = (it: NavItem) => gruposAbertos[it.key] ?? contemAtiva(it);
 
   // Setas cima/baixo andam entre os itens à vista. O que está dentro de
   // grupo fechado não tem caixa de layout, e offsetParent nulo o tira
@@ -266,8 +299,8 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
             subitens={it.filhos ? filhosVisiveis(it) : undefined}
             pathname={pathname}
             collapsed={collapsed}
-            aberto={gruposAbertos[it.key] ?? contemAtiva(it)}
-            onToggle={() => definirGrupo(it.key, !(gruposAbertos[it.key] ?? contemAtiva(it)))}
+            aberto={abertoDoGrupo(it)}
+            onToggle={() => definirGrupo(it.key, !abertoDoGrupo(it))}
             onAbrir={() => definirGrupo(it.key, true)}
             onNavigate={onNavigate}
           />

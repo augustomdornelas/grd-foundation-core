@@ -91,9 +91,65 @@ function aplicarCabecalhos(response: Response, nonce: string, url: URL): Respons
 // precisa de uma URL simples para chamar. Então o gatilho fica aqui,
 // no mesmo ponto por onde já passam os três ambientes.
 //
-// Protegido por segredo compartilhado no header, e não por sessão: quem
-// chama é uma máquina às 5h da manhã, não uma pessoa logada.
+// Duas entradas: o segredo compartilhado no header, para o agendador
+// das 5h da manhã, e a sessão do Supabase, para o botão "Sincronizar
+// agora" do dashboard. A segunda exige perfil de Diretoria ou RH —
+// disparar job gasta cota da API deles.
 const ROTA_SYNC = "/api/secullum/sync";
+
+/**
+ * Confere o JWT do Supabase e devolve o perfil de quem está pedindo.
+ *
+ * O perfil é lido com a chave de serviço de propósito: `profiles` tem
+ * RLS, e ler com o token do próprio usuário faria a autorização
+ * depender de uma policy que existe para outra finalidade. Aqui a
+ * pergunta é do servidor, não do usuário.
+ */
+async function identificarUsuario(
+  jwt: string,
+): Promise<
+  { ok: true; perfil: string; email: string } | { ok: false; erro: string; status: number }
+> {
+  if (!jwt) return { ok: false, erro: "Sessão ausente.", status: 401 };
+
+  try {
+    const { supabaseServer } = await import("./integrations/supabase/client.server");
+    const { data, error } = await supabaseServer.auth.getUser(jwt);
+    if (error || !data.user) {
+      return { ok: false, erro: "Sessão inválida ou expirada.", status: 401 };
+    }
+
+    const { supabaseAdmin } = await import("./lib/supabase-admin");
+    const { data: perfilLinha } = await supabaseAdmin()
+      .from("profiles")
+      .select("perfil")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    const perfil = String((perfilLinha as { perfil?: string } | null)?.perfil ?? "")
+      .trim()
+      .toLowerCase();
+
+    // A mesma lista de rh_pode_editar() no banco. Repetida aqui porque
+    // este caminho não passa por RLS — os jobs escrevem com a chave de
+    // serviço, que ignora policy.
+    if (!["administrador", "admin", "diretoria", "rh"].includes(perfil)) {
+      return {
+        ok: false,
+        erro: `O perfil "${perfil || "sem perfil"}" não dispara sincronização. Só Diretoria e RH/DP.`,
+        status: 403,
+      };
+    }
+
+    return { ok: true, perfil, email: data.user.email ?? "sem e-mail" };
+  } catch (e) {
+    return {
+      ok: false,
+      erro: e instanceof Error ? e.message : String(e),
+      status: 500,
+    };
+  }
+}
 
 async function tratarSync(request: Request, url: URL): Promise<Response> {
   const responder = (corpo: unknown, status: number) =>
@@ -102,21 +158,54 @@ async function tratarSync(request: Request, url: URL): Promise<Response> {
       headers: { "content-type": "application/json; charset=utf-8" },
     });
 
+  // DUAS PORTAS, e as duas precisam existir.
+  //
+  // 1. x-sync-token: é por onde o agendador entra. Máquina não tem
+  //    sessão de usuário.
+  // 2. Authorization: Bearer <jwt do Supabase>: é por onde entra o
+  //    botão "Sincronizar agora" do dashboard. O navegador não pode
+  //    ter o segredo do agendador — publicá-lo no bundle entregaria o
+  //    gatilho dos jobs para a internet inteira.
+  //
+  // A segunda porta é mais estreita: exige sessão válida E perfil de
+  // Diretoria ou RH. Disparar um job gasta cota da API da Secullum,
+  // que é limitada por hora; não é ação para qualquer logado.
   const segredo = process.env.SECULLUM_SYNC_TOKEN;
-  if (!segredo) {
+  const tokenDeMaquina = request.headers.get("x-sync-token");
+  const autorizacao = request.headers.get("authorization") ?? "";
+
+  let liberado = false;
+  let comoEntrou = "";
+
+  if (segredo && tokenDeMaquina) {
+    if (tokenDeMaquina !== segredo) {
+      return responder({ ok: false, erro: "Token de sincronização inválido." }, 401);
+    }
+    liberado = true;
+    comoEntrou = "agendador";
+  } else if (autorizacao.toLowerCase().startsWith("bearer ")) {
+    const jwt = autorizacao.slice(7).trim();
+    const quem = await identificarUsuario(jwt);
+    if (!quem.ok) {
+      return responder({ ok: false, erro: quem.erro }, quem.status);
+    }
+    liberado = true;
+    comoEntrou = `${quem.perfil} (${quem.email})`;
+  }
+
+  if (!liberado) {
     return responder(
       {
         ok: false,
-        erro:
-          "SECULLUM_SYNC_TOKEN não está no ambiente do servidor. " +
-          "Sem ele o gatilho fica desligado — é o que impede a internet inteira de disparar os jobs.",
+        erro: segredo
+          ? "Envie x-sync-token (agendador) ou Authorization: Bearer com sessão de Diretoria/RH."
+          : "SECULLUM_SYNC_TOKEN não está no ambiente do servidor e nenhuma sessão foi enviada. " +
+            "Sem uma das duas o gatilho fica desligado — é o que impede a internet inteira de disparar os jobs.",
       },
-      503,
+      segredo ? 401 : 503,
     );
   }
-  if (request.headers.get("x-sync-token") !== segredo) {
-    return responder({ ok: false, erro: "Token de sincronização inválido." }, 401);
-  }
+  console.log(`[secullum] sync disparado por: ${comoEntrou}`);
 
   const tipo = url.searchParams.get("tipo") ?? "funcionarios";
   const { JOBS, syncBatidas, syncTotais } = await import("./lib/secullum-sync");

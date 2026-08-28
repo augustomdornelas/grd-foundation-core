@@ -181,6 +181,25 @@ export type DadosPonto = {
   documentos: DocumentoVencePonto[];
   licenca: LicencaPonto | null;
   remuneracoes: RemuneracaoPonto[];
+  /**
+   * Tabelas que ainda não existem no banco, pelo nome.
+   *
+   * Separado de `erro` de propósito: tabela que falta é uma etapa de
+   * instalação pendente, não uma falha. A tela mostra estado vazio com
+   * instrução, e não um cartão vermelho — a diferença é entre "faça
+   * isto" e "algo quebrou".
+   */
+  fontesAusentes: string[];
+  /**
+   * Só as ausentes SEM as quais o dashboard não existe.
+   *
+   * As do Portal — cadastro de colaborador, documentos, remuneração —
+   * ficam de fora: sem elas a tela perde o telefone do faltante, a
+   * conciliação e o custo da extra, e continua respondendo tudo o
+   * resto. Bloquear o dashboard inteiro porque falta uma tabela
+   * opcional seria trocar uma tela parcial por nenhuma.
+   */
+  fontesAusentesEssenciais: string[];
   /** Primeiro erro de leitura, se houve. A tela mostra em vez de fingir zero. */
   erro: string | null;
 };
@@ -197,6 +216,8 @@ export const DADOS_VAZIOS: DadosPonto = {
   documentos: [],
   licenca: null,
   remuneracoes: [],
+  fontesAusentes: [],
+  fontesAusentesEssenciais: [],
   erro: null,
 };
 
@@ -210,20 +231,38 @@ export const DADOS_VAZIOS: DadosPonto = {
 // parece dado real e não é.
 const PAGINA = 1000;
 
+/**
+ * O erro é "esta tabela/coluna ainda não existe"?
+ *
+ * PGRST205 é o "Could not find the table ... in the schema cache" do
+ * PostgREST; PGRST204 é o equivalente para coluna. 42P01 e 42703 são os
+ * do próprio Postgres, que aparecem quando a consulta escapa do cache.
+ * A checagem por texto existe porque o código nem sempre vem
+ * preenchido, e um dashboard inteiro não pode virar tela vermelha por
+ * causa de uma etapa de instalação que falta.
+ */
+function ehTabelaAusente(erro: unknown): boolean {
+  const e = (erro ?? {}) as { code?: string; message?: string };
+  if (e.code && ["PGRST205", "PGRST204", "42P01", "42703"].includes(e.code)) return true;
+  const m = (e.message ?? "").toLowerCase();
+  return m.includes("could not find the table") || m.includes("does not exist");
+}
+
 async function buscarPaginado<T>(
   montar: (de: number, ate: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
   mapear: (linha: Record<string, unknown>) => T,
-): Promise<{ linhas: T[]; erro: string | null }> {
+): Promise<{ linhas: T[]; erro: string | null; ausente: boolean }> {
   const linhas: T[] = [];
   for (let offset = 0; ; offset += PAGINA) {
     const { data, error } = await montar(offset, offset + PAGINA - 1);
     if (error) {
+      if (ehTabelaAusente(error)) return { linhas: [], erro: null, ausente: true };
       const msg = (error as { message?: string }).message ?? String(error);
-      return { linhas, erro: msg };
+      return { linhas, erro: msg, ausente: false };
     }
     const lote = data ?? [];
     for (const l of lote) linhas.push(mapear(l as Record<string, unknown>));
-    if (lote.length < PAGINA) return { linhas, erro: null };
+    if (lote.length < PAGINA) return { linhas, erro: null, ausente: false };
   }
 }
 
@@ -431,20 +470,35 @@ export async function buscarDadosPonto(hoje = hojeLocal()): Promise<DadosPonto> 
     ),
   ]);
 
-  // O primeiro erro basta: se a RLS barrou uma tabela, barrou todas, e
-  // seis mensagens iguais na tela não ajudam ninguém.
-  const erro =
-    func.erro ??
-    bat.erro ??
-    tot.erro ??
-    afa.erro ??
-    pen.erro ??
-    hor.erro ??
-    fre.erro ??
-    port.erro ??
-    doc.erro ??
-    lic.erro ??
-    null;
+  // Cada fonte com o seu nome de tabela, para a tela poder dizer o que
+  // exatamente falta em vez de um "sem dados" genérico.
+  // O terceiro item diz se a fonte é essencial. As do Portal não são:
+  // o dashboard nasceu para ler o espelho da Secullum, e o lado Portal
+  // acrescenta telefone, conciliação e custo — coisas boas de ter, não
+  // condições para a tela existir.
+  const fontes: [string, { erro: string | null; ausente: boolean }, boolean][] = [
+    ["secullum_funcionarios", func, true],
+    ["ponto_batidas", bat, true],
+    ["ponto_totais", tot, true],
+    ["secullum_afastamentos", afa, true],
+    ["secullum_pendencias", pen, true],
+    ["secullum_horarios", hor, true],
+    ["secullum_licenca", lic, true],
+    ["vw_secullum_frescor", fre, true],
+    ["funcionarios", port, false],
+    ["rh_funcionario_documentos", doc, false],
+    ["rh_funcionario_remuneracao", rem, false],
+  ];
+
+  const fontesAusentes = fontes.filter(([, f]) => f.ausente).map(([nome]) => nome);
+  const fontesAusentesEssenciais = fontes
+    .filter(([, f, essencial]) => f.ausente && essencial)
+    .map(([nome]) => nome);
+
+  // O primeiro erro DE VERDADE basta: se a RLS barrou uma tabela,
+  // barrou todas, e onze mensagens iguais não ajudam ninguém. Tabela
+  // que falta não entra aqui — vai para fontesAusentes.
+  const erro = fontes.map(([, f]) => f.erro).find((e) => e !== null) ?? null;
 
   return {
     funcionarios: func.linhas,
@@ -458,6 +512,8 @@ export async function buscarDadosPonto(hoje = hojeLocal()): Promise<DadosPonto> 
     documentos: doc.linhas,
     licenca: lic.linhas[0] ?? null,
     remuneracoes: rem.linhas,
+    fontesAusentes,
+    fontesAusentesEssenciais,
     erro,
   };
 }
