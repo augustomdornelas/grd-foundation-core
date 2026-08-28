@@ -165,7 +165,7 @@ export function textoDoDocx(bytes: Uint8Array): string | null {
       .replace(/\r/g, "")
       // Espaço em excesso dentro da linha, sem colapsar as linhas.
       .split("\n")
-      .map((l) => l.replace(/[ \t ]+/g, " ").trim())
+      .map((l) => l.replace(/[ \t\u00A0]+/g, " ").trim())
       .join("\n")
       .replace(/\n{3,}/g, "\n\n")
   );
@@ -214,7 +214,7 @@ export async function textoDoXlsx(bytes: Uint8Array): Promise<string | null> {
  * "1" e passa como número válido.
  */
 export function desespacar(s: string): string {
-  return s.replace(/(?<=[\d.,])[  ]+(?=[\d.,])/g, "");
+  return s.replace(/(?<=[\d.,])[ \u00A0]+(?=[\d.,])/g, "");
 }
 
 /**
