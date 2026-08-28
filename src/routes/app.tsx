@@ -29,6 +29,7 @@ const titles: Record<string, string> = {
   "/app/rh/cargos": "Catálogo de Cargos",
   "/app/rh/configuracoes": "Configurações do RH",
   "/app/rh/integracoes/secullum": "Integração Secullum Ponto Web",
+  "/app/ponto": "Bater ponto",
   "/app/clientes": "Clientes",
   "/app/webmail": "Webmail",
   "/app/admin": "Administração",

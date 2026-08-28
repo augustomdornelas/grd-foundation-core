@@ -1,4 +1,4 @@
-import { Link, useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
+import { useRouterState, Outlet, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   BriefcaseBusiness,
@@ -16,7 +16,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
@@ -29,8 +28,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEffect, useState, type ReactNode } from "react";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { NavGroup } from "@/components/portal/NavGroup";
+import { rotaAtiva } from "@/components/portal/nav-rotas";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import {
   useCurrentUser,
   sessionActions,
@@ -39,68 +40,102 @@ import {
   type ModuloKey,
 } from "@/lib/current-user";
 import { supabase } from "@/integrations/supabase/client";
-
-type NavFilho = { to: string; label: string; perfis: readonly string[] };
-type NavItem = {
+type NavFilho = {
   to: string;
   label: string;
+  exact?: boolean;
+  /** Perfis (minúsculas) que enxergam. Ausente = todo mundo logado. */
+  perfis?: readonly string[];
+  /** Módulo exigido. Ausente = não exige módulo. */
+  perm?: ModuloKey;
+};
+type NavItem = {
+  /** Identidade estável do item — chave do estado aberto/fechado. */
+  key: string;
+  /** Rota própria. Opcional em grupo, obrigatória em item simples. */
+  to?: string;
+  label: string;
   icon: typeof LayoutDashboard;
-  exact: boolean;
+  exact?: boolean;
   perm?: ModuloKey;
   filhos?: NavFilho[];
 };
 
-// O RH entra como grupo, e não como nove entradas soltas: são nove
-// telas e a barra lateral já tem oito itens. Cada filho carrega os
-// perfis que o enxergam, direto da matriz do briefing — o almoxarifado,
-// por exemplo, abre o grupo e vê só colaboradores, documentos e cargos.
+// O RH entra como grupo, e não como dez entradas soltas: são dez telas
+// e a barra lateral já tem oito itens. Cada filho carrega os perfis que
+// o enxergam, direto da matriz do briefing — o almoxarifado, por
+// exemplo, abre o grupo e vê só colaboradores, cargos e o ponto.
+//
+// O grupo RH não tem rota própria de propósito: /app/rh é uma tela com
+// dono (PERFIS_RH.painel), e clicar no rótulo levaria o almoxarifado a
+// uma página trancada. Quem pode abrir o painel chega nele pelo filho.
 const items: NavItem[] = [
-  { to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
+  { key: "painel", to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
   {
+    key: "comercial",
     to: "/app/comercial",
     label: "Comercial",
     icon: BriefcaseBusiness,
-    exact: false,
     perm: "comercial",
   },
   {
+    key: "previsao",
     to: "/app/previsao",
     label: "Previsão de Entrada",
     icon: TrendingUp,
-    exact: false,
     perm: "comercial",
   },
-  { to: "/app/projetos", label: "Projetos", icon: FolderKanban, exact: false, perm: "projetos" },
-  { to: "/app/epis", label: "EPIs", icon: HardHat, exact: false, perm: "epis" },
+  { key: "projetos", to: "/app/projetos", label: "Projetos", icon: FolderKanban, perm: "projetos" },
+  { key: "epis", to: "/app/epis", label: "EPIs", icon: HardHat, perm: "epis" },
   {
-    to: "/app/rh",
+    key: "rh",
     label: "RH",
     icon: UserPlus,
-    exact: false,
-    perm: "rh",
     filhos: [
-      { to: "/app/rh", label: "Painel de RH", perfis: PERFIS_RH.painel },
-      { to: "/app/rh/vagas", label: "Vagas", perfis: PERFIS_RH.vagas },
-      { to: "/app/rh/selecao", label: "Seleção", perfis: PERFIS_RH.selecao },
-      { to: "/app/rh/candidatos", label: "Candidatos", perfis: PERFIS_RH.selecao },
-      { to: "/app/rh/admissoes", label: "Admissões", perfis: PERFIS_RH.admissoes },
-      { to: "/app/rh/colaboradores", label: "Colaboradores", perfis: PERFIS_RH.colaboradores },
-      { to: "/app/rh/documentos", label: "Documentos", perfis: PERFIS_RH.colaboradores },
-      { to: "/app/rh/cargos", label: "Cargos", perfis: PERFIS_RH.cargos },
-      { to: "/app/rh/configuracoes", label: "Configurações", perfis: PERFIS_RH.configuracoes },
+      { to: "/app/rh", label: "Painel de RH", exact: true, perm: "rh", perfis: PERFIS_RH.painel },
+      { to: "/app/rh/vagas", label: "Vagas", perm: "rh", perfis: PERFIS_RH.vagas },
+      { to: "/app/rh/selecao", label: "Seleção", perm: "rh", perfis: PERFIS_RH.selecao },
+      { to: "/app/rh/candidatos", label: "Candidatos", perm: "rh", perfis: PERFIS_RH.selecao },
+      { to: "/app/rh/admissoes", label: "Admissões", perm: "rh", perfis: PERFIS_RH.admissoes },
+      {
+        to: "/app/rh/colaboradores",
+        label: "Colaboradores",
+        perm: "rh",
+        perfis: PERFIS_RH.colaboradores,
+      },
+      {
+        to: "/app/rh/documentos",
+        label: "Documentos",
+        perm: "rh",
+        perfis: PERFIS_RH.colaboradores,
+      },
+      { to: "/app/rh/cargos", label: "Cargos", perm: "rh", perfis: PERFIS_RH.cargos },
+      {
+        to: "/app/rh/configuracoes",
+        label: "Configurações",
+        perm: "rh",
+        perfis: PERFIS_RH.configuracoes,
+      },
       {
         to: "/app/rh/integracoes/secullum",
         label: "Ponto (Secullum)",
+        perm: "rh",
         perfis: PERFIS_RH.integracoes,
       },
+      // Sem perm e sem perfis: é a tela onde o colaborador bate o
+      // ponto, e quem mais precisa dela é o pessoal de campo — que não
+      // tem o módulo de RH. Por isso o grupo RH aparece para todo
+      // mundo, ainda que para alguns só com esta linha dentro.
+      { to: "/app/ponto", label: "Bater ponto" },
     ],
   },
-  { to: "/app/clientes", label: "Clientes", icon: Users, exact: false },
-  { to: "/app/webmail", label: "Webmail", icon: Mail, exact: false, perm: "webmail" },
-  { to: "/app/admin", label: "Admin", icon: Users2, exact: false, perm: "admin" },
+  { key: "clientes", to: "/app/clientes", label: "Clientes", icon: Users },
+  { key: "webmail", to: "/app/webmail", label: "Webmail", icon: Mail, perm: "webmail" },
+  { key: "admin", to: "/app/admin", label: "Admin", icon: Users2, perm: "admin" },
 ];
 
 const STORAGE_KEY = "grd:sidebar:collapsed";
+const GRUPOS_KEY = "grd:sidebar:grupos";
 
 function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -108,114 +143,103 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
   const perfil = user.perfil.toLowerCase();
   const [gruposAbertos, setGruposAbertos] = useState<Record<string, boolean>>({});
 
-  const filhosVisiveis = (it: NavItem) =>
-    (it.filhos ?? []).filter((f) => f.perfis.includes(perfil));
+  // Cada pessoa lembra os seus grupos: a chave carrega o id do usuário
+  // para que duas contas no mesmo navegador não herdem o menu uma da
+  // outra.
+  const chaveGrupos = user.id ? `${GRUPOS_KEY}:${user.id}` : null;
+
+  const filhoVisivel = (f: NavFilho) =>
+    (!f.perm || user.permissoes.includes(f.perm)) && (!f.perfis || f.perfis.includes(perfil));
+  const filhosVisiveis = (it: NavItem) => (it.filhos ?? []).filter(filhoVisivel);
+
   const visiveis = items.filter((it) => {
+    // Grupo: quem manda é a lista de filhos. Sem nenhum liberado o
+    // grupo some — é a diferença entre "não tem o que ver aqui" e
+    // "tem, mas está vazio".
+    if (it.filhos) return filhosVisiveis(it).length > 0;
     if (it.perm && !user.permissoes.includes(it.perm)) return false;
-    // Grupo sem nenhum filho liberado não aparece: é a diferença entre
-    // "não tem o que ver aqui" e "tem, mas está vazio".
-    if (it.filhos && filhosVisiveis(it).length === 0) return false;
     return true;
   });
 
+  const contemAtiva = (it: NavItem) =>
+    (it.to !== undefined && rotaAtiva(pathname, it.to, it.exact)) ||
+    filhosVisiveis(it).some((f) => rotaAtiva(pathname, f.to, f.exact));
+
+  useEffect(() => {
+    if (!chaveGrupos) return;
+    try {
+      const bruto = localStorage.getItem(chaveGrupos);
+      setGruposAbertos(bruto ? (JSON.parse(bruto) as Record<string, boolean>) : {});
+    } catch {
+      setGruposAbertos({});
+    }
+  }, [chaveGrupos]);
+
+  const definirGrupo = (key: string, aberto: boolean) => {
+    setGruposAbertos((prev) => {
+      if (prev[key] === aberto) return prev;
+      const proximo = { ...prev, [key]: aberto };
+      if (chaveGrupos) {
+        try {
+          localStorage.setItem(chaveGrupos, JSON.stringify(proximo));
+        } catch {
+          /* noop */
+        }
+      }
+      return proximo;
+    });
+  };
+
+  // O grupo da rota atual abre sozinho. Só abre: nada aqui fecha o que
+  // a pessoa deixou aberto, e vários grupos convivem abertos.
+  //
+  // chaveGrupos entra nas dependências porque a sessão chega depois da
+  // primeira pintura: o efeito acima recarrega o que estava salvo e
+  // sobrescreveria este, deixando fechado o grupo da página aberta.
+  const grupoAtivo = visiveis.find((it) => it.filhos && contemAtiva(it))?.key;
+  useEffect(() => {
+    if (grupoAtivo) definirGrupo(grupoAtivo, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupoAtivo, chaveGrupos]);
+
+  // Setas cima/baixo andam entre os itens à vista. O que está dentro de
+  // grupo fechado não tem caixa de layout, e offsetParent nulo o tira
+  // da roda.
+  const aoTeclar = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const foco = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>("[data-nav-item]"),
+    ).filter((el) => el.offsetParent !== null);
+    if (foco.length === 0) return;
+    e.preventDefault();
+    const atual = foco.indexOf(document.activeElement as HTMLElement);
+    const passo = e.key === "ArrowDown" ? 1 : -1;
+    const proximo = atual === -1 ? 0 : (atual + passo + foco.length) % foco.length;
+    foco[proximo]?.focus();
+  };
+
   return (
     <TooltipProvider delayDuration={100}>
-      <nav className={`flex flex-col gap-1 ${collapsed ? "p-2" : "p-3"}`}>
-        {visiveis.map((it) => {
-          const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
-
-          if (it.filhos) {
-            const filhos = filhosVisiveis(it);
-            // Com a barra minimizada não cabe submenu: o ícone leva para
-            // a primeira tela que o usuário pode abrir.
-            if (collapsed) {
-              return (
-                <Tooltip key={it.to}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={filhos[0].to}
-                      onClick={onNavigate}
-                      className={`flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        active
-                          ? "bg-[#F37032] text-white shadow"
-                          : "text-white/80 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <it.icon className="h-4 w-4 shrink-0" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{it.label}</TooltipContent>
-                </Tooltip>
-              );
-            }
-            const aberto = gruposAbertos[it.to] ?? active;
-            return (
-              <div key={it.to}>
-                <button
-                  type="button"
-                  aria-expanded={aberto}
-                  onClick={() => setGruposAbertos((g) => ({ ...g, [it.to]: !aberto }))}
-                  className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    active
-                      ? "bg-[#F37032] text-white shadow"
-                      : "text-white/80 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <it.icon className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 truncate text-left">{it.label}</span>
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 shrink-0 transition-transform ${aberto ? "" : "-rotate-90"}`}
-                  />
-                </button>
-                {aberto && (
-                  <div className="mt-1 flex flex-col gap-0.5 border-l border-white/15 pl-3 ml-5">
-                    {filhos.map((f) => {
-                      const ativo = f.to === it.to ? pathname === f.to : pathname.startsWith(f.to);
-                      return (
-                        <Link
-                          key={f.to}
-                          to={f.to}
-                          onClick={onNavigate}
-                          className={`rounded-md px-3 py-1.5 text-[13px] transition-colors ${
-                            ativo
-                              ? "bg-white/15 font-semibold text-white"
-                              : "text-white/70 hover:bg-white/10 hover:text-white"
-                          }`}
-                        >
-                          {f.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          }
-
-          const link = (
-            <Link
-              key={it.to}
-              to={it.to}
-              onClick={onNavigate}
-              className={`flex items-center ${collapsed ? "justify-center px-2" : "gap-3 px-3"} py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                active
-                  ? "bg-[#F37032] text-white shadow"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <it.icon className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="truncate">{it.label}</span>}
-            </Link>
-          );
-          return collapsed ? (
-            <Tooltip key={it.to}>
-              <TooltipTrigger asChild>{link}</TooltipTrigger>
-              <TooltipContent side="right">{it.label}</TooltipContent>
-            </Tooltip>
-          ) : (
-            link
-          );
-        })}
+      <nav
+        onKeyDown={aoTeclar}
+        className={`flex min-w-0 flex-col gap-1 ${collapsed ? "p-2" : "p-3"}`}
+      >
+        {visiveis.map((it) => (
+          <NavGroup
+            key={it.key}
+            label={it.label}
+            icon={it.icon}
+            to={it.to}
+            exact={it.exact}
+            subitens={it.filhos ? filhosVisiveis(it) : undefined}
+            pathname={pathname}
+            collapsed={collapsed}
+            aberto={gruposAbertos[it.key] ?? contemAtiva(it)}
+            onToggle={() => definirGrupo(it.key, !(gruposAbertos[it.key] ?? contemAtiva(it)))}
+            onAbrir={() => definirGrupo(it.key, true)}
+            onNavigate={onNavigate}
+          />
+        ))}
       </nav>
     </TooltipProvider>
   );
