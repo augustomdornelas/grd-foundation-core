@@ -27,7 +27,7 @@ import { projetoDoOrcamento, aplicarPlanejamentoNoProjeto } from "@/lib/projeto-
 import { toast } from "sonner";
 import {
   Plus, Search, Download, Eye, Pencil, Copy, Trash2, ArrowUpDown, ArrowUp, ArrowDown,
-  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, HandshakeIcon,
+  DollarSign, FileText, TrendingUp, CheckCircle2, Clock, HandshakeIcon, FolderOpen,
 } from "lucide-react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
@@ -35,7 +35,7 @@ import {
 } from "recharts";
 import {
   useOrcamentos, orcamentosActions, TIPOS_SERVICO, STATUS_LIST, RESPONSAVEIS,
-  STATUS_COLORS, type Orcamento, type OrcStatus, type TipoServico,
+  STATUS_COLORS, aConferir, type Orcamento, type OrcStatus, type TipoServico,
   type Periodo, type PeriodoTipo, rangeDoPeriodo, rangeAnterior, dentro,
 } from "@/lib/orcamentos-store";
 import { supabase } from "@/integrations/supabase/client";
@@ -641,8 +641,13 @@ function Comercial() {
                 <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">Nenhum orçamento encontrado.</TableCell></TableRow>
               ) : rows.map(o => (
                 <TableRow key={o.id}>
-                  <TableCell className="font-semibold">{o.numero}</TableCell>
-                  <TableCell>{o.cliente}</TableCell>
+                  <TableCell className="font-semibold">
+                    <div className="flex flex-col gap-1">
+                      <span>{o.numero}</span>
+                      <SeloImportado orcamento={o} />
+                    </div>
+                  </TableCell>
+                  <TableCell><ClienteDaLinha orcamento={o} /></TableCell>
                   <TableCell className="text-xs">{o.obra}</TableCell>
                   <TableCell className="font-semibold">{brl(o.valor)}</TableCell>
                   <TableCell>{o.responsavel}</TableCell>
@@ -699,6 +704,66 @@ function Comercial() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ------------------------------------------------------------
+// O que veio do OneDrive
+// ------------------------------------------------------------
+// Estes dois componentes são a cara, na listagem, da regra "o orçamento
+// nasce marcado e alguém confere". O rascunho importado tem número e
+// obra e mais nada — nem valor, nem CNPJ, nem tipo de serviço, porque
+// nada disso está no nome da pasta. O selo diz isso em voz alta, e o
+// link leva direto à pasta, que é onde a resposta está.
+//
+// O selo some quando `conferido_em` for preenchido. Preencher é da
+// etapa seguinte, junto com a leitura dos arquivos — hoje nada no
+// Portal escreve nessa coluna, e é por isso que o selo fica.
+
+// O selo e o link são INDEPENDENTES, e isso importa desde que os
+// orçamentos lançados à mão passaram a ser vinculados às pastas: eles
+// têm link e NÃO têm selo. Amarrar o link ao selo esconderia a pasta
+// justamente nas 86 linhas que mais se consulta.
+function SeloImportado({ orcamento }: { orcamento: Orcamento }) {
+  const selo = aConferir(orcamento);
+  if (!selo && !orcamento.driveUrl) return null;
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {selo && (
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+          a conferir
+        </span>
+      )}
+      {orcamento.driveUrl && (
+        <a
+          href={orcamento.driveUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          title="Abrir a pasta no OneDrive"
+          className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#213368] hover:text-[#F37032]"
+        >
+          <FolderOpen className="h-3 w-3" /> pasta
+        </a>
+      )}
+    </span>
+  );
+}
+
+/**
+ * O campo `cliente` de um importado está VAZIO de propósito: o nome da
+ * pasta não diz quem é o contratante de um jeito confiável. O que
+ * aparece aqui é o palpite, marcado como palpite, ou o pedido para
+ * alguém decidir — nunca um nome que passe por dado conferido.
+ */
+function ClienteDaLinha({ orcamento }: { orcamento: Orcamento }) {
+  if (orcamento.cliente) return <>{orcamento.cliente}</>;
+  if (!aConferir(orcamento)) return <>{orcamento.cliente}</>;
+  return orcamento.clienteSugerido ? (
+    <span className="text-xs italic text-muted-foreground" title="Sugerido pelo nome da pasta; ainda não confirmado">
+      {orcamento.clienteSugerido}?
+    </span>
+  ) : (
+    <span className="text-xs italic text-muted-foreground">cliente a definir</span>
   );
 }
 
