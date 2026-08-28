@@ -18,6 +18,9 @@ const titles: Record<string, string> = {
   "/app/comercial": "Dashboard Comercial",
   "/app/previsao": "Previsão de Entrada",
   "/app/projetos": "Controle de Projetos",
+  "/app/financeiro": "Financeiro",
+  "/app/financeiro/receber": "Contas a Receber",
+  "/app/financeiro/pagar": "Contas a Pagar",
   "/app/epis": "EPIs — Segurança do Trabalho",
   "/app/epis/entregas": "EPIs — Entregas",
   "/app/epis/compras": "EPIs — Compras",
@@ -38,6 +41,8 @@ const titles: Record<string, string> = {
   "/app/ponto/bater": "Bater ponto",
   "/app/clientes": "Clientes",
   "/app/webmail": "Webmail",
+  "/app/integracoes": "Integrações",
+  "/app/integracoes/contaazul": "Integração Conta Azul",
   "/app/admin": "Administração",
 };
 

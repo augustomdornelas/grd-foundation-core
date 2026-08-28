@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   BriefcaseBusiness,
   TrendingUp,
+  Wallet,
   FolderKanban,
   HardHat,
   Users,
@@ -10,6 +11,7 @@ import {
   Users2,
   UserPlus,
   Clock,
+  Plug,
   Search,
   LogOut,
   User as UserIcon,
@@ -94,6 +96,25 @@ const items: NavItem[] = [
     icon: TrendingUp,
     perm: "comercial",
   },
+  // Grupo com rota própria: /app/financeiro é a visão geral, e quem
+  // tem o módulo pode abri-la — diferente do RH, onde o rótulo não
+  // leva a lugar nenhum porque o índice tem dono.
+  //
+  // O `perm` do grupo repete o dos filhos de propósito. Quem decide se
+  // o grupo aparece é a lista de filhos visíveis; o perm daqui só
+  // passa a valer se um dia o grupo perder os filhos.
+  {
+    key: "financeiro",
+    to: "/app/financeiro",
+    label: "Financeiro",
+    icon: Wallet,
+    perm: "financeiro",
+    filhos: [
+      { to: "/app/financeiro", label: "Visão geral", exact: true, perm: "financeiro" },
+      { to: "/app/financeiro/receber", label: "Contas a receber", perm: "financeiro" },
+      { to: "/app/financeiro/pagar", label: "Contas a pagar", perm: "financeiro" },
+    ],
+  },
   { key: "projetos", to: "/app/projetos", label: "Projetos", icon: FolderKanban, perm: "projetos" },
   {
     key: "epis",
@@ -163,6 +184,25 @@ const items: NavItem[] = [
   },
   { key: "clientes", to: "/app/clientes", label: "Clientes", icon: Users },
   { key: "webmail", to: "/app/webmail", label: "Webmail", icon: Mail, perm: "webmail" },
+  // Integrações fica colada no Admin porque é vizinha dele: as duas
+  // são de quem administra o Portal, não de quem o usa.
+  //
+  // "Ponto (Secullum)" aponta para uma tela que também é filha do
+  // grupo Ponto. É repetição de propósito — quem procura uma
+  // integração procura em Integrações, e quem vive no Ponto a acha
+  // onde sempre esteve. O preço é os dois grupos acenderem juntos
+  // nessa rota, que é o que NavGroup já faz com filho fora do prefixo.
+  {
+    key: "integracoes",
+    to: "/app/integracoes",
+    label: "Integrações",
+    icon: Plug,
+    perm: "admin",
+    filhos: [
+      { to: "/app/integracoes/contaazul", label: "Conta Azul", perm: "admin" },
+      { to: "/app/ponto/integracao", label: "Ponto (Secullum)", perm: "admin" },
+    ],
+  },
   { key: "admin", to: "/app/admin", label: "Admin", icon: Users2, perm: "admin" },
 ];
 
