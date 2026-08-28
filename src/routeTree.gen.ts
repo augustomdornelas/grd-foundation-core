@@ -30,6 +30,11 @@ import { Route as AppEpisCatalogoRouteImport } from './routes/app.epis.catalogo'
 import { Route as AppEpisComprasRouteImport } from './routes/app.epis.compras'
 import { Route as AppEpisEntregasRouteImport } from './routes/app.epis.entregas'
 import { Route as AppEpisFuncionariosRouteImport } from './routes/app.epis.funcionarios'
+import { Route as AppFinanceiroIndexRouteImport } from './routes/app.financeiro.index'
+import { Route as AppFinanceiroPagarRouteImport } from './routes/app.financeiro.pagar'
+import { Route as AppFinanceiroReceberRouteImport } from './routes/app.financeiro.receber'
+import { Route as AppIntegracoesIndexRouteImport } from './routes/app.integracoes.index'
+import { Route as AppIntegracoesContaazulRouteImport } from './routes/app.integracoes.contaazul'
 import { Route as AppPontoIndexRouteImport } from './routes/app.ponto.index'
 import { Route as AppPontoBaterRouteImport } from './routes/app.ponto.bater'
 import { Route as AppPontoDashboardRouteImport } from './routes/app.ponto.dashboard'
@@ -152,6 +157,31 @@ const AppEpisFuncionariosRoute = AppEpisFuncionariosRouteImport.update({
   path: '/funcionarios',
   getParentRoute: () => AppEpisRoute,
 } as any)
+const AppFinanceiroIndexRoute = AppFinanceiroIndexRouteImport.update({
+  id: '/financeiro/',
+  path: '/financeiro/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFinanceiroPagarRoute = AppFinanceiroPagarRouteImport.update({
+  id: '/financeiro/pagar',
+  path: '/financeiro/pagar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFinanceiroReceberRoute = AppFinanceiroReceberRouteImport.update({
+  id: '/financeiro/receber',
+  path: '/financeiro/receber',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntegracoesIndexRoute = AppIntegracoesIndexRouteImport.update({
+  id: '/integracoes/',
+  path: '/integracoes/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntegracoesContaazulRoute = AppIntegracoesContaazulRouteImport.update({
+  id: '/integracoes/contaazul',
+  path: '/integracoes/contaazul',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPontoIndexRoute = AppPontoIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -254,6 +284,9 @@ export interface FileRoutesByFullPath {
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
   '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/financeiro/pagar': typeof AppFinanceiroPagarRoute
+  '/app/financeiro/receber': typeof AppFinanceiroReceberRoute
+  '/app/integracoes/contaazul': typeof AppIntegracoesContaazulRoute
   '/app/ponto/bater': typeof AppPontoBaterRoute
   '/app/ponto/dashboard': typeof AppPontoDashboardRoute
   '/app/ponto/integracao': typeof AppPontoIntegracaoRoute
@@ -268,6 +301,8 @@ export interface FileRoutesByFullPath {
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
   '/app/epis/': typeof AppEpisIndexRoute
+  '/app/financeiro/': typeof AppFinanceiroIndexRoute
+  '/app/integracoes/': typeof AppIntegracoesIndexRoute
   '/app/ponto/': typeof AppPontoIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
   '/app/rh/': typeof AppRhIndexRoute
@@ -290,6 +325,9 @@ export interface FileRoutesByTo {
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
   '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/financeiro/pagar': typeof AppFinanceiroPagarRoute
+  '/app/financeiro/receber': typeof AppFinanceiroReceberRoute
+  '/app/integracoes/contaazul': typeof AppIntegracoesContaazulRoute
   '/app/ponto/bater': typeof AppPontoBaterRoute
   '/app/ponto/dashboard': typeof AppPontoDashboardRoute
   '/app/ponto/integracao': typeof AppPontoIntegracaoRoute
@@ -304,6 +342,8 @@ export interface FileRoutesByTo {
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes': typeof AppClientesIndexRoute
   '/app/epis': typeof AppEpisIndexRoute
+  '/app/financeiro': typeof AppFinanceiroIndexRoute
+  '/app/integracoes': typeof AppIntegracoesIndexRoute
   '/app/ponto': typeof AppPontoIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
   '/app/rh': typeof AppRhIndexRoute
@@ -330,6 +370,9 @@ export interface FileRoutesById {
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
   '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/financeiro/pagar': typeof AppFinanceiroPagarRoute
+  '/app/financeiro/receber': typeof AppFinanceiroReceberRoute
+  '/app/integracoes/contaazul': typeof AppIntegracoesContaazulRoute
   '/app/ponto/bater': typeof AppPontoBaterRoute
   '/app/ponto/dashboard': typeof AppPontoDashboardRoute
   '/app/ponto/integracao': typeof AppPontoIntegracaoRoute
@@ -344,6 +387,8 @@ export interface FileRoutesById {
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
   '/app/epis/': typeof AppEpisIndexRoute
+  '/app/financeiro/': typeof AppFinanceiroIndexRoute
+  '/app/integracoes/': typeof AppIntegracoesIndexRoute
   '/app/ponto/': typeof AppPontoIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
   '/app/rh/': typeof AppRhIndexRoute
@@ -371,6 +416,9 @@ export interface FileRouteTypes {
     | '/app/epis/compras'
     | '/app/epis/entregas'
     | '/app/epis/funcionarios'
+    | '/app/financeiro/pagar'
+    | '/app/financeiro/receber'
+    | '/app/integracoes/contaazul'
     | '/app/ponto/bater'
     | '/app/ponto/dashboard'
     | '/app/ponto/integracao'
@@ -385,6 +433,8 @@ export interface FileRouteTypes {
     | '/app/rh/vagas'
     | '/app/clientes/'
     | '/app/epis/'
+    | '/app/financeiro/'
+    | '/app/integracoes/'
     | '/app/ponto/'
     | '/app/projetos/'
     | '/app/rh/'
@@ -407,6 +457,9 @@ export interface FileRouteTypes {
     | '/app/epis/compras'
     | '/app/epis/entregas'
     | '/app/epis/funcionarios'
+    | '/app/financeiro/pagar'
+    | '/app/financeiro/receber'
+    | '/app/integracoes/contaazul'
     | '/app/ponto/bater'
     | '/app/ponto/dashboard'
     | '/app/ponto/integracao'
@@ -421,6 +474,8 @@ export interface FileRouteTypes {
     | '/app/rh/vagas'
     | '/app/clientes'
     | '/app/epis'
+    | '/app/financeiro'
+    | '/app/integracoes'
     | '/app/ponto'
     | '/app/projetos'
     | '/app/rh'
@@ -446,6 +501,9 @@ export interface FileRouteTypes {
     | '/app/epis/compras'
     | '/app/epis/entregas'
     | '/app/epis/funcionarios'
+    | '/app/financeiro/pagar'
+    | '/app/financeiro/receber'
+    | '/app/integracoes/contaazul'
     | '/app/ponto/bater'
     | '/app/ponto/dashboard'
     | '/app/ponto/integracao'
@@ -460,6 +518,8 @@ export interface FileRouteTypes {
     | '/app/rh/vagas'
     | '/app/clientes/'
     | '/app/epis/'
+    | '/app/financeiro/'
+    | '/app/integracoes/'
     | '/app/ponto/'
     | '/app/projetos/'
     | '/app/rh/'
@@ -625,6 +685,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEpisFuncionariosRouteImport
       parentRoute: typeof AppEpisRoute
     }
+    '/app/financeiro/': {
+      id: '/app/financeiro/'
+      path: '/financeiro'
+      fullPath: '/app/financeiro/'
+      preLoaderRoute: typeof AppFinanceiroIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/financeiro/pagar': {
+      id: '/app/financeiro/pagar'
+      path: '/financeiro/pagar'
+      fullPath: '/app/financeiro/pagar'
+      preLoaderRoute: typeof AppFinanceiroPagarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/financeiro/receber': {
+      id: '/app/financeiro/receber'
+      path: '/financeiro/receber'
+      fullPath: '/app/financeiro/receber'
+      preLoaderRoute: typeof AppFinanceiroReceberRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/integracoes/': {
+      id: '/app/integracoes/'
+      path: '/integracoes'
+      fullPath: '/app/integracoes/'
+      preLoaderRoute: typeof AppIntegracoesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/integracoes/contaazul': {
+      id: '/app/integracoes/contaazul'
+      path: '/integracoes/contaazul'
+      fullPath: '/app/integracoes/contaazul'
+      preLoaderRoute: typeof AppIntegracoesContaazulRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/ponto/': {
       id: '/app/ponto/'
       path: '/'
@@ -786,6 +881,9 @@ interface AppRouteChildren {
   AppWebmailRoute: typeof AppWebmailRoute
   AppIndexRoute: typeof AppIndexRoute
   AppClientesIdRoute: typeof AppClientesIdRoute
+  AppFinanceiroPagarRoute: typeof AppFinanceiroPagarRoute
+  AppFinanceiroReceberRoute: typeof AppFinanceiroReceberRoute
+  AppIntegracoesContaazulRoute: typeof AppIntegracoesContaazulRoute
   AppProjetosIdRoute: typeof AppProjetosIdRoute
   AppRhAdmissoesRoute: typeof AppRhAdmissoesRoute
   AppRhCandidatosRoute: typeof AppRhCandidatosRoute
@@ -796,6 +894,8 @@ interface AppRouteChildren {
   AppRhSelecaoRoute: typeof AppRhSelecaoRoute
   AppRhVagasRoute: typeof AppRhVagasRoute
   AppClientesIndexRoute: typeof AppClientesIndexRoute
+  AppFinanceiroIndexRoute: typeof AppFinanceiroIndexRoute
+  AppIntegracoesIndexRoute: typeof AppIntegracoesIndexRoute
   AppProjetosIndexRoute: typeof AppProjetosIndexRoute
   AppRhIndexRoute: typeof AppRhIndexRoute
   AppRhIntegracoesSecullumRoute: typeof AppRhIntegracoesSecullumRoute
@@ -810,6 +910,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppWebmailRoute: AppWebmailRoute,
   AppIndexRoute: AppIndexRoute,
   AppClientesIdRoute: AppClientesIdRoute,
+  AppFinanceiroPagarRoute: AppFinanceiroPagarRoute,
+  AppFinanceiroReceberRoute: AppFinanceiroReceberRoute,
+  AppIntegracoesContaazulRoute: AppIntegracoesContaazulRoute,
   AppProjetosIdRoute: AppProjetosIdRoute,
   AppRhAdmissoesRoute: AppRhAdmissoesRoute,
   AppRhCandidatosRoute: AppRhCandidatosRoute,
@@ -820,6 +923,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppRhSelecaoRoute: AppRhSelecaoRoute,
   AppRhVagasRoute: AppRhVagasRoute,
   AppClientesIndexRoute: AppClientesIndexRoute,
+  AppFinanceiroIndexRoute: AppFinanceiroIndexRoute,
+  AppIntegracoesIndexRoute: AppIntegracoesIndexRoute,
   AppProjetosIndexRoute: AppProjetosIndexRoute,
   AppRhIndexRoute: AppRhIndexRoute,
   AppRhIntegracoesSecullumRoute: AppRhIntegracoesSecullumRoute,
