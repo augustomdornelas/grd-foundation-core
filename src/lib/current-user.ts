@@ -119,6 +119,26 @@ export const PERFIS_RH = {
   integracoes: ["administrador", "admin", "diretoria", "rh"],
   configuracoes: ["administrador", "admin", "diretoria", "rh"],
 } as const;
+/** Perfis, em minusculas, que enxergam cada tela do modulo de Ponto.
+ *
+ *  O Ponto saiu de dentro do RH porque as tres telas tem publicos
+ *  diferentes demais para viverem sob a mesma permissao: bater ponto e
+ *  de quem esta logado, a integracao e de quem mexe em credencial, e o
+ *  dashboard fica no meio.
+ *
+ *  `bater` e uma lista vazia de proposito: perfil nenhum tranca a tela
+ *  de bater ponto. Quem nao tem conta no Portal usa /ponto, publica.
+ *
+ *  `engenharia` e `projetos` andam juntos aqui pelo mesmo motivo
+ *  descrito em permissoesDoPerfil: "projetos" segue valendo como
+ *  Engenharia ate as contas serem reclassificadas no Admin.
+ */
+export const PERFIS_PONTO = {
+  dashboard: ["administrador", "admin", "diretoria", "rh", "engenharia", "projetos"],
+  /** A mesma lista de PERFIS_RH.integracoes: a tela e a mesma, so mudou de endereco. */
+  integracao: ["administrador", "admin", "diretoria", "rh"],
+  bater: [] as readonly string[],
+} as const;
 const GUEST_USER: CurrentUser = {
   id: "",
   nome: "",

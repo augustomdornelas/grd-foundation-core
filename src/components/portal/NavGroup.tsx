@@ -77,8 +77,8 @@ export function NavGroup({
   const filhos = subitens ?? [];
 
   // O grupo acende quando qualquer filho está ativo — e não por prefixo
-  // de rota, porque um filho pode morar fora do prefixo do grupo
-  // (Bater ponto é /app/ponto dentro do grupo RH).
+  // de rota, porque um filho pode morar fora do prefixo do grupo: nada
+  // obriga um NavItem a ter as filhas todas sob o mesmo caminho.
   const ativo =
     (to !== undefined && rotaAtiva(pathname, to, exact)) ||
     filhos.some((f) => rotaAtiva(pathname, f.to, f.exact));
@@ -93,6 +93,7 @@ export function NavGroup({
       <ComTooltip label={label}>
         <Link
           to={destino}
+          activeOptions={{ exact: to !== undefined ? !!exact : false }}
           onClick={onNavigate}
           data-nav-item
           className={`${LINHA} justify-center px-2 ${cores(ativo)}`}
@@ -109,6 +110,7 @@ export function NavGroup({
     return (
       <Link
         to={to}
+        activeOptions={{ exact: !!exact }}
         onClick={onNavigate}
         data-nav-item
         className={`${LINHA} gap-3 px-3 ${cores(ativo)}`}
@@ -144,6 +146,7 @@ export function NavGroup({
         <div className={`flex items-stretch gap-1 rounded-lg ${cores(ativo)}`}>
           <Link
             to={to}
+            activeOptions={{ exact: !!exact }}
             onClick={() => {
               onAbrir();
               onNavigate?.();
@@ -197,6 +200,7 @@ export function NavGroup({
             <li key={f.to} className="min-w-0">
               <Link
                 to={f.to}
+                activeOptions={{ exact: !!f.exact }}
                 onClick={onNavigate}
                 data-nav-item
                 aria-current={filhoAtivo ? "page" : undefined}

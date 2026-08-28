@@ -9,6 +9,7 @@ import {
   Mail,
   Users2,
   UserPlus,
+  Clock,
   Search,
   LogOut,
   User as UserIcon,
@@ -37,6 +38,7 @@ import {
   sessionActions,
   iniciaisDe,
   PERFIS_RH,
+  PERFIS_PONTO,
   type ModuloKey,
 } from "@/lib/current-user";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,14 +63,21 @@ type NavItem = {
   filhos?: NavFilho[];
 };
 
-// O RH entra como grupo, e não como dez entradas soltas: são dez telas
-// e a barra lateral já tem oito itens. Cada filho carrega os perfis que
-// o enxergam, direto da matriz do briefing — o almoxarifado, por
-// exemplo, abre o grupo e vê só colaboradores, cargos e o ponto.
+// O RH entra como grupo, e não como nove entradas soltas: são nove
+// telas e a barra lateral já tem oito itens. Cada filho carrega os
+// perfis que o enxergam, direto da matriz do briefing — o
+// almoxarifado, por exemplo, abre o grupo e vê só colaboradores e
+// cargos.
 //
 // O grupo RH não tem rota própria de propósito: /app/rh é uma tela com
 // dono (PERFIS_RH.painel), e clicar no rótulo levaria o almoxarifado a
 // uma página trancada. Quem pode abrir o painel chega nele pelo filho.
+//
+// O Ponto é grupo à parte, e não mais dois filhos do RH, porque as
+// suas telas têm públicos que não cabem sob a permissão do RH: bater
+// ponto é de quem está logado, inclusive de quem não tem o módulo. Sob
+// o RH, o grupo inteiro tinha que aparecer para todo mundo só para
+// carregar essa linha.
 const items: NavItem[] = [
   { key: "painel", to: "/app", label: "Painel", icon: LayoutDashboard, exact: true },
   {
@@ -86,7 +95,19 @@ const items: NavItem[] = [
     perm: "comercial",
   },
   { key: "projetos", to: "/app/projetos", label: "Projetos", icon: FolderKanban, perm: "projetos" },
-  { key: "epis", to: "/app/epis", label: "EPIs", icon: HardHat, perm: "epis" },
+  {
+    key: "epis",
+    label: "EPIs",
+    icon: HardHat,
+    // Os rótulos são os mesmos da barra de abas, de ABAS_EPIS — quem
+    // mudar um rótulo lá tem que mudar aqui, e vice-versa.
+    filhos: [
+      { to: "/app/epis/entregas", label: "Entregas", perm: "epis" },
+      { to: "/app/epis/compras", label: "Compras", perm: "epis" },
+      { to: "/app/epis/catalogo", label: "Catálogo de EPIs", perm: "epis" },
+      { to: "/app/epis/funcionarios", label: "Funcionários", perm: "epis" },
+    ],
+  },
   {
     key: "rh",
     label: "RH",
@@ -116,17 +137,28 @@ const items: NavItem[] = [
         perm: "rh",
         perfis: PERFIS_RH.configuracoes,
       },
+    ],
+  },
+  {
+    key: "ponto",
+    label: "Ponto",
+    icon: Clock,
+    filhos: [
       {
-        to: "/app/rh/integracoes/secullum",
-        label: "Ponto (Secullum)",
-        perm: "rh",
-        perfis: PERFIS_RH.integracoes,
+        to: "/app/ponto/dashboard",
+        label: "Dashboard",
+        perfis: PERFIS_PONTO.dashboard,
+      },
+      {
+        to: "/app/ponto/integracao",
+        label: "Integração",
+        perfis: PERFIS_PONTO.integracao,
       },
       // Sem perm e sem perfis: é a tela onde o colaborador bate o
       // ponto, e quem mais precisa dela é o pessoal de campo — que não
-      // tem o módulo de RH. Por isso o grupo RH aparece para todo
-      // mundo, ainda que para alguns só com esta linha dentro.
-      { to: "/app/ponto", label: "Bater ponto" },
+      // tem módulo nenhum. É ela que faz o grupo Ponto aparecer para
+      // todo mundo, ainda que para alguns só com esta linha dentro.
+      { to: "/app/ponto/bater", label: "Bater ponto" },
     ],
   },
   { key: "clientes", to: "/app/clientes", label: "Clientes", icon: Users },
@@ -329,7 +361,13 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
                 <X />
               </button>
             </div>
-            <SidebarNav collapsed={false} onNavigate={() => setMobileOpen(false)} />
+            {/* A gaveta rola, como a barra de desktop já rolava. Sem
+                isto, com EPIs, RH e Ponto abertos o menu passa de mil
+                pixels num celular de 844 e o fim da lista fica
+                inalcançável. */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+              <SidebarNav collapsed={false} onNavigate={() => setMobileOpen(false)} />
+            </div>
           </aside>
         </div>
       )}

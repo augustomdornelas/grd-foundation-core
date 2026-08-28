@@ -25,6 +25,15 @@ import { Route as AppWebmailRouteImport } from './routes/app.webmail'
 import { Route as VagasSlugRouteImport } from './routes/vagas.$slug'
 import { Route as AppClientesIndexRouteImport } from './routes/app.clientes.index'
 import { Route as AppClientesIdRouteImport } from './routes/app.clientes.$id'
+import { Route as AppEpisIndexRouteImport } from './routes/app.epis.index'
+import { Route as AppEpisCatalogoRouteImport } from './routes/app.epis.catalogo'
+import { Route as AppEpisComprasRouteImport } from './routes/app.epis.compras'
+import { Route as AppEpisEntregasRouteImport } from './routes/app.epis.entregas'
+import { Route as AppEpisFuncionariosRouteImport } from './routes/app.epis.funcionarios'
+import { Route as AppPontoIndexRouteImport } from './routes/app.ponto.index'
+import { Route as AppPontoBaterRouteImport } from './routes/app.ponto.bater'
+import { Route as AppPontoDashboardRouteImport } from './routes/app.ponto.dashboard'
+import { Route as AppPontoIntegracaoRouteImport } from './routes/app.ponto.integracao'
 import { Route as AppProjetosIndexRouteImport } from './routes/app.projetos.index'
 import { Route as AppProjetosIdRouteImport } from './routes/app.projetos.$id'
 import { Route as AppRhIndexRouteImport } from './routes/app.rh.index'
@@ -118,6 +127,51 @@ const AppClientesIdRoute = AppClientesIdRouteImport.update({
   path: '/clientes/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppEpisIndexRoute = AppEpisIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppEpisRoute,
+} as any)
+const AppEpisCatalogoRoute = AppEpisCatalogoRouteImport.update({
+  id: '/catalogo',
+  path: '/catalogo',
+  getParentRoute: () => AppEpisRoute,
+} as any)
+const AppEpisComprasRoute = AppEpisComprasRouteImport.update({
+  id: '/compras',
+  path: '/compras',
+  getParentRoute: () => AppEpisRoute,
+} as any)
+const AppEpisEntregasRoute = AppEpisEntregasRouteImport.update({
+  id: '/entregas',
+  path: '/entregas',
+  getParentRoute: () => AppEpisRoute,
+} as any)
+const AppEpisFuncionariosRoute = AppEpisFuncionariosRouteImport.update({
+  id: '/funcionarios',
+  path: '/funcionarios',
+  getParentRoute: () => AppEpisRoute,
+} as any)
+const AppPontoIndexRoute = AppPontoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppPontoRoute,
+} as any)
+const AppPontoBaterRoute = AppPontoBaterRouteImport.update({
+  id: '/bater',
+  path: '/bater',
+  getParentRoute: () => AppPontoRoute,
+} as any)
+const AppPontoDashboardRoute = AppPontoDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppPontoRoute,
+} as any)
+const AppPontoIntegracaoRoute = AppPontoIntegracaoRouteImport.update({
+  id: '/integracao',
+  path: '/integracao',
+  getParentRoute: () => AppPontoRoute,
+} as any)
 const AppProjetosIndexRoute = AppProjetosIndexRouteImport.update({
   id: '/projetos/',
   path: '/projetos/',
@@ -189,13 +243,20 @@ export interface FileRoutesByFullPath {
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
-  '/app/epis': typeof AppEpisRoute
-  '/app/ponto': typeof AppPontoRoute
+  '/app/epis': typeof AppEpisRouteWithChildren
+  '/app/ponto': typeof AppPontoRouteWithChildren
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
   '/vagas/$slug': typeof VagasSlugRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
+  '/app/epis/catalogo': typeof AppEpisCatalogoRoute
+  '/app/epis/compras': typeof AppEpisComprasRoute
+  '/app/epis/entregas': typeof AppEpisEntregasRoute
+  '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/ponto/bater': typeof AppPontoBaterRoute
+  '/app/ponto/dashboard': typeof AppPontoDashboardRoute
+  '/app/ponto/integracao': typeof AppPontoIntegracaoRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
   '/app/rh/admissoes': typeof AppRhAdmissoesRoute
   '/app/rh/candidatos': typeof AppRhCandidatosRoute
@@ -206,6 +267,8 @@ export interface FileRoutesByFullPath {
   '/app/rh/selecao': typeof AppRhSelecaoRoute
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
+  '/app/epis/': typeof AppEpisIndexRoute
+  '/app/ponto/': typeof AppPontoIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
   '/app/rh/': typeof AppRhIndexRoute
   '/app/rh/integracoes/secullum': typeof AppRhIntegracoesSecullumRoute
@@ -218,13 +281,18 @@ export interface FileRoutesByTo {
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
-  '/app/epis': typeof AppEpisRoute
-  '/app/ponto': typeof AppPontoRoute
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
   '/vagas/$slug': typeof VagasSlugRoute
   '/app': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
+  '/app/epis/catalogo': typeof AppEpisCatalogoRoute
+  '/app/epis/compras': typeof AppEpisComprasRoute
+  '/app/epis/entregas': typeof AppEpisEntregasRoute
+  '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/ponto/bater': typeof AppPontoBaterRoute
+  '/app/ponto/dashboard': typeof AppPontoDashboardRoute
+  '/app/ponto/integracao': typeof AppPontoIntegracaoRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
   '/app/rh/admissoes': typeof AppRhAdmissoesRoute
   '/app/rh/candidatos': typeof AppRhCandidatosRoute
@@ -235,6 +303,8 @@ export interface FileRoutesByTo {
   '/app/rh/selecao': typeof AppRhSelecaoRoute
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes': typeof AppClientesIndexRoute
+  '/app/epis': typeof AppEpisIndexRoute
+  '/app/ponto': typeof AppPontoIndexRoute
   '/app/projetos': typeof AppProjetosIndexRoute
   '/app/rh': typeof AppRhIndexRoute
   '/app/rh/integracoes/secullum': typeof AppRhIntegracoesSecullumRoute
@@ -249,13 +319,20 @@ export interface FileRoutesById {
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
   '/app/comercial': typeof AppComercialRoute
-  '/app/epis': typeof AppEpisRoute
-  '/app/ponto': typeof AppPontoRoute
+  '/app/epis': typeof AppEpisRouteWithChildren
+  '/app/ponto': typeof AppPontoRouteWithChildren
   '/app/previsao': typeof AppPrevisaoRoute
   '/app/webmail': typeof AppWebmailRoute
   '/vagas/$slug': typeof VagasSlugRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
+  '/app/epis/catalogo': typeof AppEpisCatalogoRoute
+  '/app/epis/compras': typeof AppEpisComprasRoute
+  '/app/epis/entregas': typeof AppEpisEntregasRoute
+  '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/ponto/bater': typeof AppPontoBaterRoute
+  '/app/ponto/dashboard': typeof AppPontoDashboardRoute
+  '/app/ponto/integracao': typeof AppPontoIntegracaoRoute
   '/app/projetos/$id': typeof AppProjetosIdRoute
   '/app/rh/admissoes': typeof AppRhAdmissoesRoute
   '/app/rh/candidatos': typeof AppRhCandidatosRoute
@@ -266,6 +343,8 @@ export interface FileRoutesById {
   '/app/rh/selecao': typeof AppRhSelecaoRoute
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
+  '/app/epis/': typeof AppEpisIndexRoute
+  '/app/ponto/': typeof AppPontoIndexRoute
   '/app/projetos/': typeof AppProjetosIndexRoute
   '/app/rh/': typeof AppRhIndexRoute
   '/app/rh/integracoes/secullum': typeof AppRhIntegracoesSecullumRoute
@@ -288,6 +367,13 @@ export interface FileRouteTypes {
     | '/vagas/$slug'
     | '/app/'
     | '/app/clientes/$id'
+    | '/app/epis/catalogo'
+    | '/app/epis/compras'
+    | '/app/epis/entregas'
+    | '/app/epis/funcionarios'
+    | '/app/ponto/bater'
+    | '/app/ponto/dashboard'
+    | '/app/ponto/integracao'
     | '/app/projetos/$id'
     | '/app/rh/admissoes'
     | '/app/rh/candidatos'
@@ -298,6 +384,8 @@ export interface FileRouteTypes {
     | '/app/rh/selecao'
     | '/app/rh/vagas'
     | '/app/clientes/'
+    | '/app/epis/'
+    | '/app/ponto/'
     | '/app/projetos/'
     | '/app/rh/'
     | '/app/rh/integracoes/secullum'
@@ -310,13 +398,18 @@ export interface FileRouteTypes {
     | '/trabalhe-conosco'
     | '/app/admin'
     | '/app/comercial'
-    | '/app/epis'
-    | '/app/ponto'
     | '/app/previsao'
     | '/app/webmail'
     | '/vagas/$slug'
     | '/app'
     | '/app/clientes/$id'
+    | '/app/epis/catalogo'
+    | '/app/epis/compras'
+    | '/app/epis/entregas'
+    | '/app/epis/funcionarios'
+    | '/app/ponto/bater'
+    | '/app/ponto/dashboard'
+    | '/app/ponto/integracao'
     | '/app/projetos/$id'
     | '/app/rh/admissoes'
     | '/app/rh/candidatos'
@@ -327,6 +420,8 @@ export interface FileRouteTypes {
     | '/app/rh/selecao'
     | '/app/rh/vagas'
     | '/app/clientes'
+    | '/app/epis'
+    | '/app/ponto'
     | '/app/projetos'
     | '/app/rh'
     | '/app/rh/integracoes/secullum'
@@ -347,6 +442,13 @@ export interface FileRouteTypes {
     | '/vagas/$slug'
     | '/app/'
     | '/app/clientes/$id'
+    | '/app/epis/catalogo'
+    | '/app/epis/compras'
+    | '/app/epis/entregas'
+    | '/app/epis/funcionarios'
+    | '/app/ponto/bater'
+    | '/app/ponto/dashboard'
+    | '/app/ponto/integracao'
     | '/app/projetos/$id'
     | '/app/rh/admissoes'
     | '/app/rh/candidatos'
@@ -357,6 +459,8 @@ export interface FileRouteTypes {
     | '/app/rh/selecao'
     | '/app/rh/vagas'
     | '/app/clientes/'
+    | '/app/epis/'
+    | '/app/ponto/'
     | '/app/projetos/'
     | '/app/rh/'
     | '/app/rh/integracoes/secullum'
@@ -486,6 +590,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppClientesIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/epis/': {
+      id: '/app/epis/'
+      path: '/'
+      fullPath: '/app/epis/'
+      preLoaderRoute: typeof AppEpisIndexRouteImport
+      parentRoute: typeof AppEpisRoute
+    }
+    '/app/epis/catalogo': {
+      id: '/app/epis/catalogo'
+      path: '/catalogo'
+      fullPath: '/app/epis/catalogo'
+      preLoaderRoute: typeof AppEpisCatalogoRouteImport
+      parentRoute: typeof AppEpisRoute
+    }
+    '/app/epis/compras': {
+      id: '/app/epis/compras'
+      path: '/compras'
+      fullPath: '/app/epis/compras'
+      preLoaderRoute: typeof AppEpisComprasRouteImport
+      parentRoute: typeof AppEpisRoute
+    }
+    '/app/epis/entregas': {
+      id: '/app/epis/entregas'
+      path: '/entregas'
+      fullPath: '/app/epis/entregas'
+      preLoaderRoute: typeof AppEpisEntregasRouteImport
+      parentRoute: typeof AppEpisRoute
+    }
+    '/app/epis/funcionarios': {
+      id: '/app/epis/funcionarios'
+      path: '/funcionarios'
+      fullPath: '/app/epis/funcionarios'
+      preLoaderRoute: typeof AppEpisFuncionariosRouteImport
+      parentRoute: typeof AppEpisRoute
+    }
+    '/app/ponto/': {
+      id: '/app/ponto/'
+      path: '/'
+      fullPath: '/app/ponto/'
+      preLoaderRoute: typeof AppPontoIndexRouteImport
+      parentRoute: typeof AppPontoRoute
+    }
+    '/app/ponto/bater': {
+      id: '/app/ponto/bater'
+      path: '/bater'
+      fullPath: '/app/ponto/bater'
+      preLoaderRoute: typeof AppPontoBaterRouteImport
+      parentRoute: typeof AppPontoRoute
+    }
+    '/app/ponto/dashboard': {
+      id: '/app/ponto/dashboard'
+      path: '/dashboard'
+      fullPath: '/app/ponto/dashboard'
+      preLoaderRoute: typeof AppPontoDashboardRouteImport
+      parentRoute: typeof AppPontoRoute
+    }
+    '/app/ponto/integracao': {
+      id: '/app/ponto/integracao'
+      path: '/integracao'
+      fullPath: '/app/ponto/integracao'
+      preLoaderRoute: typeof AppPontoIntegracaoRouteImport
+      parentRoute: typeof AppPontoRoute
+    }
     '/app/projetos/': {
       id: '/app/projetos/'
       path: '/projetos'
@@ -573,11 +740,48 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppEpisRouteChildren {
+  AppEpisCatalogoRoute: typeof AppEpisCatalogoRoute
+  AppEpisComprasRoute: typeof AppEpisComprasRoute
+  AppEpisEntregasRoute: typeof AppEpisEntregasRoute
+  AppEpisFuncionariosRoute: typeof AppEpisFuncionariosRoute
+  AppEpisIndexRoute: typeof AppEpisIndexRoute
+}
+
+const AppEpisRouteChildren: AppEpisRouteChildren = {
+  AppEpisCatalogoRoute: AppEpisCatalogoRoute,
+  AppEpisComprasRoute: AppEpisComprasRoute,
+  AppEpisEntregasRoute: AppEpisEntregasRoute,
+  AppEpisFuncionariosRoute: AppEpisFuncionariosRoute,
+  AppEpisIndexRoute: AppEpisIndexRoute,
+}
+
+const AppEpisRouteWithChildren =
+  AppEpisRoute._addFileChildren(AppEpisRouteChildren)
+
+interface AppPontoRouteChildren {
+  AppPontoBaterRoute: typeof AppPontoBaterRoute
+  AppPontoDashboardRoute: typeof AppPontoDashboardRoute
+  AppPontoIntegracaoRoute: typeof AppPontoIntegracaoRoute
+  AppPontoIndexRoute: typeof AppPontoIndexRoute
+}
+
+const AppPontoRouteChildren: AppPontoRouteChildren = {
+  AppPontoBaterRoute: AppPontoBaterRoute,
+  AppPontoDashboardRoute: AppPontoDashboardRoute,
+  AppPontoIntegracaoRoute: AppPontoIntegracaoRoute,
+  AppPontoIndexRoute: AppPontoIndexRoute,
+}
+
+const AppPontoRouteWithChildren = AppPontoRoute._addFileChildren(
+  AppPontoRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppComercialRoute: typeof AppComercialRoute
-  AppEpisRoute: typeof AppEpisRoute
-  AppPontoRoute: typeof AppPontoRoute
+  AppEpisRoute: typeof AppEpisRouteWithChildren
+  AppPontoRoute: typeof AppPontoRouteWithChildren
   AppPrevisaoRoute: typeof AppPrevisaoRoute
   AppWebmailRoute: typeof AppWebmailRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -600,8 +804,8 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppComercialRoute: AppComercialRoute,
-  AppEpisRoute: AppEpisRoute,
-  AppPontoRoute: AppPontoRoute,
+  AppEpisRoute: AppEpisRouteWithChildren,
+  AppPontoRoute: AppPontoRouteWithChildren,
   AppPrevisaoRoute: AppPrevisaoRoute,
   AppWebmailRoute: AppWebmailRoute,
   AppIndexRoute: AppIndexRoute,
