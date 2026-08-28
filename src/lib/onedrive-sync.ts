@@ -62,7 +62,7 @@ if (typeof window !== "undefined") {
 }
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { lerDelta, OneDriveErro, type ItemDrive } from "@/lib/onedrive-client";
+import { lerDelta, lerFilhos, OneDriveErro, type ItemDrive } from "@/lib/onedrive-client";
 
 // ------------------------------------------------------------
 // Normalização do nome
@@ -517,8 +517,15 @@ export type ResultadoOnedriveSync = {
   ok: boolean;
   ano: number;
   status: "ok" | "parcial" | "erro";
-  /** Pastas do ano pedido encontradas no delta. */
+  /** Pastas do ano vistas NESTA leitura. Na incremental é o que mudou,
+   *  e não o total do drive — para o total, ver `pastasNoDrive`. */
   pastas: number;
+  /** Quantas pastas do ano existem no drive AGORA, medido por /children
+   *  no fim de toda execução. É o lado "drive" da conferência. */
+  pastasNoDrive: number;
+  /** Números das pastas do drive sem orçamento vinculado no Portal.
+   *  Não vazio ⇒ status "erro", sempre. */
+  faltando: string[];
   /** Rascunhos CRIADOS agora: pasta sem orçamento correspondente. */
   importados: number;
   /** Pastas anexadas a um orçamento que já estava lançado no Portal.
@@ -680,6 +687,22 @@ async function existentesPorNumero(
   return mapa;
 }
 
+/** Todo drive_item_id que o banco já conhece. É o lado "banco" da
+ *  conferência final; sem paginação porque a tabela inteira do Comercial
+ *  cabe numa resposta e o que vem é uma coluna só. */
+async function idsVinculados(db: SupabaseClient): Promise<Set<string>> {
+  const { data, error } = await db
+    .from("orcamentos")
+    .select("drive_item_id")
+    .not("drive_item_id", "is", null);
+  if (error) throw new Error(`Falha ao conferir o que está vinculado: ${error.message}`);
+  const ids = new Set<string>();
+  for (const l of (data as { drive_item_id: string | null }[] | null) ?? []) {
+    if (l.drive_item_id) ids.add(l.drive_item_id);
+  }
+  return ids;
+}
+
 /** Anexa a pasta a um orçamento que já existe. Três colunas, e olhe lá. */
 async function vincular(db: SupabaseClient, linhaId: string, item: ItemDrive): Promise<void> {
   const { error } = await db
@@ -736,6 +759,8 @@ export async function sincronizarOnedrive(
     ano,
     status: "erro",
     pastas: 0,
+    pastasNoDrive: 0,
+    faltando: [],
     importados: 0,
     vinculados: 0,
     conflitos: [],
@@ -746,11 +771,25 @@ export async function sincronizarOnedrive(
   };
 
   try {
+    // DOIS MODOS, e a diferença não é de intensidade, é de pergunta.
+    //
+    // incremental (delta)  — "o que mexeu desde a última vez?". Barato,
+    //   é o do agendador. Consumido o token, o que não mudou não volta.
+    // completo (/children) — "o que existe agora?". É a reconciliação:
+    //   varre a pasta inteira e não depende de token nenhum, então
+    //   recupera qualquer pasta que tenha ficado para trás.
+    //
+    // O modo completo NÃO grava delta_link: sem chamada de delta não há
+    // token novo, e escrever null aqui é inofensivo porque
+    // `ultimoDeltaLink()` procura a última execução COM token. O
+    // incremental seguinte retoma de onde o último delta parou.
     const anterior = opcoes.completo ? null : await ultimoDeltaLink(db);
-    const delta = await lerDelta(anterior);
+    const leitura = opcoes.completo
+      ? { ...(await lerFilhos()), deltaLink: null }
+      : await lerDelta(anterior);
     const clientes = await lerClientes(db);
 
-    const { candidatas, descartados } = triar(delta.itens, ano);
+    const { candidatas, descartados } = triar(leitura.itens, ano);
     const ignorados = [...descartados.values()].reduce((a, b) => a + b, 0);
 
     const existentes = await jaImportados(
@@ -815,6 +854,30 @@ export async function sincronizarOnedrive(
       vinculados += lote.length;
     }
 
+    // ------------------------------------------------------------
+    // CONFERÊNCIA FINAL — o diário não pode dizer "ok" com pasta faltando
+    // ------------------------------------------------------------
+    // Em 28/08/2026 duas execuções incrementais reportaram
+    // "ok · pastas=1 · 1 já vinculada". Estava certo e se lia como "tudo
+    // sincronizado": o delta só devolve o que mudou, então `pastas` não é
+    // o total do drive, e ninguém tem como saber disso lendo a tela.
+    //
+    // Então toda execução — inclusive a incremental — termina perguntando
+    // ao drive quantas pastas existem AGORA, por /children, e compara com
+    // o que o banco tem vinculado. Custa uma requisição. Sem ela, a única
+    // forma de descobrir uma pasta faltando é alguém reparar na tela, que
+    // foi exatamente como este defeito apareceu.
+    //
+    // A comparação é por drive_item_id, e não por contagem: contagem
+    // igual com conjuntos diferentes existe, e o que interessa é PODER
+    // DIZER QUAL pasta faltou.
+    const auditoria = opcoes.completo
+      ? { itens: leitura.itens, requisicoes: 0 }
+      : await lerFilhos();
+    const noDrive = triar(auditoria.itens, ano).candidatas;
+    const vinculadosNoBanco = await idsVinculados(db);
+    const faltando = noDrive.filter((c) => !vinculadosNoBanco.has(c.item.id));
+
     // Só chega aqui quem gravou tudo o que viu. Ver `ultimoDeltaLink()`.
     //
     // As contas de cliente são sobre o que foi CRIADO, e não sobre o que
@@ -838,11 +901,20 @@ export async function sincronizarOnedrive(
     const repetidos = [...porNumero.entries()].filter(([, n]) => n > 1).map(([n]) => n);
 
     const partes = [
-      `${candidatas.length} pasta(s) de ${ano} no delta`,
+      // "no delta" era enganoso na incremental: ali `candidatas` é o que
+      // MUDOU, não o que existe. A conferência abaixo é que diz o total.
+      `${candidatas.length} pasta(s) de ${ano} ${opcoes.completo ? "na varredura" : "no delta"}`,
       `${importados} criada(s)`,
       `${vinculados} vinculada(s) a orçamento já lançado`,
       `${jaVinculados} já vinculada(s) antes`,
+      `CONFERÊNCIA: ${noDrive.length} pasta(s) no drive, ${noDrive.length - faltando.length} vinculada(s) no Portal`,
     ];
+    if (faltando.length) {
+      partes.push(
+        `FALTANDO ${faltando.length}: ${faltando.map((f) => f.nome.numero).join(", ")}` +
+          " — rode a varredura completa",
+      );
+    }
     if (semCliente) partes.push(`${semCliente} das criadas com cliente a definir`);
     if (porAproximacao) partes.push(`${porAproximacao} com cliente por aproximação`);
     if (conflitos.length) {
@@ -861,22 +933,35 @@ export async function sincronizarOnedrive(
     }
 
     const resultado: ResultadoOnedriveSync = {
+      // `ok` é do TRANSPORTE: a execução rodou até o fim sem estourar.
+      // Pasta faltando não é falha de transporte, é divergência de
+      // estado — por isso ela aparece no `status`, e não aqui.
       ok: true,
       ano,
-      // "parcial" quando alguma pasta nova entrou sem cliente ou quando
-      // houve conflito: o job funcionou, mas deixou trabalho para
-      // alguém. A tela mostra os dois estados separados.
-      status: semCliente || conflitos.length ? "parcial" : "ok",
+      // A ORDEM DESTA CONDIÇÃO É A REGRA DO PASSO 3.
+      //
+      // "erro" quando falta pasta: é o único desfecho em que o Portal
+      // NÃO tem o que o drive tem, e ele precisa gritar — foi assim que
+      // "tudo sincronizado" com 11 faltando passou batido. "parcial"
+      // quando só sobrou trabalho de conferência para gente. "ok" exige
+      // as duas coisas: drive e banco batendo, e nada pendente.
+      status: faltando.length ? "erro" : semCliente || conflitos.length ? "parcial" : "ok",
       pastas: candidatas.length,
+      /** O total real do drive, medido na conferência. */
+      pastasNoDrive: noDrive.length,
+      faltando: faltando.map((f) => f.nome.numero),
       importados,
       vinculados,
       conflitos,
       jaExistentes: jaVinculados,
       ignorados,
-      requisicoes: delta.requisicoes,
+      requisicoes: leitura.requisicoes + auditoria.requisicoes,
       detalhe: partes.join(" · "),
+      erro: faltando.length
+        ? `${faltando.length} pasta(s) do drive sem orçamento no Portal: ${faltando.map((f) => f.nome.numero).join(", ")}.`
+        : undefined,
     };
-    await fecharDiario(db, diario, resultado, delta.deltaLink);
+    await fecharDiario(db, diario, resultado, leitura.deltaLink);
     return resultado;
   } catch (e) {
     const resultado: ResultadoOnedriveSync = { ...vazio, erro: mensagem(e) };

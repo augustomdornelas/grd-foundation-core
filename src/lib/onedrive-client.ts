@@ -442,6 +442,42 @@ const MAX_PAGINAS = 50;
  * @param deltaLinkAnterior o `@odata.deltaLink` guardado da última
  *        execução bem-sucedida, ou null para varrer do zero.
  */
+/**
+ * As FILHAS DIRETAS da pasta, sem delta nenhum.
+ *
+ * É o estado, não a mudança — e é essa a diferença que importa. O delta
+ * responde "o que mexeu desde a última vez" e, consumido o token, não
+ * repete: uma pasta que o job deixou para trás por qualquer motivo nunca
+ * mais aparece nele. `/children` responde "o que existe agora", toda vez,
+ * e por isso é o que serve para duas coisas:
+ *
+ *   1. a VARREDURA COMPLETA, que reconcilia o que ficou para trás;
+ *   2. a CONFERÊNCIA no fim de toda execução — inclusive das
+ *      incrementais —, que é o que impede o diário de dizer "ok" com
+ *      pasta faltando.
+ *
+ * Custa uma requisição por 200 itens. Com ~100 pastas, é uma.
+ *
+ * Só o primeiro nível, de propósito: pasta de orçamento é filha direta
+ * da pasta do ano, e não descer poupa as centenas de arquivos e
+ * subpastas de trabalho que o delta é obrigado a trazer.
+ */
+export async function lerFilhos(): Promise<{ itens: ItemDrive[]; requisicoes: number }> {
+  const c = exigirCredenciais();
+  const itens: ItemDrive[] = [];
+  let requisicoes = 0;
+
+  let proxima: string | null = `${caminhoDaPasta(c)}/children?$top=200`;
+  for (let pagina = 0; pagina < MAX_PAGINAS && proxima; pagina++) {
+    const resposta: RespostaDelta = await graphFetch<RespostaDelta>(proxima);
+    requisicoes += 1;
+    if (Array.isArray(resposta.value)) itens.push(...resposta.value);
+    proxima = resposta["@odata.nextLink"] ?? null;
+  }
+
+  return { itens, requisicoes };
+}
+
 export async function lerDelta(deltaLinkAnterior: string | null): Promise<ResultadoDelta> {
   const c = exigirCredenciais();
   const itens: ItemDrive[] = [];

@@ -21,7 +21,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle2, HardDrive, Loader2, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  HardDrive,
+  ListChecks,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { dataHoraBr } from "@/lib/rh-regras";
 
@@ -44,12 +51,26 @@ type LinhaSync = {
 /** O que o endpoint devolve. Só o que a tela usa. */
 type RespostaSync = {
   ok?: boolean;
+  status?: "ok" | "parcial" | "erro";
   importados?: number;
   vinculados?: number;
   jaExistentes?: number;
+  pastasNoDrive?: number;
+  faltando?: string[];
   detalhe?: string;
   erro?: string;
 };
+
+/**
+ * As duas maneiras de sincronizar, e a diferença é de pergunta.
+ *
+ * `incremental` pergunta ao delta o que mudou desde a última vez. É o do
+ * agendador: barato, uma requisição.
+ * `completa` lê a pasta inteira por /children e reconcilia. Existe
+ * porque o delta é destrutivo — consumido o token, o que não mudou não
+ * volta —, então uma pasta que ficou para trás só reaparece assim.
+ */
+type Modo = "incremental" | "completa";
 
 type Aviso = { tipo: "ok" | "erro"; texto: string } | null;
 
@@ -57,10 +78,18 @@ function situacao(linha: LinhaSync | null): { texto: string; classe: string; ati
   if (!linha) return { texto: "Nunca sincronizado", classe: "", ativa: false };
   if (linha.status === "rodando") return { texto: "Sincronizando…", classe: "", ativa: false };
   if (linha.status === "erro") {
-    return { texto: "Última tentativa falhou", classe: "bg-red-600 hover:bg-red-600/80", ativa: true };
+    return {
+      texto: "Última tentativa falhou",
+      classe: "bg-red-600 hover:bg-red-600/80",
+      ativa: true,
+    };
   }
   if (linha.status === "parcial") {
-    return { texto: "Ativo — há o que conferir", classe: "bg-amber-500 hover:bg-amber-500/80", ativa: true };
+    return {
+      texto: "Ativo — há o que conferir",
+      classe: "bg-amber-500 hover:bg-amber-500/80",
+      ativa: true,
+    };
   }
   return { texto: "Ativo", classe: "bg-emerald-600 hover:bg-emerald-600/80", ativa: true };
 }
@@ -69,7 +98,10 @@ export function CardOneDrive() {
   const [linha, setLinha] = useState<LinhaSync | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroDeLeitura, setErroDeLeitura] = useState<string | null>(null);
-  const [sincronizando, setSincronizando] = useState(false);
+  /** Qual dos dois botões está rodando, ou null. Guardar o modo (e não
+   *  um booleano) é o que permite desabilitar os dois e girar só o que
+   *  foi clicado. */
+  const [sincronizando, setSincronizando] = useState<Modo | null>(null);
   const [aviso, setAviso] = useState<Aviso>(null);
 
   const carregar = useCallback(async () => {
@@ -97,67 +129,86 @@ export function CardOneDrive() {
     void carregar();
   }, [carregar]);
 
-  const sincronizar = useCallback(async () => {
-    setSincronizando(true);
-    setAviso(null);
-    try {
-      // A sessão do Supabase vive no localStorage, então o JWT precisa
-      // ser lido e mandado no header — é a porta 2 do endpoint. O
-      // segredo do agendador (ONEDRIVE_SYNC_TOKEN) não pode vir para o
-      // navegador: qualquer coisa no bundle é pública.
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) {
-        setAviso({ tipo: "erro", texto: "Sessão expirada. Entre de novo para sincronizar." });
-        return;
-      }
-
-      const resposta = await fetch("/api/onedrive/sync", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // O corpo pode não ser JSON quando um proxy responde no lugar do
-      // servidor. Ler como texto primeiro evita o "Unexpected token <"
-      // que esconderia o erro de verdade.
-      const bruto = await resposta.text();
-      let corpo: RespostaSync;
+  const sincronizar = useCallback(
+    async (modo: Modo) => {
+      setSincronizando(modo);
+      setAviso(null);
       try {
-        corpo = JSON.parse(bruto) as RespostaSync;
-      } catch {
-        setAviso({
-          tipo: "erro",
-          texto: `Resposta inesperada (HTTP ${resposta.status}): ${bruto.slice(0, 160)}`,
-        });
-        return;
-      }
+        // A sessão do Supabase vive no localStorage, então o JWT precisa
+        // ser lido e mandado no header — é a porta 2 do endpoint. O
+        // segredo do agendador (ONEDRIVE_SYNC_TOKEN) não pode vir para o
+        // navegador: qualquer coisa no bundle é pública.
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) {
+          setAviso({ tipo: "erro", texto: "Sessão expirada. Entre de novo para sincronizar." });
+          return;
+        }
 
-      if (!resposta.ok || corpo.ok !== true) {
-        setAviso({ tipo: "erro", texto: corpo.erro || `Falhou (HTTP ${resposta.status}).` });
-      } else {
-        // Criado e vinculado são coisas diferentes e a frase separa as
-        // duas: vincular anexa a pasta a um orçamento que já existia e
-        // não pede conferência nenhuma; criar é que gera rascunho novo.
-        const feitos = [
-          corpo.importados ? `${corpo.importados} orçamento(s) criado(s)` : "",
-          corpo.vinculados ? `${corpo.vinculados} pasta(s) vinculada(s) a orçamento já lançado` : "",
-        ].filter(Boolean);
-        setAviso({
-          tipo: "ok",
-          texto: feitos.length
-            ? `${feitos.join(" e ")}.${corpo.importados ? " Confira no Comercial." : ""}`
-            : "Nada novo: todas as pastas já estavam no Portal.",
-        });
+        const resposta = await fetch(
+          `/api/onedrive/sync${modo === "completa" ? "?completo=1" : ""}`,
+          { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        // O corpo pode não ser JSON quando um proxy responde no lugar do
+        // servidor. Ler como texto primeiro evita o "Unexpected token <"
+        // que esconderia o erro de verdade.
+        const bruto = await resposta.text();
+        let corpo: RespostaSync;
+        try {
+          corpo = JSON.parse(bruto) as RespostaSync;
+        } catch {
+          setAviso({
+            tipo: "erro",
+            texto: `Resposta inesperada (HTTP ${resposta.status}): ${bruto.slice(0, 160)}`,
+          });
+          return;
+        }
+
+        if (!resposta.ok || corpo.ok !== true) {
+          setAviso({ tipo: "erro", texto: corpo.erro || `Falhou (HTTP ${resposta.status}).` });
+        } else {
+          // Criado e vinculado são coisas diferentes e a frase separa as
+          // duas: vincular anexa a pasta a um orçamento que já existia e
+          // não pede conferência nenhuma; criar é que gera rascunho novo.
+          const feitos = [
+            corpo.importados ? `${corpo.importados} orçamento(s) criado(s)` : "",
+            corpo.vinculados
+              ? `${corpo.vinculados} pasta(s) vinculada(s) a orçamento já lançado`
+              : "",
+          ].filter(Boolean);
+
+          // PASTA FALTANDO NÃO É SUCESSO, mesmo com HTTP 200 e ok:true. O
+          // job rodou, mas o Portal não tem o que o drive tem — e foi
+          // exatamente esse caso que passou por "tudo sincronizado".
+          if (corpo.faltando?.length) {
+            setAviso({
+              tipo: "erro",
+              texto:
+                `${corpo.faltando.length} pasta(s) do drive sem orçamento no Portal: ` +
+                `${corpo.faltando.slice(0, 8).join(", ")}${corpo.faltando.length > 8 ? "…" : ""}. ` +
+                "Rode a varredura completa.",
+            });
+          } else {
+            setAviso({
+              tipo: "ok",
+              texto: feitos.length
+                ? `${feitos.join(" e ")}.${corpo.importados ? " Confira no Comercial." : ""}`
+                : `Nada novo: as ${corpo.pastasNoDrive ?? 0} pastas do drive já estão no Portal.`,
+            });
+          }
+        }
+      } catch (e) {
+        setAviso({ tipo: "erro", texto: e instanceof Error ? e.message : String(e) });
+      } finally {
+        setSincronizando(null);
+        // Recarrega em qualquer caso: mesmo a execução que falhou deixou
+        // linha no diário, e é ela que a tela deve passar a mostrar.
+        await carregar();
       }
-    } catch (e) {
-      setAviso({ tipo: "erro", texto: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setSincronizando(false);
-      // Recarrega em qualquer caso: mesmo a execução que falhou deixou
-      // linha no diário, e é ela que a tela deve passar a mostrar.
-      await carregar();
-    }
-  }, [carregar]);
+    },
+    [carregar],
+  );
 
   const st = situacao(linha);
 
@@ -199,8 +250,8 @@ export function CardOneDrive() {
               {linha.disparado_por ? ` · por ${linha.disparado_por}` : ""}
             </span>
             <span className="text-muted-foreground">
-              {linha.importados} importado(s) · {linha.ja_existentes} já existia(m) ·{" "}
-              {linha.pastas} pasta(s) de {linha.ano} no drive
+              {linha.importados} importado(s) · {linha.ja_existentes} já existia(m) · {linha.pastas}{" "}
+              pasta(s) de {linha.ano} no drive
             </span>
             {linha.detalhe && <span className="text-muted-foreground">{linha.detalhe}</span>}
             {linha.erro && <span className="text-red-700">Erro: {linha.erro}</span>}
@@ -223,20 +274,49 @@ export function CardOneDrive() {
         </div>
       )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="self-start"
-        disabled={sincronizando}
-        onClick={() => void sincronizar()}
-      >
-        {sincronizando ? (
-          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-        )}
-        {sincronizando ? "Sincronizando…" : "Sincronizar agora"}
-      </Button>
+      {/* DOIS BOTÕES, e o segundo não é "o primeiro com mais força".
+          "Sincronizar agora" pergunta ao delta o que mudou — é o do
+          dia a dia e o que o agendador chama.
+          "Varredura completa" lê a pasta inteira e reconcilia. É o
+          conserto para quando alguma pasta ficou para trás, porque o
+          delta não devolve de novo o que não mudou. Custa mais e não
+          precisa ser rotina, daí o rótulo dizer o que ela faz. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={sincronizando !== null}
+          onClick={() => void sincronizar("incremental")}
+        >
+          {sincronizando === "incremental" ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          {sincronizando === "incremental" ? "Sincronizando…" : "Sincronizar agora"}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={sincronizando !== null}
+          onClick={() => void sincronizar("completa")}
+          title="Lê a pasta inteira no OneDrive e reconcilia com o Portal. Use quando faltar orçamento."
+        >
+          {sincronizando === "completa" ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ListChecks className="mr-1.5 h-3.5 w-3.5" />
+          )}
+          {sincronizando === "completa" ? "Varrendo tudo…" : "Varredura completa"}
+        </Button>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        <b>Sincronizar agora</b> traz só o que mudou desde a última vez. <b>Varredura completa</b>{" "}
+        relê a pasta inteira e recupera o que tenha ficado para trás — mais lenta, e é a saída
+        quando o diário acusar pasta faltando.
+      </p>
     </Card>
   );
 }
