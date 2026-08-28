@@ -13,7 +13,10 @@
 // caminho é este arquivo.
 //
 // REGRAS DE USO, sem exceção:
-//   - importado APENAS por src/lib/secullum-sync.ts;
+//   - importado APENAS por src/lib/secullum-sync.ts,
+//     src/lib/identificar-usuario.ts (que lê `profiles` para autorizar
+//     o próprio servidor) e src/lib/contaazul-tokens.ts (que guarda o
+//     par de tokens do OAuth numa tabela sem policy nenhuma);
 //   - nunca por rota, componente ou server function que devolva dado
 //     ao navegador sem filtrar;
 //   - a chave vem de SUPABASE_SERVICE_ROLE_KEY, do ambiente do
