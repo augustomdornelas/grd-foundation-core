@@ -35,15 +35,58 @@ export function campo(obj: unknown, ...nomes: string[]): unknown {
   if (!obj || typeof obj !== "object") return undefined;
   const r = obj as Registro;
   for (const nome of nomes) {
-    if (nome in r) return r[nome];
-    const achado = Object.keys(r).find((k) => k.toLowerCase() === nome.toLowerCase());
-    if (achado !== undefined) return r[achado];
+    const chave =
+      nome in r ? nome : Object.keys(r).find((k) => k.toLowerCase() === nome.toLowerCase());
+    if (chave === undefined) continue;
+    // Chave presente com valor nulo não encerra a busca. Um registro
+    // com `DepartamentoDescricao: null` e `Departamento: {...}` existe,
+    // e antes daqui parava no primeiro e devolvia nulo — o nome da obra
+    // sumia mesmo estando no payload, uma linha abaixo.
+    const valor = r[chave];
+    if (valor !== null && valor !== undefined) return valor;
   }
   return undefined;
 }
 
+/**
+ * Coerção para texto que NUNCA inventa texto.
+ *
+ * A versão anterior era `String(v)`. Foi ela que gravou "[object
+ * Object]" no cargo e no setor dos 19 da carga inicial, e no nome das
+ * obras e cargos criados junto: quando a Secullum entrega
+ * `Departamento` como objeto em vez de string, `String({...})` devolve
+ * algo que PARECE dado — passa por "não vazio", passa por `.trim()`,
+ * passa pelo `NOT NULL` do banco — e só aparece quando alguém abre a
+ * ficha meses depois.
+ *
+ * Objeto e array agora devolvem vazio, que é o contrato declarado no
+ * cabeçalho deste arquivo: quem chama cai no caminho alternativo, ou
+ * registra o campo como ausente. Vazio é recuperável; lixo com cara de
+ * dado, não. Para o objeto que legitimamente carrega a descrição
+ * existe `descricao()`.
+ */
 export function texto(v: unknown): string {
-  return v === null || v === undefined ? "" : String(v);
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") return String(v);
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? "" : v.toISOString();
+  return "";
+}
+
+/**
+ * O NOME de um item, venha ele como texto solto ou dentro de um objeto.
+ *
+ * `DepartamentoDescricao` e `FuncaoDescricao` são string no funcionário
+ * — mas nem todo registro os traz, e aí o que sobra é `Departamento` /
+ * `Funcao` como `{ Id, Descricao }`. Esta função grava o campo, nunca o
+ * objeto.
+ */
+export function descricao(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
+    return texto(campo(v, "Descricao", "descricao", "Nome", "nome")).trim();
+  }
+  return texto(v).trim();
 }
 
 export function inteiro(v: unknown): number | null {

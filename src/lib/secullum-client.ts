@@ -303,7 +303,18 @@ export type BancoSecullum = {
 export type DepartamentoSecullum = { Id?: number; Descricao?: string };
 export type FuncaoSecullum = { Id?: number; Descricao?: string };
 export type EmpresaSecullum = { Id?: number; Descricao?: string; Documento?: string };
-export type HorarioSecullum = { Numero?: number; Descricao?: string; Desativar?: boolean };
+export type HorarioSecullum = {
+  Numero?: number;
+  Descricao?: string;
+  Desativar?: boolean;
+  /**
+   * A escala da semana. E ela que separa "esta de folga" de "faltou":
+   * sem a escala, quem nao bateu num domingo e indistinguivel de um
+   * faltante. O tipo e frouxo porque a Secullum nao publica o contrato
+   * deste campo — ora vem array, ora objeto.
+   */
+  Dias?: unknown;
+};
 
 /**
  * O que /Funcionarios devolve. Os campos estão TODOS opcionais de
@@ -370,6 +381,22 @@ export const secullum = {
   empresas: (c: ConfigSecullum) => requisitar<EmpresaSecullum[]>(c, "/IntegracaoExterna/Empresas"),
 
   horarios: (c: ConfigSecullum) => requisitar<HorarioSecullum[]>(c, "/IntegracaoExterna/Horarios"),
+  /**
+   * Afastamentos: ferias, atestado, licenca. FORMATO NAO CONFIRMADO
+   * contra a conta da GRD — o diagnostico de 27/08/2026 confirmou
+   * /Funcionarios, /Departamentos, /Funcoes, /Horarios e /Empresas, e
+   * mais nada. Quem consome le de forma tolerante e registra o que nao
+   * soube ler, em vez de gravar lixo.
+   */
+  afastamentos: (c: ConfigSecullum) =>
+    requisitar<unknown[]>(c, "/IntegracaoExterna/FuncionariosAfastamentos"),
+
+  /**
+   * Inclusoes de ponto aguardando aprovacao — a fila de trabalho do DP.
+   * FORMATO NAO CONFIRMADO, mesma ressalva de `afastamentos`.
+   */
+  pendencias: (c: ConfigSecullum) =>
+    requisitar<unknown[]>(c, "/IntegracaoExterna/InclusaoPonto/Pendencias"),
 
   funcionarios: (c: ConfigSecullum) =>
     requisitar<FuncionarioSecullum[]>(c, "/IntegracaoExterna/Funcionarios"),

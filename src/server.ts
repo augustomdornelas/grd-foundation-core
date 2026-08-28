@@ -133,7 +133,9 @@ async function tratarSync(request: Request, url: URL): Promise<Response> {
       return responder(
         {
           ok: false,
-          erro: `tipo inválido: ${tipo}. Use funcionarios, batidas, totais ou catalogos.`,
+          erro:
+            `tipo inválido: ${tipo}. ` +
+            "Use funcionarios, batidas, totais, catalogos, afastamentos ou pendencias.",
         },
         400,
       );

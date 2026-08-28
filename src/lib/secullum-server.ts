@@ -151,6 +151,7 @@ export const obterEstadoSecullum = createServerFn({ method: "GET" }).handler(
 export const obterCatalogosSecullum = createServerFn({ method: "GET" }).handler(
   async (): Promise<CatalogosSecullum> => {
     const { lerConfig, secullum, SecullumErro } = await import("@/lib/secullum-client");
+    const { descricao } = await import("@/lib/secullum-formato");
 
     const vazio: CatalogosSecullum = {
       erro: null,
@@ -172,9 +173,11 @@ export const obterCatalogosSecullum = createServerFn({ method: "GET" }).handler(
         secullum.horarios(config),
       ]);
 
-      const texto = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+      // Sem cópia local de texto: era ela, com o String(v) antigo, que
+      // punha "[object Object]" na aba de catálogos — o mesmo bug da
+      // carga, num segundo lugar. descricao() é a única versão.
       const catalogo = (lista: { Id?: number; Descricao?: string }[]): ItemCatalogo[] =>
-        (lista ?? []).map((i) => ({ id: i.Id ?? null, descricao: texto(i.Descricao) }));
+        (lista ?? []).map((i) => ({ id: i.Id ?? null, descricao: descricao(i.Descricao) }));
 
       return {
         erro: null,
@@ -183,13 +186,13 @@ export const obterCatalogosSecullum = createServerFn({ method: "GET" }).handler(
         funcoes: catalogo(funcoes),
         empresas: (empresas ?? []).map((e) => ({
           id: e.Id ?? null,
-          descricao: texto(e.Descricao),
+          descricao: descricao(e.Descricao),
         })),
         // Só três campos: o payload completo de Horarios passa de 80 KB
         // e nada mais dele é usado por esta tela.
         horarios: (horarios ?? []).map((h) => ({
           numero: h.Numero ?? null,
-          descricao: texto(h.Descricao),
+          descricao: descricao(h.Descricao),
           desativar: Boolean(h.Desativar),
         })),
       };
@@ -233,7 +236,7 @@ export const obterCadastroSecullum = createServerFn({ method: "GET" }).handler(
   async (): Promise<CadastroSecullum> => {
     const { lerConfig, secullum, SecullumErro, chaveDeDocumento } =
       await import("@/lib/secullum-client");
-    const { campo, texto, inteiro, data } = await import("@/lib/secullum-formato");
+    const { campo, texto, descricao, inteiro, data } = await import("@/lib/secullum-formato");
 
     const vazio: CadastroSecullum = {
       erro: null,
@@ -258,7 +261,7 @@ export const obterCadastroSecullum = createServerFn({ method: "GET" }).handler(
         const mapa = new Map<number, string>();
         for (const i of itens ?? []) {
           const id = inteiro(campo(i, "Id", "id"));
-          const desc = texto(campo(i, "Descricao", "descricao", "Nome"));
+          const desc = descricao(campo(i, "Descricao", "descricao", "Nome"));
           if (id !== null && desc) mapa.set(id, desc);
         }
         return mapa;
@@ -266,16 +269,29 @@ export const obterCadastroSecullum = createServerFn({ method: "GET" }).handler(
       const deptoPorId = nomePorId(departamentos);
       const funcaoPorId = nomePorId(funcoes);
 
-      /** Descrição direta quando vier; senão, a resolvida pelo id. */
+      /**
+       * O NOME do departamento ou da função, em texto, custe o que
+       * custar — nunca o objeto que o carrega.
+       *
+       * O campo chega de quatro formas conforme o registro:
+       *   "OPERACIONAL"                  → texto solto
+       *   { Id: 3, Descricao: "OPER…" }  → objeto com a descrição
+       *   { Id: 3 }                      → objeto só com o id
+       *   DepartamentoId: 3              → id em campo irmão
+       * As duas do meio viravam "[object Object]" enquanto isto usava
+       * `texto()` puro, e foi assim que o lixo entrou no banco.
+       */
       const descrever = (
         registro: unknown,
         campoDescricao: string[],
         campoId: string[],
         mapa: Map<number, string>,
       ): string => {
-        const direta = texto(campo(registro, ...campoDescricao)).trim();
+        const bruto = campo(registro, ...campoDescricao);
+        const direta = descricao(bruto);
         if (direta && !/^\d+$/.test(direta)) return direta;
-        const id = inteiro(campo(registro, ...campoId));
+        // O id do campo irmão, ou o de dentro do próprio objeto.
+        const id = inteiro(campo(registro, ...campoId)) ?? inteiro(campo(bruto, "Id", "id"));
         if (id !== null) return mapa.get(id) ?? "";
         return "";
       };
