@@ -110,61 +110,99 @@ const ROTA_SYNC = "/api/secullum/sync";
 // precisar da mesma resposta em contaazul-server.ts — que é código de
 // server function e não pode importar este entry de SSR.
 
-async function tratarSync(request: Request, url: URL): Promise<Response> {
-  const responder = (corpo: unknown, status: number) =>
-    new Response(JSON.stringify(corpo, null, 2), {
-      status,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
+function responderJson(corpo: unknown, status: number): Response {
+  return new Response(JSON.stringify(corpo, null, 2), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
 
-  // DUAS PORTAS, e as duas precisam existir.
-  //
-  // 1. x-sync-token: é por onde o agendador entra. Máquina não tem
-  //    sessão de usuário.
-  // 2. Authorization: Bearer <jwt do Supabase>: é por onde entra o
-  //    botão "Sincronizar agora" do dashboard. O navegador não pode
-  //    ter o segredo do agendador — publicá-lo no bundle entregaria o
-  //    gatilho dos jobs para a internet inteira.
-  //
-  // A segunda porta é mais estreita: exige sessão válida E perfil de
-  // Diretoria ou RH. Disparar um job gasta cota da API da Secullum,
-  // que é limitada por hora; não é ação para qualquer logado.
-  const segredo = process.env.SECULLUM_SYNC_TOKEN;
+/**
+ * DUAS PORTAS, e as duas precisam existir.
+ *
+ * 1. x-sync-token: é por onde o agendador entra. Máquina não tem sessão
+ *    de usuário.
+ * 2. Authorization: Bearer <jwt do Supabase>: é por onde entra o botão
+ *    "Sincronizar agora" da tela. O navegador NÃO pode ter o segredo do
+ *    agendador — publicá-lo no bundle entregaria o gatilho dos jobs para
+ *    a internet inteira.
+ *
+ * A segunda porta é sempre mais estreita que "estar logado": disparar um
+ * job gasta cota de API de terceiro, e o perfil exigido vem de fora
+ * porque não é o mesmo em toda integração — a Secullum aceita RH, o
+ * OneDrive não.
+ *
+ * Nasceu dentro de `tratarSync()` e saiu de lá quando o OneDrive passou
+ * a precisar exatamente do mesmo par de portas. Duas cópias disto seriam
+ * dois lugares para a autorização do gatilho divergir em silêncio.
+ */
+type Portaria = { ok: true; comoEntrou: string } | { ok: false; resposta: Response };
+
+async function conferirDuasPortas(
+  request: Request,
+  opcoes: {
+    /** O segredo do agendador, do ambiente. Ausente = a porta 1 não existe. */
+    segredo: string | undefined;
+    /** O nome da variável, para a mensagem quando ela falta. */
+    nomeDoSegredo: string;
+    perfis: readonly string[];
+    recusa: (perfil: string) => string;
+    /** Como descrever quem pode entrar pela porta 2, na frase do 401. */
+    quemPodeEntrar: string;
+  },
+): Promise<Portaria> {
   const tokenDeMaquina = request.headers.get("x-sync-token");
   const autorizacao = request.headers.get("authorization") ?? "";
 
-  let liberado = false;
-  let comoEntrou = "";
-
-  if (segredo && tokenDeMaquina) {
-    if (tokenDeMaquina !== segredo) {
-      return responder({ ok: false, erro: "Token de sincronização inválido." }, 401);
+  if (opcoes.segredo && tokenDeMaquina) {
+    if (tokenDeMaquina !== opcoes.segredo) {
+      return {
+        ok: false,
+        resposta: responderJson({ ok: false, erro: "Token de sincronização inválido." }, 401),
+      };
     }
-    liberado = true;
-    comoEntrou = "agendador";
-  } else if (autorizacao.toLowerCase().startsWith("bearer ")) {
-    const jwt = autorizacao.slice(7).trim();
-    const quem = await identificarUsuario(jwt, PERFIS_SYNC, recusaDeSync);
-    if (!quem.ok) {
-      return responder({ ok: false, erro: quem.erro }, quem.status);
-    }
-    liberado = true;
-    comoEntrou = `${quem.perfil} (${quem.email})`;
+    return { ok: true, comoEntrou: "agendador" };
   }
 
-  if (!liberado) {
-    return responder(
+  if (autorizacao.toLowerCase().startsWith("bearer ")) {
+    const quem = await identificarUsuario(
+      autorizacao.slice(7).trim(),
+      opcoes.perfis,
+      opcoes.recusa,
+    );
+    if (!quem.ok) {
+      return { ok: false, resposta: responderJson({ ok: false, erro: quem.erro }, quem.status) };
+    }
+    return { ok: true, comoEntrou: `${quem.perfil} (${quem.email})` };
+  }
+
+  return {
+    ok: false,
+    resposta: responderJson(
       {
         ok: false,
-        erro: segredo
-          ? "Envie x-sync-token (agendador) ou Authorization: Bearer com sessão de Diretoria/RH."
-          : "SECULLUM_SYNC_TOKEN não está no ambiente do servidor e nenhuma sessão foi enviada. " +
+        erro: opcoes.segredo
+          ? `Envie x-sync-token (agendador) ou Authorization: Bearer com sessão de ${opcoes.quemPodeEntrar}.`
+          : `${opcoes.nomeDoSegredo} não está no ambiente do servidor e nenhuma sessão foi enviada. ` +
             "Sem uma das duas o gatilho fica desligado — é o que impede a internet inteira de disparar os jobs.",
       },
-      segredo ? 401 : 503,
-    );
-  }
-  console.log(`[secullum] sync disparado por: ${comoEntrou}`);
+      opcoes.segredo ? 401 : 503,
+    ),
+  };
+}
+
+async function tratarSync(request: Request, url: URL): Promise<Response> {
+  const responder = responderJson;
+
+  const portaria = await conferirDuasPortas(request, {
+    segredo: process.env.SECULLUM_SYNC_TOKEN,
+    nomeDoSegredo: "SECULLUM_SYNC_TOKEN",
+    perfis: PERFIS_SYNC,
+    recusa: recusaDeSync,
+    quemPodeEntrar: "Diretoria/RH",
+  });
+  if (!portaria.ok) return portaria.resposta;
+  console.log(`[secullum] sync disparado por: ${portaria.comoEntrou}`);
 
   const tipo = url.searchParams.get("tipo") ?? "funcionarios";
   const { JOBS, syncBatidas, syncTotais } = await import("./lib/secullum-sync");
@@ -196,6 +234,68 @@ async function tratarSync(request: Request, url: URL): Promise<Response> {
     console.error(error);
     return responder(
       { ok: false, tipo, erro: error instanceof Error ? error.message : String(error) },
+      500,
+    );
+  }
+}
+
+// ------------------------------------------------------------
+// Gatilho do sync do OneDrive (orçamentos do Comercial)
+// ------------------------------------------------------------
+// Mora aqui pelo mesmo motivo do gatilho da Secullum logo acima: esta
+// versão do TanStack Start não tem rota de API baseada em arquivo, e um
+// agendador externo precisa de uma URL simples para chamar.
+//
+// AS MESMAS DUAS PORTAS, com uma diferença deliberada no perfil: a
+// Secullum aceita RH/DP, este não. Importar orçamento cria linha no
+// Comercial, e quem manda no Comercial é a Diretoria — daí
+// PERFIS_INTEGRACAO, a mesma lista que autoriza conectar a Conta Azul.
+//
+// PARÂMETROS
+//   ?ano=2026    qual ano de pastas varrer. Sem ele, o ano corrente.
+//                Existe porque a pasta de 2025 tem o mesmo padrão de
+//                nome e um dia alguém vai querer trazê-la.
+//   ?completo=1  ignora o delta guardado e varre a pasta inteira. É o
+//                que se usa quando há suspeita de pasta perdida; o
+//                índice único cuida de não duplicar nada.
+const ROTA_ONEDRIVE_SYNC = "/api/onedrive/sync";
+
+async function tratarOnedriveSync(request: Request, url: URL): Promise<Response> {
+  const portaria = await conferirDuasPortas(request, {
+    segredo: process.env.ONEDRIVE_SYNC_TOKEN,
+    nomeDoSegredo: "ONEDRIVE_SYNC_TOKEN",
+    perfis: PERFIS_INTEGRACAO,
+    recusa: recusaDeIntegracao,
+    quemPodeEntrar: "Diretoria/Administrador",
+  });
+  if (!portaria.ok) return portaria.resposta;
+  console.log(`[onedrive] sync disparado por: ${portaria.comoEntrou}`);
+
+  const anoBruto = url.searchParams.get("ano");
+  const ano = anoBruto ? Number(anoBruto) : undefined;
+  if (anoBruto && (!Number.isInteger(ano) || ano! < 2000 || ano! > 2100)) {
+    return responderJson({ ok: false, erro: `ano inválido: ${anoBruto}.` }, 400);
+  }
+
+  const { sincronizarOnedrive } = await import("./lib/onedrive-sync");
+
+  try {
+    return responderJson(
+      await sincronizarOnedrive({
+        ano,
+        completo: url.searchParams.get("completo") === "1",
+        disparadoPor: portaria.comoEntrou,
+      }),
+      200,
+    );
+  } catch (error) {
+    // O job que falha devolve 200 com ok:false pelo caminho normal, com
+    // o motivo já gravado no diário. Cair aqui é falha ANTES de o diário
+    // abrir — chave de serviço ausente, em geral. 500 para o agendador
+    // tratar como falha de verdade.
+    console.error(error);
+    return responderJson(
+      { ok: false, erro: error instanceof Error ? error.message : String(error) },
       500,
     );
   }
@@ -453,6 +553,9 @@ export default {
 
     if (url.pathname === ROTA_SYNC) {
       return tratarSync(request, url);
+    }
+    if (url.pathname === ROTA_ONEDRIVE_SYNC) {
+      return tratarOnedriveSync(request, url);
     }
     if (url.pathname === ROTA_CONECTAR) {
       return tratarConectar(request, url);

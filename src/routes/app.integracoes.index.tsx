@@ -10,6 +10,13 @@
 // quando o Ponto saiu de dentro do RH, e mandar um link novo para um
 // redirecionador é fazer o usuário pular duas vezes para chegar no
 // mesmo lugar.
+//
+// O ONEDRIVE É A EXCEÇÃO À REGRA "cada card leva para uma tela": ele
+// não tem tela própria porque não tem nada para configurar — as
+// credenciais são de aplicação e vivem no ambiente do servidor, e o
+// único gesto disponível é disparar o job. Um card que já traz o estado
+// e o botão resolve isso sem uma tela intermediária que só teria esse
+// botão. Ver CardOneDrive.
 // ============================================================
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
@@ -17,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock, Wallet } from "lucide-react";
 import { TelaModulo } from "@/components/portal/TelaModulo";
+import { CardOneDrive } from "@/components/integracoes/CardOneDrive";
 
 type Integracao = {
   nome: string;
@@ -58,6 +66,7 @@ function Integracoes() {
       perm="admin"
     >
       <div className="grid gap-3 md:grid-cols-2">
+        <CardOneDrive />
         {INTEGRACOES.map((it) => (
           <Card key={it.nome} className="flex flex-col gap-3 p-5">
             <div className="flex items-start gap-3">

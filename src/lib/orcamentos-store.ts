@@ -81,6 +81,22 @@ export type Orcamento = {
     criadoEm: string;
     /** sum(orcamento_custos.subtotal), mantido por trigger. Nunca escrito daqui. */
     custoTotal: number;
+
+    // ---- Origem: OneDrive ----
+    // Escritos SÓ pelo job (src/lib/onedrive-sync.ts), com a chave de
+    // serviço. Nenhum deles entra em `toRow()` — a tela lê e mostra, e
+    // não tem por que reescrever a identidade da pasta lá fora.
+    /** Id do item no Graph. Preenchido = veio do OneDrive. */
+    driveItemId: string | null;
+    /** Link para abrir a pasta no OneDrive. */
+    driveUrl: string;
+    /** PALPITE do nome da pasta, quando bateu com um cliente cadastrado
+     *  só. Vazio num importado = cliente a definir. Nunca é o `cliente`. */
+    clienteSugerido: string;
+    importadoEm: string | null;
+    /** Quando alguém conferiu o rascunho contra a pasta. Enquanto for
+     *  null num importado, a listagem mostra o selo "a conferir". */
+    conferidoEm: string | null;
 };
 
 export const TIPOS_SERVICO: TipoServico[] = [
@@ -154,6 +170,12 @@ type OrcamentoRow = {
     ultima_nota_em: string | null;
     created_at: string | null;
     custo_total: number | string | null;
+
+    drive_item_id: string | null;
+    drive_url: string | null;
+    cliente_sugerido: string | null;
+    importado_em: string | null;
+    conferido_em: string | null;
 };
 
 function fromRow(r: OrcamentoRow): Orcamento {
@@ -191,7 +213,19 @@ function fromRow(r: OrcamentoRow): Orcamento {
           ultimaNotaEm: r.ultima_nota_em ?? null,
           criadoEm: r.created_at ?? "",
           custoTotal: pnum(r.custo_total),
+
+          driveItemId: r.drive_item_id ?? null,
+          driveUrl: r.drive_url ?? "",
+          clienteSugerido: r.cliente_sugerido ?? "",
+          importadoEm: r.importado_em ?? null,
+          conferidoEm: r.conferido_em ?? null,
     };
+}
+
+/** Veio do OneDrive e ninguém conferiu ainda. É o que acende o selo "a
+ *  conferir" na listagem do Comercial. */
+export function aConferir(o: Orcamento): boolean {
+    return o.driveItemId !== null && o.conferidoEm === null;
 }
 
 /**
@@ -291,7 +325,10 @@ export const orcamentosActions = {
     input: Omit<Orcamento,
       | "id" | "numero" | "timeline" | "notas" | "ultimaAtualizacao" | "planejamento"
       | "ultimaNotaEm" | "criadoEm" | "custoTotal"
-      | "responsavelTecnicoId" | "responsavelComercialId">
+      | "responsavelTecnicoId" | "responsavelComercialId"
+      // Origem do OneDrive: quem cria pela tela nunca tem estes campos.
+      // Só o job os preenche, e ele não passa por aqui.
+      | "driveItemId" | "driveUrl" | "clienteSugerido" | "importadoEm" | "conferidoEm">
       & {
         numero?: string;
         planejamento?: PlanejamentoValores;
@@ -309,6 +346,8 @@ export const orcamentosActions = {
       responsavelTecnicoId: input.responsavelTecnicoId ?? null,
       responsavelComercialId: input.responsavelComercialId ?? null,
       ultimaNotaEm: null, criadoEm: agora, custoTotal: 0,
+      driveItemId: null, driveUrl: "", clienteSugerido: "",
+      importadoEm: null, conferidoEm: null,
     }, ...state];
     emit();
     const { data, error } = await supabase
@@ -417,6 +456,13 @@ export const orcamentosActions = {
       ...orig,
       data: new Date().toISOString().slice(0, 10),
       status: "LEVANTAMENTO" as OrcStatus,
+      // A cópia NÃO herda a origem. `toRow()` já não manda estes campos
+      // para o banco — o índice único em drive_item_id recusaria a
+      // segunda linha —, mas o objeto otimista aqui herdaria por spread
+      // e a duplicata piscaria com o selo "a conferir" e um link para a
+      // pasta que não é dela.
+      driveItemId: null, driveUrl: "", clienteSugerido: "",
+      importadoEm: null, conferidoEm: null,
     };
 
     const tempId = uid();
