@@ -222,10 +222,22 @@ function fromRow(r: OrcamentoRow): Orcamento {
     };
 }
 
-/** Veio do OneDrive e ninguém conferiu ainda. É o que acende o selo "a
- *  conferir" na listagem do Comercial. */
+/**
+ * Nasceu do job e ninguém conferiu ainda. É o que acende o selo "a
+ * conferir" na listagem do Comercial.
+ *
+ * O TESTE É `importadoEm`, E NÃO `driveItemId`. Os dois pareciam a
+ * mesma coisa até 28/08/2026, quando se descobriu que 86 orçamentos já
+ * estavam lançados à mão para as mesmas pastas: eles GANHARAM
+ * `driveItemId` (o vínculo com a pasta) sem nunca terem sido criados
+ * pelo job. Com o teste antigo, 86 linhas preenchidas por gente —
+ * várias já aprovadas — passariam a pedir conferência do nada.
+ *
+ * `importadoEm` só é preenchido por quem o job criou. Ver
+ * "VINCULAR OU CRIAR" em src/lib/onedrive-sync.ts.
+ */
 export function aConferir(o: Orcamento): boolean {
-    return o.driveItemId !== null && o.conferidoEm === null;
+    return o.importadoEm !== null && o.conferidoEm === null;
 }
 
 /**

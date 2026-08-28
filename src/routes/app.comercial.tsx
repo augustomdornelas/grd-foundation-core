@@ -720,13 +720,20 @@ function Comercial() {
 // etapa seguinte, junto com a leitura dos arquivos — hoje nada no
 // Portal escreve nessa coluna, e é por isso que o selo fica.
 
+// O selo e o link são INDEPENDENTES, e isso importa desde que os
+// orçamentos lançados à mão passaram a ser vinculados às pastas: eles
+// têm link e NÃO têm selo. Amarrar o link ao selo esconderia a pasta
+// justamente nas 86 linhas que mais se consulta.
 function SeloImportado({ orcamento }: { orcamento: Orcamento }) {
-  if (!aConferir(orcamento)) return null;
+  const selo = aConferir(orcamento);
+  if (!selo && !orcamento.driveUrl) return null;
   return (
     <span className="flex flex-wrap items-center gap-1">
-      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
-        a conferir
-      </span>
+      {selo && (
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+          a conferir
+        </span>
+      )}
       {orcamento.driveUrl && (
         <a
           href={orcamento.driveUrl}

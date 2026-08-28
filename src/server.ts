@@ -144,7 +144,16 @@ async function conferirDuasPortas(
     /** O segredo do agendador, do ambiente. Ausente = a porta 1 não existe. */
     segredo: string | undefined;
     /** O nome da variável, para a mensagem quando ela falta. */
-    nomeDoSegredo: string;
+    nomeDoSegredo?: string;
+    /**
+     * Rotas que NUNCA terão agendador passam `true`.
+     *
+     * Sem isto, a ausência do segredo é lida como configuração faltando
+     * e o 503 acusa uma variável de ambiente que não existe e não
+     * deveria existir. Numa rota só de gente, não estar logado é 401 —
+     * e o recado tem que ser "entre com sessão", não "avise o infra".
+     */
+    semAgendador?: boolean;
     perfis: readonly string[];
     recusa: (perfil: string) => string;
     /** Como descrever quem pode entrar pela porta 2, na frase do 401. */
@@ -174,6 +183,19 @@ async function conferirDuasPortas(
       return { ok: false, resposta: responderJson({ ok: false, erro: quem.erro }, quem.status) };
     }
     return { ok: true, comoEntrou: `${quem.perfil} (${quem.email})` };
+  }
+
+  if (opcoes.semAgendador) {
+    return {
+      ok: false,
+      resposta: responderJson(
+        {
+          ok: false,
+          erro: `Envie Authorization: Bearer com sessão de ${opcoes.quemPodeEntrar}.`,
+        },
+        401,
+      ),
+    };
   }
 
   return {
@@ -546,6 +568,102 @@ async function tratarCallback(request: Request, url: URL): Promise<Response> {
   }
 }
 
+// ------------------------------------------------------------
+// TEMPORÁRIA — o IP público de saída do servidor
+// ------------------------------------------------------------
+// PODE SAIR ASSIM QUE O IP ESTIVER CADASTRADO NA CONTA AZUL.
+// Nada depende dela: apagar este bloco e a linha correspondente no
+// roteador de `fetch()` abaixo remove a rota inteira.
+//
+// POR QUE EXISTE: a Conta Azul pediu o IP de saída para liberar o
+// acesso à API, e esse endereço não é o do nosso navegador — é o da
+// máquina que faz a chamada. A única forma honesta de descobri-lo é
+// perguntar de dentro do servidor, que é o que esta rota faz.
+//
+// PRECISA RODAR EM PRODUÇÃO. Chamada em `vite dev` ela devolve o IP da
+// sua conexão de casa, que não é o que a Conta Azul vê e não serve para
+// cadastrar.
+//
+// CUIDADO AO CADASTRAR: uma resposta é UMA saída. Se a hospedagem usar
+// pool de IPs ou mais de um nó, chamadas diferentes podem devolver
+// endereços diferentes — vale repetir algumas vezes antes de mandar o
+// endereço para eles, e perguntar ao suporte da hospedagem qual é a
+// faixa, em vez de confiar num único resultado.
+//
+// Sem porta de agendador: isto não é gatilho de job, é uma pergunta que
+// uma pessoa faz uma vez.
+const ROTA_DIAGNOSTICO_IP = "/api/diagnostico/ip";
+
+const CONSULTA_DE_IP = "https://api.ipify.org?format=json";
+
+async function tratarDiagnosticoIp(request: Request): Promise<Response> {
+  const portaria = await conferirDuasPortas(request, {
+    segredo: undefined,
+    semAgendador: true,
+    perfis: PERFIS_INTEGRACAO,
+    recusa: recusaDeIntegracao,
+    quemPodeEntrar: "Diretoria/Administrador",
+  });
+  if (!portaria.ok) return portaria.resposta;
+
+  try {
+    const resposta = await fetch(CONSULTA_DE_IP, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const texto = await resposta.text();
+
+    if (!resposta.ok) {
+      return responderJson(
+        {
+          ok: false,
+          erro: `O serviço de consulta respondeu HTTP ${resposta.status}.`,
+          corpo: texto.slice(0, 300),
+        },
+        502,
+      );
+    }
+
+    let dados: { ip?: string };
+    try {
+      dados = JSON.parse(texto) as { ip?: string };
+    } catch {
+      return responderJson(
+        {
+          ok: false,
+          erro: "O serviço de consulta devolveu algo que não é JSON.",
+          corpo: texto.slice(0, 300),
+        },
+        502,
+      );
+    }
+
+    console.log(`[diagnostico] IP de saída consultado por: ${portaria.comoEntrou}`);
+    return responderJson(
+      {
+        ok: true,
+        ip: dados.ip ?? null,
+        fonte: "api.ipify.org",
+        consultadoEm: new Date().toISOString(),
+        aviso:
+          "Uma resposta é uma saída. Se o host tiver pool de IPs, repita a chamada algumas " +
+          "vezes antes de cadastrar, e confirme a faixa com o suporte da hospedagem.",
+      },
+      200,
+    );
+  } catch (e) {
+    // 502 e não 500: quem falhou foi o serviço de fora, não nós.
+    const motivo =
+      e instanceof DOMException && e.name === "TimeoutError"
+        ? "o serviço de consulta não respondeu em 10s"
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    console.error(e);
+    return responderJson({ ok: false, erro: `Falha ao consultar o IP de saída: ${motivo}` }, 502);
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     const nonce = gerarNonce();
@@ -562,6 +680,10 @@ export default {
     }
     if (url.pathname === ROTA_CALLBACK) {
       return tratarCallback(request, url);
+    }
+    // TEMPORÁRIA: sai junto com o bloco de tratarDiagnosticoIp.
+    if (url.pathname === ROTA_DIAGNOSTICO_IP) {
+      return tratarDiagnosticoIp(request);
     }
 
     try {

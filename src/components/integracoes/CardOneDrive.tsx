@@ -45,6 +45,7 @@ type LinhaSync = {
 type RespostaSync = {
   ok?: boolean;
   importados?: number;
+  vinculados?: number;
   jaExistentes?: number;
   detalhe?: string;
   erro?: string;
@@ -134,12 +135,18 @@ export function CardOneDrive() {
       if (!resposta.ok || corpo.ok !== true) {
         setAviso({ tipo: "erro", texto: corpo.erro || `Falhou (HTTP ${resposta.status}).` });
       } else {
+        // Criado e vinculado são coisas diferentes e a frase separa as
+        // duas: vincular anexa a pasta a um orçamento que já existia e
+        // não pede conferência nenhuma; criar é que gera rascunho novo.
+        const feitos = [
+          corpo.importados ? `${corpo.importados} orçamento(s) criado(s)` : "",
+          corpo.vinculados ? `${corpo.vinculados} pasta(s) vinculada(s) a orçamento já lançado` : "",
+        ].filter(Boolean);
         setAviso({
           tipo: "ok",
-          texto:
-            corpo.importados
-              ? `${corpo.importados} orçamento(s) importado(s). Confira no Comercial.`
-              : "Nada novo: todas as pastas já tinham sido importadas.",
+          texto: feitos.length
+            ? `${feitos.join(" e ")}.${corpo.importados ? " Confira no Comercial." : ""}`
+            : "Nada novo: todas as pastas já estavam no Portal.",
         });
       }
     } catch (e) {

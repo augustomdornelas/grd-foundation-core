@@ -383,6 +383,24 @@ function triar(itens: ItemDrive[], ano: number): Triagem {
       descartar(descartados, "não é pasta (arquivo)");
       continue;
     }
+    // O ANINHAMENTO É TESTADO ANTES DO NOME, e a ordem é escolha de
+    // legenda, não de comportamento — os dois caminhos descartam.
+    //
+    // Invertida, a conta ficava enganosa: as 52 pastas de trabalho
+    // ("PROJETOS", "Fotos do projeto", "PROPOSTA REVISADA") caíam em
+    // "fora do padrão", e o diário anunciava 53 pastas fora do padrão
+    // como se houvesse orçamento perdido lá dentro. Nesta ordem, "fora
+    // do padrão" quer dizer o que se espera que queira dizer: coisa de
+    // primeiro nível que não parece orçamento — e sobra 1, a própria
+    // pasta raiz, que o delta sempre devolve.
+    //
+    // O aninhamento acontece de verdade, e mais do que se imaginaria: o
+    // acervo tem "ORC 062_2026 - ..." dentro de "ORC 063_2026 - ..." e
+    // pastas repetidas dentro de si mesmas.
+    if (dentroDeOutroOrcamento(item)) {
+      descartar(descartados, "subpasta de outro orçamento");
+      continue;
+    }
     const nome = interpretarNome(item.name ?? "");
     if (!nome) {
       descartar(descartados, "fora do padrão ORC NNN_AAAA");
@@ -391,14 +409,6 @@ function triar(itens: ItemDrive[], ano: number): Triagem {
     // Armadilha (e): 2025 tem o mesmo padrão e fica de fora nesta etapa.
     if (nome.ano !== ano) {
       descartar(descartados, `de outro ano (${nome.ano})`);
-      continue;
-    }
-    // Acontece de verdade, e mais do que se imaginaria: o acervo tem
-    // "ORC 062_2026 - ..." dentro de "ORC 063_2026 - ...", e pastas
-    // repetidas dentro de si mesmas. Sem este filtro, 17 subpastas
-    // viravam orçamento na varredura de 28/08/2026.
-    if (dentroDeOutroOrcamento(item)) {
-      descartar(descartados, "subpasta de outro orçamento");
       continue;
     }
     candidatas.push({ item, nome });
@@ -509,7 +519,15 @@ export type ResultadoOnedriveSync = {
   status: "ok" | "parcial" | "erro";
   /** Pastas do ano pedido encontradas no delta. */
   pastas: number;
+  /** Rascunhos CRIADOS agora: pasta sem orçamento correspondente. */
   importados: number;
+  /** Pastas anexadas a um orçamento que já estava lançado no Portal.
+   *  Nenhum campo de negócio é tocado — ver "VINCULAR OU CRIAR". */
+  vinculados: number;
+  /** Números cujo orçamento já aponta para OUTRA pasta. Não são
+   *  tocados: o job avisa e alguém decide. */
+  conflitos: string[];
+  /** Pastas que já estavam vinculadas antes desta execução. */
   jaExistentes: number;
   /** Itens do delta descartados na triagem. */
   ignorados: number;
@@ -608,6 +626,76 @@ async function jaImportados(db: SupabaseClient, ids: string[]): Promise<Set<stri
   return achados;
 }
 
+// ------------------------------------------------------------
+// VINCULAR OU CRIAR — e por que não é só criar
+// ------------------------------------------------------------
+// A primeira execução real, em 28/08/2026, bateu numa constraint que
+// não estava em migration nenhuma: `orcamentos_numero_unique`. O motivo
+// era mais fundo que a constraint. O Comercial JÁ TINHA LANÇADO à mão
+// 88 orçamentos com a mesma numeração das pastas — com cliente, valor,
+// responsável e status de negociação, R$ 2,8 milhões numa linha só.
+//
+// Criar mais um orçamento para cada uma dessas pastas produziria 86
+// duplicatas VAZIAS ao lado do trabalho de gente. A constraint impediu,
+// e ainda bem.
+//
+// Então a pasta é casada com o orçamento que já existe PELO NÚMERO, e o
+// que acontece depende do que se acha:
+//
+//   nada com esse número          -> CRIA o rascunho (o caso da spec)
+//   existe e sem drive_item_id    -> VINCULA: grava só a origem
+//   existe e já com ESTE item     -> nada a fazer, já vinculado
+//   existe e com OUTRO item       -> CONFLITO: não toca, e o diário diz
+//
+// VINCULAR ESCREVE TRÊS COLUNAS E MAIS NENHUMA: drive_item_id,
+// drive_url e conferido_em. Não encosta em cliente, valor, obra, status
+// nem observações — quem digitou aquilo sabia mais que este job, e o
+// papel dele aqui é anexar a pasta, não opinar.
+//
+// `importado_em` fica NULL no vínculo, de propósito: o job não criou
+// essa linha. É essa coluna que acende o selo "a conferir", e uma linha
+// preenchida à mão não tem o que conferir.
+const NUMERO_LOTE = 50;
+
+type LinhaExistente = { id: string; numero: string; drive_item_id: string | null };
+
+/** Os orçamentos que já existem para estes números. A busca é por
+ *  número porque é a chave que o Comercial e o OneDrive compartilham —
+ *  `drive_item_id` só existe depois do primeiro vínculo. */
+async function existentesPorNumero(
+  db: SupabaseClient,
+  numeros: string[],
+): Promise<Map<string, LinhaExistente>> {
+  const mapa = new Map<string, LinhaExistente>();
+  for (const lote of emLotes([...new Set(numeros)], NUMERO_LOTE)) {
+    const { data, error } = await db
+      .from("orcamentos")
+      .select("id, numero, drive_item_id")
+      .in("numero", lote);
+    if (error) throw new Error(`Falha ao ler os orçamentos já lançados: ${error.message}`);
+    for (const linha of (data as LinhaExistente[] | null) ?? []) {
+      mapa.set((linha.numero ?? "").trim(), linha);
+    }
+  }
+  return mapa;
+}
+
+/** Anexa a pasta a um orçamento que já existe. Três colunas, e olhe lá. */
+async function vincular(db: SupabaseClient, linhaId: string, item: ItemDrive): Promise<void> {
+  const { error } = await db
+    .from("orcamentos")
+    .update({
+      drive_item_id: item.id,
+      drive_url: item.webUrl ?? "",
+      // Já foi conferido por quem digitou. Sem isto, 86 orçamentos
+      // fechados apareceriam na listagem pedindo conferência.
+      conferido_em: new Date().toISOString(),
+      conferido_por: "lançado no Portal antes da integração",
+    })
+    .eq("id", linhaId);
+  if (error) throw new Error(`Falha ao vincular a pasta ao orçamento: ${error.message}`);
+}
+
 function mensagem(e: unknown): string {
   if (e instanceof OneDriveErro) return e.message;
   if (e instanceof Error) return e.message;
@@ -649,6 +737,8 @@ export async function sincronizarOnedrive(
     status: "erro",
     pastas: 0,
     importados: 0,
+    vinculados: 0,
+    conflitos: [],
     jaExistentes: 0,
     ignorados: 0,
     requisicoes: 0,
@@ -667,17 +757,42 @@ export async function sincronizarOnedrive(
       db,
       candidatas.map((c) => c.item.id),
     );
-    // O casamento é calculado UMA vez por pasta e carregado adiante: ele
-    // alimenta a linha do banco e as contas do diário, e recalculá-lo
-    // nos dois lugares seria abrir espaço para os dois discordarem.
-    const novas = candidatas
-      .filter((c) => !existentes.has(c.item.id))
-      .map((c) => ({ ...c, casamento: escolherCliente(c.nome.obra, clientes) }));
+    const porNumeroNoPortal = await existentesPorNumero(
+      db,
+      candidatas.map((c) => c.nome.numero),
+    );
+
+    // Triagem da escrita: quem cria, quem vincula, quem já está pronto.
+    // Ver o bloco "VINCULAR OU CRIAR" acima.
+    const aCriar: (Candidata & { casamento: Casamento })[] = [];
+    const aVincular: { candidata: Candidata; linhaId: string }[] = [];
+    const conflitos: string[] = [];
+    let jaVinculados = 0;
+
+    for (const c of candidatas) {
+      if (existentes.has(c.item.id)) {
+        jaVinculados += 1;
+        continue;
+      }
+      const noPortal = porNumeroNoPortal.get(c.nome.numero);
+      if (!noPortal) {
+        // O casamento é calculado UMA vez e carregado adiante: ele
+        // alimenta a linha do banco e as contas do diário, e recalculá-lo
+        // nos dois lugares abriria espaço para os dois discordarem.
+        aCriar.push({ ...c, casamento: escolherCliente(c.nome.obra, clientes) });
+      } else if (!noPortal.drive_item_id) {
+        aVincular.push({ candidata: c, linhaId: noPortal.id });
+      } else {
+        // Mesmo número, outra pasta. Pode ser pasta duplicada no drive ou
+        // número reaproveitado; das duas, nenhuma se resolve no escuro.
+        conflitos.push(c.nome.numero);
+      }
+    }
 
     let importados = 0;
-    for (const lote of emLotes(novas, LOTE)) {
+    for (const lote of emLotes(aCriar, LOTE)) {
       const linhas = lote.map((c) => montarLinha(c, c.casamento));
-      // `ignoreDuplicates` é a rede, não o plano: a filtragem acima já
+      // `ignoreDuplicates` é a rede, não o plano: a triagem acima já
       // tirou o que existe. Ele cobre a corrida entre o agendador das
       // cinco e alguém que apertou "Sincronizar agora" no mesmo minuto —
       // e é o índice único do banco que a torna impossível de errar.
@@ -689,12 +804,28 @@ export async function sincronizarOnedrive(
       importados += ((data as unknown[] | null) ?? []).length;
     }
 
+    // Um UPDATE por linha, e não um upsert em lote: o upsert por `id`
+    // que errasse o alvo INSERIRIA um orçamento em branco, e nenhuma
+    // economia de requisição paga esse risco numa tabela que é o
+    // Comercial inteiro. São ~86 na primeira execução e zero nas
+    // seguintes. Em lotes de 10 para não abrir 86 conexões de uma vez.
+    let vinculados = 0;
+    for (const lote of emLotes(aVincular, 10)) {
+      await Promise.all(lote.map((v) => vincular(db, v.linhaId, v.candidata.item)));
+      vinculados += lote.length;
+    }
+
     // Só chega aqui quem gravou tudo o que viu. Ver `ultimoDeltaLink()`.
-    const semCliente = novas.filter((c) => c.casamento.cliente === null).length;
+    //
+    // As contas de cliente são sobre o que foi CRIADO, e não sobre o que
+    // foi vinculado: quem vinculou já tem o cliente digitado por gente, e
+    // contá-lo como "a definir" faria a tela pedir conferência de uma
+    // linha que está fechada.
+    const semCliente = aCriar.filter((c) => c.casamento.cliente === null).length;
     // O acerto por aproximação (regra 2) sai contado à parte no diário:
     // ele é um palpite mais fraco que o casamento inteiro, e quem for
     // conferir merece saber quantos são antes de abrir a listagem.
-    const porAproximacao = novas.filter((c) => c.casamento.como === "parcial").length;
+    const porAproximacao = aCriar.filter((c) => c.casamento.como === "parcial").length;
 
     // Número repetido não é erro do job, é o que está no drive: em
     // 28/08/2026 havia duas pastas "ORC 001_2026", uma delas o modelo
@@ -708,11 +839,15 @@ export async function sincronizarOnedrive(
 
     const partes = [
       `${candidatas.length} pasta(s) de ${ano} no delta`,
-      `${importados} importada(s)`,
-      `${candidatas.length - novas.length} já existia(m)`,
+      `${importados} criada(s)`,
+      `${vinculados} vinculada(s) a orçamento já lançado`,
+      `${jaVinculados} já vinculada(s) antes`,
     ];
-    if (semCliente) partes.push(`${semCliente} com cliente a definir`);
+    if (semCliente) partes.push(`${semCliente} das criadas com cliente a definir`);
     if (porAproximacao) partes.push(`${porAproximacao} com cliente por aproximação`);
+    if (conflitos.length) {
+      partes.push(`CONFLITO — número já vinculado a outra pasta: ${conflitos.join(", ")}`);
+    }
     if (repetidos.length) {
       partes.push(`número repetido no drive: ${repetidos.join(", ")}`);
     }
@@ -728,13 +863,15 @@ export async function sincronizarOnedrive(
     const resultado: ResultadoOnedriveSync = {
       ok: true,
       ano,
-      // "parcial" quando alguma pasta nova entrou sem cliente: o job
-      // funcionou, mas deixou trabalho de conferência para alguém. A
-      // tela mostra os dois estados separados.
-      status: semCliente ? "parcial" : "ok",
+      // "parcial" quando alguma pasta nova entrou sem cliente ou quando
+      // houve conflito: o job funcionou, mas deixou trabalho para
+      // alguém. A tela mostra os dois estados separados.
+      status: semCliente || conflitos.length ? "parcial" : "ok",
       pastas: candidatas.length,
       importados,
-      jaExistentes: candidatas.length - novas.length,
+      vinculados,
+      conflitos,
+      jaExistentes: jaVinculados,
       ignorados,
       requisicoes: delta.requisicoes,
       detalhe: partes.join(" · "),
