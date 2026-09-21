@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from "recharts";
 import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { brl, brlCompacto, num, pct } from "@/lib/formato";
+import { brl, brlCompacto, num, pct, mascaraDataBr, dataBrParaIso, dataIsoParaBr } from "@/lib/formato";
 import { useProjetosStore, projetosActions, resumoProjeto, calcularValorNota, type Projeto, type ProjetoStatus, type Custo, type NotaFiscal } from "@/lib/projetos-store";
 import { useFornecedores } from "@/lib/fornecedores-store";
 import {
@@ -52,7 +52,11 @@ export const Route = createFileRoute("/app/projetos/$id")({
 });
 
 const hoje = () => new Date().toISOString().slice(0, 10);
-const custoVazio = () => ({ data: hoje(), descricao: "", categoria: "Insumo" as Custo["categoria"], valor: null as number | null });
+// A data do custo é digitada em DD/MM/AAAA; vira ISO só ao gravar.
+const custoVazio = () => ({
+  data: dataIsoParaBr(hoje()), descricao: "", categoria: "Insumo" as Custo["categoria"],
+  unidade: "un", quantidade: 1 as number | null, valorUnitario: null as number | null,
+});
 /** Para achar o fornecedor cadastrado pelo nome gravado na nota. */
 const normalizarNome = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
@@ -128,24 +132,38 @@ function ProjetoDetalhe() {
   };
   const abrirEdicaoCusto = (c: Custo) => {
     setCustoEditId(c.id);
-    setCusto({ data: c.data.slice(0, 10), descricao: c.descricao, categoria: c.categoria, valor: c.valor });
+    // Custo antigo não tem quantidade nem unitário: abre como 1 × valor,
+    // para o total continuar o mesmo ao salvar.
+    const antigo = c.quantidade == null || c.valorUnitario == null;
+    setCusto({
+      data: dataIsoParaBr(c.data), descricao: c.descricao, categoria: c.categoria,
+      unidade: c.unidade || "un",
+      quantidade: antigo ? 1 : c.quantidade ?? 1,
+      valorUnitario: antigo ? c.valor : c.valorUnitario ?? null,
+    });
     setCustoOpen(true);
   };
   const submitCusto = async () => {
-    // O campo já entrega número: o `replace(/\D/g, "")` que existia aqui
-    // apagava a vírgula junto com o resto e transformava 1.234,56 em 123456.
-    const valor = custo.valor ?? 0;
-    if (!custo.descricao.trim() || !valor) return toast.error("Preencha descrição e valor");
+    const dataIso = dataBrParaIso(custo.data);
+    const quantidade = custo.quantidade ?? 0;
+    const valorUnitario = custo.valorUnitario ?? 0;
+    if (!dataIso) return toast.error("Data inválida — use DD/MM/AAAA");
+    if (!custo.descricao.trim()) return toast.error("Preencha a descrição");
+    if (!(quantidade > 0)) return toast.error("Informe a quantidade");
+    if (!(valorUnitario > 0)) return toast.error("Informe o valor unitário");
+    // Sem `valor`: o store calcula quantidade × unitário.
+    const dados = {
+      data: dataIso, descricao: custo.descricao, categoria: custo.categoria,
+      unidade: custo.unidade, quantidade, valorUnitario,
+    };
     if (custoEditId) {
       setSalvando(true);
-      const ok = await projetosActions.atualizarCusto(custoEditId, {
-        data: custo.data, descricao: custo.descricao, categoria: custo.categoria, valor,
-      });
+      const ok = await projetosActions.atualizarCusto(custoEditId, dados);
       setSalvando(false);
       if (!ok) return; // o store já avisou e desfez
       toast.success("Custo atualizado");
     } else {
-      projetosActions.adicionarCusto({ projetoId: id, data: custo.data, descricao: custo.descricao, categoria: custo.categoria, valor });
+      projetosActions.adicionarCusto({ projetoId: id, ...dados });
       toast.success("Custo lançado");
     }
     setCusto(custoVazio());
@@ -380,15 +398,29 @@ function ProjetoDetalhe() {
 
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold text-[#213368]">Custos lançados</h3>
+              <div>
+                <h3 className="font-bold text-[#213368]">Custos lançados</h3>
+                <p className="text-xs text-muted-foreground">Total: <b className="text-[#F37032]">{brl(r.custos.reduce((a, c) => a + c.valor, 0))}</b></p>
+              </div>
               <Button onClick={abrirNovoCusto} className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Lançar custo</Button>
               <Dialog open={custoOpen} onOpenChange={o => { if (!salvando) setCustoOpen(o); }}>
                 {/* uppercase: o Dialog abre fora do .app-layout (portal). */}
                 <DialogContent className="uppercase">
                   <DialogHeader><DialogTitle>{custoEditId ? "Editar custo" : "Novo custo"}</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
-                    <div><Label>Data</Label><Input type="date" value={custo.data} onChange={e => setCusto({ ...custo, data: e.target.value })} /></div>
-                    <div><Label>Descrição</Label><Input value={custo.descricao} onChange={e => setCusto({ ...custo, descricao: e.target.value })} /></div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <Label>Data</Label>
+                      {/* Texto com máscara, e não type="date", que mostraria o formato do navegador. */}
+                      <Input
+                        type="text" inputMode="numeric" placeholder="DD/MM/AAAA" maxLength={10}
+                        value={custo.data}
+                        onChange={e => setCusto({ ...custo, data: mascaraDataBr(e.target.value) })}
+                        aria-invalid={custo.data.length === 10 && !dataBrParaIso(custo.data)}
+                      />
+                      {custo.data.length === 10 && !dataBrParaIso(custo.data) && (
+                        <p className="mt-1 text-xs font-medium text-red-600">Data inválida.</p>
+                      )}
+                    </div>
                     <div>
                       <Label>Categoria</Label>
                       <Select value={custo.categoria} onValueChange={v => setCusto({ ...custo, categoria: v as typeof custo.categoria })}>
@@ -396,22 +428,54 @@ function ProjetoDetalhe() {
                         <SelectContent>{["Insumo", "Serviço", "Locação", "Mão de obra", "Outro"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div><Label>Valor</Label><InputMoeda valor={custo.valor} onChange={v => setCusto({ ...custo, valor: v })} placeholder="0,00" /></div>
+                    <div className="md:col-span-2"><Label>Descrição</Label><Input value={custo.descricao} onChange={e => setCusto({ ...custo, descricao: e.target.value })} /></div>
+                    <div>
+                      <Label>Unidade</Label>
+                      <UnidadeSelect value={custo.unidade} onChange={u => setCusto({ ...custo, unidade: u })} />
+                    </div>
+                    <div>
+                      <Label>Quantidade</Label>
+                      <InputNumero valor={custo.quantidade} onChange={v => setCusto({ ...custo, quantidade: v })} placeholder="1,00" />
+                    </div>
+                    <div>
+                      <Label>Valor unitário</Label>
+                      <InputMoeda valor={custo.valorUnitario} onChange={v => setCusto({ ...custo, valorUnitario: v })} placeholder="0,00" />
+                    </div>
+                    <div>
+                      <Label>Valor total</Label>
+                      {/* Só leitura, como nas notas: sai sempre de quantidade × unitário. */}
+                      <div
+                        aria-live="polite"
+                        className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm font-bold text-[#213368]"
+                      >
+                        {brl(calcularValorNota(custo.quantidade ?? 0, custo.valorUnitario ?? 0))}
+                      </div>
+                    </div>
                   </div>
                   <DialogFooter><Button variant="outline" onClick={() => setCustoOpen(false)} disabled={salvando}>Cancelar</Button><Button onClick={submitCusto} disabled={salvando} className="bg-[#213368] text-white">{salvando ? "Salvando…" : "Salvar"}</Button></DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
             <Table>
-              <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Valor</TableHead><TableHead></TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead className="text-right">Qtd.</TableHead><TableHead className="text-right">V. unit.</TableHead><TableHead className="text-right">Valor</TableHead><TableHead></TableHead></TableRow></TableHeader>
               <TableBody>
-                {r.custos.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum custo lançado.</TableCell></TableRow>}
+                {r.custos.length === 0 && <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Nenhum custo lançado.</TableCell></TableRow>}
                 {r.custos.map(c => (
                   <TableRow key={c.id}>
                     <TableCell>{dataBR(c.data)}</TableCell>
                     <TableCell>{c.descricao}</TableCell>
                     <TableCell>{c.categoria}</TableCell>
-                    <TableCell className="font-semibold">{brl(c.valor)}</TableCell>
+                    {/* Custo antigo, lançado só com o total: "—" em Qtd. e V. unit. */}
+                    <TableCell className="text-right tabular-nums">
+                      {c.quantidade != null ? (
+                        <>
+                          {num(c.quantidade)}
+                          {c.unidade && <span className="ml-1 text-xs text-muted-foreground">{c.unidade}</span>}
+                        </>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{c.valorUnitario != null ? brl(c.valorUnitario) : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{brl(c.valor)}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" title="Editar custo" onClick={() => abrirEdicaoCusto(c)}><Pencil className="h-4 w-4 text-[#213368]" /></Button>

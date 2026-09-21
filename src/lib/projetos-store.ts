@@ -66,6 +66,10 @@ function mapCusto(r: any): Custo {
     id: r.id, projetoId: r.projeto_id ?? "", data: r.data ?? "",
     descricao: r.descricao ?? "", categoria: r.categoria ?? "Outro",
     valor: num(r.valor),
+    // null continua null: custo antigo não tem quantidade, e 0 mentiria.
+    quantidade: r.quantidade == null ? null : num(r.quantidade),
+    valorUnitario: r.valor_unitario == null ? null : num(r.valor_unitario),
+    unidade: r.unidade ?? null,
   };
 }
 function mapNota(r: any): NotaFiscal {
@@ -84,7 +88,15 @@ export type Custo = {
   data: string;
   descricao: string;
   categoria: "Insumo" | "Serviço" | "Locação" | "Mão de obra" | "Outro";
+  /**
+   * Total. Para custo novo é sempre quantidade × valorUnitario; custo
+   * antigo, lançado só com o total, tem os três abaixo em null.
+   */
   valor: number;
+  quantidade?: number | null;
+  valorUnitario?: number | null;
+  /** Nome da unidade (snapshot), como em notas_fiscais.unidade. */
+  unidade?: string | null;
 };
 
 export type NotaFiscal = {
@@ -324,13 +336,21 @@ export const projetosActions = {
     emit();
     void supabase.from("projetos").delete().eq("id", id).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
-  adicionarCusto(c: Omit<Custo, "id">) {
+  /**
+   * O valor NÃO vem de fora: é quantidade × valor unitário, calculado
+   * aqui (mesma função das notas), para os três nunca se contradizerem.
+   */
+  adicionarCusto(c: Omit<Custo, "id" | "valor" | "quantidade" | "valorUnitario" | "unidade"> & {
+    quantidade: number; valorUnitario: number; unidade: string;
+  }) {
     const id = crypto.randomUUID();
-    state = { ...state, custos: [...state.custos, { ...c, id }] };
+    const valor = calcularValorNota(c.quantidade, c.valorUnitario);
+    state = { ...state, custos: [...state.custos, { ...c, id, valor }] };
     emit();
     void supabase.from("custos").insert(upperizePayload({
       id, projeto_id: c.projetoId, data: c.data,
-      descricao: c.descricao, categoria: c.categoria, valor: c.valor,
+      descricao: c.descricao, categoria: c.categoria, valor,
+      quantidade: c.quantidade, valor_unitario: c.valorUnitario, unidade: c.unidade,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
   /**
@@ -340,17 +360,36 @@ export const projetosActions = {
    */
   async atualizarCusto(
     id: string,
-    patch: Partial<Pick<Custo, "data" | "descricao" | "categoria" | "valor">>,
+    patch: Partial<{
+      data: string; descricao: string; categoria: Custo["categoria"];
+      quantidade: number; valorUnitario: number; unidade: string;
+    }>,
   ): Promise<boolean> {
     const anterior = state.custos.find(c => c.id === id);
     if (!anterior) return false;
-    state = { ...state, custos: state.custos.map(c => c.id === id ? { ...c, ...patch } : c) };
+    // Sem `valor` no patch, de propósito: quando há quantidade e unitário
+    // (do patch ou os que o custo já tinha), o total é recalculado. Custo
+    // antigo editado sem os dois fica com o total de antes.
+    const quantidade = patch.quantidade ?? anterior.quantidade ?? null;
+    const valorUnitario = patch.valorUnitario ?? anterior.valorUnitario ?? null;
+    const valor = quantidade != null && valorUnitario != null
+      ? calcularValorNota(quantidade, valorUnitario)
+      : anterior.valor;
+    state = {
+      ...state,
+      custos: state.custos.map(c => c.id === id ? { ...c, ...patch, quantidade, valorUnitario, valor } : c),
+    };
     emit();
     const row: Record<string, unknown> = {};
     if (patch.data !== undefined) row.data = patch.data;
     if (patch.descricao !== undefined) row.descricao = patch.descricao;
     if (patch.categoria !== undefined) row.categoria = patch.categoria;
-    if (patch.valor !== undefined) row.valor = patch.valor;
+    if (patch.unidade !== undefined) row.unidade = patch.unidade;
+    if (quantidade != null && valorUnitario != null) {
+      row.quantidade = quantidade;
+      row.valor_unitario = valorUnitario;
+      row.valor = valor;
+    }
     const { data, error } = await supabase
       .from("custos").update(upperizePayload(row)).eq("id", id).select().single();
     if (error || !data) {
