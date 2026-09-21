@@ -1,64 +1,43 @@
 // ============================================================
-// Modelo de cálculo: Planejamento × Execução (lucro por categoria)
+// Modelo de cálculo: Planejamento × Execução
 // ------------------------------------------------------------
-// TODAS as fórmulas do quadro moram neste arquivo, isoladas da tela,
-// justamente porque o modelo do sistema antigo ainda precisa ser
-// conferido. Se a comparação apontar outra regra, ajuste aqui — a
-// aba não precisa mudar.
+// TODAS as fórmulas do quadro moram neste arquivo, isoladas da tela.
 //
-// Os três pontos em aberto estão marcados com "AJUSTE:" abaixo.
+// PLANEJADO: os seis percentuais do projeto somam 100% e incluem
+// imposto e lucro, então incidem sobre o CONTRATO. Cada categoria de
+// custo (MO, Material, Terceirizado, Administrativo, Impostos) é
+// contrato × %; o lucro previsto é o que sobra: contrato − custos
+// planejados.
+//
+// EXECUTADO: vem dos CUSTOS LANÇADOS e das NOTAS FISCAIS do projeto —
+// os mesmos que a barra "Financeiro realizado" do topo soma. Os
+// lançamentos do livro-caixa (`lancamentos`) ficam de fora: não há como
+// garantir que não repetem uma nota ou um custo (nota guarda o
+// fornecedor como texto e o número é opcional; custo não aponta para
+// lançamento nenhum). Somar os dois contaria a mesma despesa duas vezes.
 // ============================================================
-import type { Projeto } from "@/lib/projetos-store";
-import type { ExecucaoProjeto } from "@/lib/lancamentos-store";
+import type { Custo, NotaFiscal, Projeto } from "@/lib/projetos-store";
 
 // ------------------------------------------------------------
-// AJUSTE 1 — base dos percentuais planejados.
-// Os percentuais (planejado_*_pct) incidem sobre o custo previsto, não
-// sobre o contrato. Três leituras possíveis de "custo previsto":
-//   "custos"        → a coluna planejado_custos, como veio do sistema
-//                     antigo (ATIVO).
-//   "custo_previsto"→ contrato − lucro − imposto, recalculado aqui.
-//                     Use se planejado_custos estiver vazio/divergente.
-//   "contrato"      → percentuais sobre o valor do contrato.
-// As duas primeiras devem dar o mesmo número se planejado_custos foi
-// gravado como contrato − lucro − imposto; se divergirem, os dados é
-// que precisam ser conferidos.
+// Base dos percentuais planejados.
+//   "contrato"       → percentuais sobre o valor do contrato (ATIVO: os
+//                      percentuais somam 100% com imposto e lucro).
+//   "custo_previsto" → contrato − lucro − imposto.
+//   "custos"         → a coluna planejado_custos (modelo antigo; somava
+//                      o custo duas vezes no total — não use).
 // ------------------------------------------------------------
-const BASE_PERCENTUAIS: "contrato" | "custos" | "custo_previsto" = "custos";
+const BASE_PERCENTUAIS: "contrato" | "custos" | "custo_previsto" = "contrato";
 
-// ------------------------------------------------------------
-// AJUSTE 2 — natureza de planejado_custos.
-// A coluna não termina em _pct, então é tratada como valor em R$.
-// Se na verdade for percentual do contrato, mude para true.
-//
-// ATENÇÃO (ver relatório): com BASE_PERCENTUAIS = "custos", a linha
-// "Custos" recebe planejado_custos INTEIRO, que é o mesmo valor usado
-// como base de MO/MT/ST/TX. Ou seja, o Total planejado conta o custo
-// duas vezes (≈2× a base). Se a intenção é que "Custos" seja só o
-// resíduo — o que sobra depois de MO+MT+ST+TX —, a linha CP deveria ser
-// base − (MO+MT+ST+TX). Não mudei porque depende do modelo antigo.
-// ------------------------------------------------------------
-const CUSTOS_PLANEJADO_EH_PERCENTUAL = false;
-
-// ------------------------------------------------------------
-// AJUSTE 3 — lucro total.
-// Lucro total = contrato − total executado. O grupo TX (impostos) já
-// está dentro do total executado, então NÃO é descontado de novo —
-// era o que a versão anterior fazia. Mude para true para voltar ao
-// desconto duplo.
-// ------------------------------------------------------------
-const LUCRO_TOTAL_DESCONTA_IMPOSTO_DUAS_VEZES: boolean = false;
-
-/** Grupos de `categoria_grupo` que ganham linha própria no quadro. */
-export const GRUPOS_QUADRO = ["MO", "MT", "ST", "TX", "CP"] as const;
+/** Linhas do quadro, na ordem da tela. */
+export const GRUPOS_QUADRO = ["MO", "MT", "ST", "ADM", "TX"] as const;
 export type GrupoQuadro = (typeof GRUPOS_QUADRO)[number];
 
 const ROTULOS: Record<GrupoQuadro, string> = {
   MO: "Mão de obra",
   MT: "Material",
   ST: "Terceirizado",
+  ADM: "Administrativo",
   TX: "Impostos",
-  CP: "Custos",
 };
 
 export type LinhaQuadro = {
@@ -66,33 +45,35 @@ export type LinhaQuadro = {
   rotulo: string;
   planejado: number;
   executado: number;
-  /** planejado − executado (positivo = sobrou orçamento, i.e. lucro) */
-  diferenca: number;
+  /** planejado − executado (positivo = ainda há orçamento na categoria) */
+  saldo: number;
 };
 
 export type QuadroPlanejamentoExecucao = {
-  /** Base usada nos percentuais (ver AJUSTE 1). */
+  /** Base usada nos percentuais. */
   base: number;
-  /** Como a base se chama na tela — acompanha BASE_PERCENTUAIS. */
   baseRotulo: string;
   contrato: number;
+  /** Uma linha por categoria de custo, mais "Outros" se houver executado sem categoria. */
   linhas: LinhaQuadro[];
-  totalPlanejado: number;
+  /** Soma do planejado das categorias de custo (sem o lucro). */
+  totalCustosPlanejado: number;
   totalExecutado: number;
-  /** Saídas cujo categoria_grupo não tem linha própria (ex.: MA, vazio). */
-  outrosExecutado: number;
-  medido: number;
-  lucroMaoDeObra: number;
-  lucroMaterial: number;
-  lucroTotal: number;
-  /** Calculado mas ainda sem linha no quadro — o sistema antigo não detalhava. */
-  administrativoPlanejado: number;
+  /** Lucro previsto = contrato − custos planejados. */
+  lucroPrevisto: number;
+  /** Lucro previsto em % do contrato. */
+  lucroPrevistoPct: number;
+  /** Soma dos seis percentuais — o esperado é 100. */
+  somaPercentuais: number;
+  saldoMaoDeObra: number;
+  saldoMaterial: number;
+  /** Total executado em % do contrato. */
+  gastoPct: number;
 };
 
 /**
  * Toda entrada passa por aqui antes de virar conta. Colunas `numeric` do
- * Postgres podem chegar como string e null vira 0 — sem isso, uma soma
- * viraria concatenação ("117000" + "150000") ou NaN na tela.
+ * Postgres podem chegar como string e null vira 0.
  */
 const n = (v: unknown) => {
   const x = Number(v);
@@ -102,92 +83,126 @@ const n = (v: unknown) => {
 const pct = (base: number, percentual: number) => base * (percentual / 100);
 
 /**
+ * Sem acento e em maiúsculas: a categoria é gravada em caixa alta pelo
+ * upperizePayload ("MÃO DE OBRA", "SERVIÇO"), mas o tipo no Portal é
+ * "Mão de obra", "Serviço".
+ */
+const chave = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").trim().toUpperCase();
+
+/**
+ * Categoria do custo -> linha do quadro.
+ *   Mão de obra       -> Mão de obra
+ *   Insumo            -> Material (junto com as notas fiscais)
+ *   Serviço, Locação  -> Terceirizado
+ *   Outro (e o resto) -> Outros
+ */
+export function grupoDoCusto(categoria: string): GrupoQuadro | "OUTROS" {
+  switch (chave(categoria)) {
+    case "MAO DE OBRA":
+      return "MO";
+    case "INSUMO":
+      return "MT";
+    case "SERVICO":
+    case "LOCACAO":
+      return "ST";
+    default:
+      return "OUTROS";
+  }
+}
+
+/**
  * Monta o quadro comparativo de um projeto.
  * @param p projeto com as colunas de planejamento já mapeadas
- * @param e totais executados por grupo (tabela `lancamentos`)
+ * @param custos custos lançados DESTE projeto
+ * @param notas notas fiscais DESTE projeto (entram todas como Material)
  */
-export function montarQuadro(p: Projeto, e: ExecucaoProjeto): QuadroPlanejamentoExecucao {
+export function montarQuadro(
+  p: Projeto,
+  custos: Pick<Custo, "categoria" | "valor">[],
+  notas: Pick<NotaFiscal, "valor">[],
+): QuadroPlanejamentoExecucao {
+  const percentuais = {
+    MO: n(p.planejadoMoPct),
+    MT: n(p.planejadoMtPct),
+    ST: n(p.planejadoTerceirizadoPct),
+    ADM: n(p.planejadoAdministrativoPct),
+    TX: n(p.planejadoImpostoPct),
+  };
   const lucroPct = n(p.planejadoLucroPct);
-  const impostoPct = n(p.planejadoImpostoPct);
-  const moPct = n(p.planejadoMoPct);
-  const mtPct = n(p.planejadoMtPct);
-  const stPct = n(p.planejadoTerceirizadoPct);
-  const adminPct = n(p.planejadoAdministrativoPct);
-  const custosPlanejados = n(p.planejadoCustos);
 
-  // O contrato é a referência do quadro. Projetos migrados que ficaram
-  // sem valor_contrato caem no orçado, senão o quadro inteiro zera.
+  // O contrato é a referência do quadro. Projetos que ficaram sem
+  // valor_contrato caem no orçado, senão o quadro inteiro zera.
   const valorContrato = n(p.valorContrato);
   const contrato = valorContrato > 0 ? valorContrato : n(p.orcado);
-  // Math.max(0, …) evita base negativa se lucro+imposto passarem de 100%
-  // (dado ruim na migração viraria "lucro" negativo gigante na tela).
-  const custoPrevisto = Math.max(0, contrato - pct(contrato, lucroPct) - pct(contrato, impostoPct));
+  const custoPrevisto = Math.max(
+    0,
+    contrato - pct(contrato, lucroPct) - pct(contrato, percentuais.TX),
+  );
   const base =
-    BASE_PERCENTUAIS === "contrato" ? contrato
-    : BASE_PERCENTUAIS === "custo_previsto" ? custoPrevisto
-    : custosPlanejados;
+    BASE_PERCENTUAIS === "contrato"
+      ? contrato
+      : BASE_PERCENTUAIS === "custo_previsto"
+        ? custoPrevisto
+        : n(p.planejadoCustos);
   const baseRotulo =
-    BASE_PERCENTUAIS === "contrato" ? "contrato"
-    : BASE_PERCENTUAIS === "custo_previsto" ? "custo previsto (contrato − lucro − imposto)"
-    : "custos planejados";
+    BASE_PERCENTUAIS === "contrato"
+      ? "contrato"
+      : BASE_PERCENTUAIS === "custo_previsto"
+        ? "custo previsto (contrato − lucro − imposto)"
+        : "custos planejados";
 
-  // --- Planejado -------------------------------------------------
-  const planejado: Record<GrupoQuadro, number> = {
-    MO: pct(base, moPct),
-    MT: pct(base, mtPct),
-    ST: pct(base, stPct),
-    TX: pct(base, impostoPct),
-    CP: CUSTOS_PLANEJADO_EH_PERCENTUAL ? pct(base, custosPlanejados) : custosPlanejados,
+  // --- Executado: custos + notas --------------------------------
+  const executado: Record<GrupoQuadro | "OUTROS", number> = {
+    MO: 0,
+    MT: 0,
+    ST: 0,
+    ADM: 0,
+    TX: 0,
+    OUTROS: 0,
   };
-  const administrativoPlanejado = pct(base, adminPct);
+  for (const c of custos) executado[grupoDoCusto(c.categoria)] += n(c.valor);
+  for (const nf of notas) executado.MT += n(nf.valor);
 
-  // --- Executado (saídas de `lancamentos`) -----------------------
-  const executado = (g: GrupoQuadro) => n(e.saidasPorGrupo[g]);
-  const somaLinhas = GRUPOS_QUADRO.reduce((a, g) => a + executado(g), 0);
-  // Sobra da classificação (grupo MA, nulo, etc.): entra como "Outros"
-  // para que as linhas fechem com o total executado.
-  const totalSaidas = n(e.totalSaidas);
-  const outrosExecutado = totalSaidas - somaLinhas;
-
-  const linhas: LinhaQuadro[] = GRUPOS_QUADRO.map(g => ({
-    grupo: g,
-    rotulo: ROTULOS[g],
-    planejado: planejado[g],
-    executado: executado(g),
-    diferenca: planejado[g] - executado(g),
-  }));
-  if (Math.abs(outrosExecutado) > 0.005) {
+  // --- Linhas ----------------------------------------------------
+  const linhas: LinhaQuadro[] = GRUPOS_QUADRO.map((g) => {
+    const planejado = pct(base, percentuais[g]);
+    return {
+      grupo: g,
+      rotulo: ROTULOS[g],
+      planejado,
+      executado: executado[g],
+      saldo: planejado - executado[g],
+    };
+  });
+  // "Outros" só aparece quando há gasto sem categoria própria; não tem
+  // planejado, então o saldo é negativo por definição.
+  if (Math.abs(executado.OUTROS) > 0.005) {
     linhas.push({
       grupo: "OUTROS",
-      rotulo: "Outros (não classificados)",
+      rotulo: "Outros",
       planejado: 0,
-      executado: outrosExecutado,
-      diferenca: -outrosExecutado,
+      executado: executado.OUTROS,
+      saldo: -executado.OUTROS,
     });
   }
 
-  const totalPlanejado = linhas.reduce((a, l) => a + l.planejado, 0);
-  const totalExecutado = totalSaidas;
-
-  // --- Lucro ------------------------------------------------------
-  const lucroMaoDeObra = planejado.MO - executado("MO");
-  const lucroMaterial = planejado.MT - executado("MT");
-  const lucroTotal = LUCRO_TOTAL_DESCONTA_IMPOSTO_DUAS_VEZES
-    ? contrato - totalExecutado - executado("TX")
-    : contrato - totalExecutado;
+  const totalCustosPlanejado = linhas.reduce((a, l) => a + l.planejado, 0);
+  const totalExecutado = linhas.reduce((a, l) => a + l.executado, 0);
+  const lucroPrevisto = contrato - totalCustosPlanejado;
+  const linha = (g: GrupoQuadro) => linhas.find((l) => l.grupo === g)!;
 
   return {
     base,
     baseRotulo,
     contrato,
     linhas,
-    totalPlanejado,
+    totalCustosPlanejado,
     totalExecutado,
-    outrosExecutado,
-    medido: n(e.totalEntradas),
-    lucroMaoDeObra,
-    lucroMaterial,
-    lucroTotal,
-    administrativoPlanejado,
+    lucroPrevisto,
+    lucroPrevistoPct: contrato > 0 ? (lucroPrevisto / contrato) * 100 : 0,
+    somaPercentuais: Object.values(percentuais).reduce((a, v) => a + v, 0) + lucroPct,
+    saldoMaoDeObra: linha("MO").saldo,
+    saldoMaterial: linha("MT").saldo,
+    gastoPct: contrato > 0 ? (totalExecutado / contrato) * 100 : 0,
   };
 }

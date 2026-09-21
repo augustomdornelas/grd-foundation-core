@@ -768,31 +768,33 @@ function AbaLancamentos({ projetoId }: { projetoId: string }) {
 
 // ------------------------------------------------------------
 // Aba Planejamento × Execução
-// O planejado vem das colunas planejado_* de `projetos`; o executado,
-// dos lançamentos agrupados por categoria_grupo. As fórmulas ficam em
-// @/lib/planejamento-execucao (fácil de ajustar depois da comparação
-// com o sistema antigo).
+// O planejado vem das colunas planejado_* de `projetos`, sobre o
+// contrato; o executado, dos custos lançados e das notas fiscais do
+// projeto. As fórmulas ficam em @/lib/planejamento-execucao.
 // ------------------------------------------------------------
 function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
-  const { execucao, carregando } = useExecucaoProjeto(projeto.id);
-  const q = useMemo(() => montarQuadro(projeto, execucao), [projeto, execucao]);
+  const todosCustos = useProjetosStore(s => s.custos);
+  const todasNotas = useProjetosStore(s => s.notas);
+  const custos = useMemo(() => todosCustos.filter(c => c.projetoId === projeto.id), [todosCustos, projeto.id]);
+  const notas = useMemo(() => todasNotas.filter(n => n.projetoId === projeto.id), [todasNotas, projeto.id]);
+  // Só para dizer na tela quanto do livro-caixa ficou fora da conta.
+  const { execucao } = useExecucaoProjeto(projeto.id);
+  const q = useMemo(() => montarQuadro(projeto, custos, notas), [projeto, custos, notas]);
   const [editando, setEditando] = useState(false);
 
   const semPlanejamento =
-    !projeto.planejadoCustos && !projeto.planejadoMoPct && !projeto.planejadoMtPct &&
+    !projeto.planejadoMoPct && !projeto.planejadoMtPct &&
     !projeto.planejadoTerceirizadoPct && !projeto.planejadoAdministrativoPct &&
     !projeto.planejadoImpostoPct && !projeto.planejadoLucroPct;
-
-  if (carregando) {
-    return <Card className="p-6 text-center text-sm text-muted-foreground">Carregando execução…</Card>;
-  }
+  const somaFechaCem = Math.abs(q.somaPercentuais - 100) < 0.005;
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-3">
-        <CardLucro label="Lucro em Mão de obra" valor={q.lucroMaoDeObra} />
-        <CardLucro label="Lucro em Materiais" valor={q.lucroMaterial} />
-        <CardLucro label="Lucro total" valor={q.lucroTotal} destaque />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <CardResumo label="Saldo mão de obra" valor={q.saldoMaoDeObra} sinal />
+        <CardResumo label="Saldo material" valor={q.saldoMaterial} sinal />
+        <CardResumo label="Gasto até agora" valor={q.totalExecutado} detalhe={`${pct(q.gastoPct, 1)} do contrato`} />
+        <CardResumo label="Lucro previsto" valor={q.lucroPrevisto} detalhe={`${pct(q.lucroPrevistoPct, 1)} do contrato`} sinal destaque />
       </div>
 
       {semPlanejamento && (
@@ -807,28 +809,28 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
         </Card>
       )}
 
+      {!semPlanejamento && !somaFechaCem && (
+        <Card className="border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Os percentuais do planejamento somam <b>{pct(q.somaPercentuais, 2)}</b>, e não 100%. Eles
+          dividem o contrato inteiro (com imposto e lucro), então o planejado não fecha com o contrato
+          até a soma dar 100%.
+        </Card>
+      )}
+
       <Card className="p-6">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-          <h3 className="font-bold text-[#213368]">Planejado × Executado</h3>
-          <p className="text-xs text-muted-foreground">
-            Base dos percentuais: {q.baseRotulo} <b>{brl(q.base)}</b>
-            {" · "}Contrato: <b>{brl(q.contrato)}</b>
-            {" · "}Medido (entradas): <b>{brl(q.medido)}</b>
-            {" · "}{execucao.qtdLinhas} lançamento(s)
-            {projeto.metragem > 0 && <> · Metragem: <b>{num(projeto.metragem)} m²</b></>}
-          </p>
+            <h3 className="font-bold text-[#213368]">Planejado × Executado</h3>
+            <p className="text-xs text-muted-foreground">
+              Base dos percentuais: {q.baseRotulo} <b>{brl(q.base)}</b>
+              {" · "}Executado: {custos.length} custo(s) e {notas.length} nota(s) fiscal(is)
+              {projeto.metragem > 0 && <> · Metragem: <b>{num(projeto.metragem)} m²</b></>}
+            </p>
           </div>
           <Button size="sm" variant="outline" onClick={() => setEditando(true)} className="shrink-0">
             <Pencil className="mr-1 h-4 w-4" /> Editar planejamento
           </Button>
         </div>
-        {execucao.qtdLinhas === 0 && (
-          <p className="mb-4 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-            Nenhum lançamento para este projeto — a coluna Executado fica zerada e a Diferença
-            repete o planejado.
-          </p>
-        )}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -836,36 +838,62 @@ function AbaPlanejamento({ projeto }: { projeto: Projeto }) {
                 <TableHead>Categoria</TableHead>
                 <TableHead className="text-right">Planejado</TableHead>
                 <TableHead className="text-right">Executado</TableHead>
-                <TableHead className="text-right">Diferença (lucro)</TableHead>
+                <TableHead className="text-right">Saldo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {q.linhas.map(l => (
                 <TableRow key={l.grupo}>
                   <TableCell className="font-medium">{l.rotulo}</TableCell>
-                  <TableCell className="text-right">{brl(l.planejado)}</TableCell>
+                  <TableCell className="text-right">{l.grupo === "OUTROS" ? "—" : brl(l.planejado)}</TableCell>
                   <TableCell className="text-right text-[#F37032]">{brl(l.executado)}</TableCell>
-                  <TableCell className={`text-right font-semibold ${l.diferenca < 0 ? "text-destructive" : "text-emerald-600"}`}>
-                    {brl(l.diferenca)}
+                  <TableCell className={`text-right font-semibold ${l.saldo < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                    {brl(l.saldo)}
                   </TableCell>
                 </TableRow>
               ))}
               <TableRow className="border-t-2 bg-muted/40">
-                <TableCell className="font-bold text-[#213368]">Total</TableCell>
-                <TableCell className="text-right font-bold">{brl(q.totalPlanejado)}</TableCell>
+                <TableCell className="font-bold text-[#213368]">Total de custos</TableCell>
+                <TableCell className="text-right font-bold">{brl(q.totalCustosPlanejado)}</TableCell>
                 <TableCell className="text-right font-bold text-[#F37032]">{brl(q.totalExecutado)}</TableCell>
-                <TableCell className={`text-right font-bold ${q.totalPlanejado - q.totalExecutado < 0 ? "text-destructive" : "text-emerald-600"}`}>
-                  {brl(q.totalPlanejado - q.totalExecutado)}
+                <TableCell className={`text-right font-bold ${q.totalCustosPlanejado - q.totalExecutado < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                  {brl(q.totalCustosPlanejado - q.totalExecutado)}
                 </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Lucro previsto ({pct(q.lucroPrevistoPct, 1)})</TableCell>
+                <TableCell className={`text-right font-semibold ${q.lucroPrevisto < 0 ? "text-destructive" : "text-emerald-600"}`}>{brl(q.lucroPrevisto)}</TableCell>
+                <TableCell className="text-right text-muted-foreground">—</TableCell>
+                <TableCell className="text-right text-muted-foreground">—</TableCell>
+              </TableRow>
+              <TableRow className="border-t-2 bg-muted/40">
+                <TableCell className="font-bold text-[#213368]">Total (contrato)</TableCell>
+                <TableCell className="text-right font-bold">{brl(q.totalCustosPlanejado + q.lucroPrevisto)}</TableCell>
+                <TableCell />
+                <TableCell />
               </TableRow>
             </TableBody>
           </Table>
         </div>
-        <p className="mt-4 text-xs text-muted-foreground">
-          A coluna Diferença da linha Total é planejado − executado. O card “Lucro total” usa
-          contrato − executado, por isso os dois valores só coincidem quando o total planejado
-          é igual ao contrato.
-        </p>
+        <div className="mt-4 space-y-1 text-xs text-muted-foreground">
+          <p>
+            <b>Planejado</b> = contrato × percentual da categoria. <b>Lucro previsto</b> = contrato −
+            total de custos planejados. <b>Saldo</b> = planejado − executado (negativo: a categoria
+            passou do planejado).
+          </p>
+          <p>
+            <b>Executado</b> = custos lançados + notas fiscais do projeto, os mesmos do “Financeiro
+            realizado”. Mão de obra ← custos “Mão de obra”; Material ← notas fiscais e custos
+            “Insumo”; Terceirizado ← custos “Serviço” e “Locação”; Outros ← custos “Outro”.
+          </p>
+          <p>
+            Os lançamentos do livro-caixa (aba Lançamentos) não entram: não há como garantir que não
+            repetem uma nota ou um custo já contado.
+            {execucao.totalSaidas > 0 && (
+              <> Neste projeto ficaram fora <b>{brl(execucao.totalSaidas)}</b> em saídas do livro-caixa.</>
+            )}
+          </p>
+        </div>
       </Card>
 
       {editando && (
@@ -899,8 +927,9 @@ function PlanejamentoProjetoDialog({ projeto, onClose }: { projeto: Projeto; onC
   const salvar = async () => {
     setSalvando(true);
     const v = formParaValores(form);
+    // Sem planejadoCustos: o campo saiu da tela (a base agora é o
+    // contrato) e a coluna fica como está no banco.
     projetosActions.atualizarProjeto(projeto.id, {
-      planejadoCustos: v.custos,
       planejadoMoPct: v.moPct,
       planejadoMtPct: v.mtPct,
       planejadoTerceirizadoPct: v.terceirizadoPct,
@@ -939,11 +968,17 @@ function PlanejamentoProjetoDialog({ projeto, onClose }: { projeto: Projeto; onC
   );
 }
 
-function CardLucro({ label, valor, destaque }: { label: string; valor: number; destaque?: boolean }) {
+function CardResumo({ label, valor, detalhe, sinal, destaque }: {
+  label: string; valor: number; detalhe?: string;
+  /** Pinta verde/vermelho conforme o sinal (saldos e lucro). */
+  sinal?: boolean; destaque?: boolean;
+}) {
+  const cor = !sinal ? "text-[#213368]" : valor < 0 ? "text-destructive" : "text-emerald-600";
   return (
-    <Card className={`p-6 ${destaque ? "border-[#213368]/30" : ""}`}>
+    <Card className={`p-5 ${destaque ? "border-[#213368]/30" : ""}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-2xl font-extrabold ${valor < 0 ? "text-destructive" : "text-emerald-600"}`}>{brl(valor)}</div>
+      <div className={`mt-1 text-2xl font-extrabold ${cor}`}>{brl(valor)}</div>
+      {detalhe && <div className="mt-0.5 text-xs text-muted-foreground">{detalhe}</div>}
     </Card>
   );
 }

@@ -7,10 +7,15 @@
 // formulário, o parsing e as contas do preview moram aqui para
 // que as duas telas não divirjam.
 //
-// A base dos percentuais é `custos`, e não o valor do orçamento:
-// é sobre ela que planejamento-execucao.ts calcula a coluna
-// Planejado (BASE_PERCENTUAIS = "custos"). Se aquele arquivo
-// mudar de base, o preview daqui precisa acompanhar.
+// A base dos percentuais é o CONTRATO (no orçamento, o valor do
+// orçamento): os seis percentuais somam 100% e incluem imposto e
+// lucro, então dividem o contrato inteiro. É a mesma base de
+// planejamento-execucao.ts (BASE_PERCENTUAIS = "contrato"); se aquele
+// arquivo mudar de base, o preview daqui precisa acompanhar.
+//
+// `custos` (coluna planejado_custos) continua no modelo só para ir e
+// voltar do banco sem se perder: não aparece mais na tela nem entra
+// em conta nenhuma.
 // ============================================================
 import { paraNumero, paraTexto } from "@/lib/formato";
 
@@ -53,31 +58,50 @@ export function parseNumeroBR(texto: string): number {
 
 export function planejamentoFormVazio(): PlanejamentoForm {
   return {
-    custos: "", moPct: "", mtPct: "", terceirizadoPct: "",
-    administrativoPct: "", impostoPct: "", lucroPct: "",
+    custos: "",
+    moPct: "",
+    mtPct: "",
+    terceirizadoPct: "",
+    administrativoPct: "",
+    impostoPct: "",
+    lucroPct: "",
   };
 }
 
 /**
- * number -> texto; zero vira campo vazio para não poluir a tela.
+ * Valor em R$ -> texto; zero vira campo vazio para não poluir a tela.
  *
- * Percentual não ganha casa decimal à toa: 10 sai como "10", não
- * "10,00" — por isso os centavos redondos são cortados.
+ * Mantém SEMPRE a vírgula e os centavos: 195000 -> "195.000,00". Sem a
+ * vírgula, "195.000" volta como 195 — paraNumero lê ponto sozinho como
+ * decimal ("12.5" = 12,5). Era esse o bug que gravava o custo 1.000×
+ * menor.
  */
-function numParaTexto(v: number | null | undefined): string {
-  return paraTexto(v, 2).replace(/,00$/, "");
+function dinheiroParaTexto(v: number | null | undefined): string {
+  return paraTexto(v, 2);
 }
 
-export function valoresParaForm(v: Partial<PlanejamentoValores> | null | undefined): PlanejamentoForm {
+/**
+ * Percentual -> texto sem casa decimal à toa: 10 sai "10", 23,5 sai
+ * "23,5". Os ",00" só são cortados quando não há ponto de milhar — pela
+ * mesma razão acima, "1.000" voltaria como 1.
+ */
+export function percentualParaTexto(v: number | null | undefined): string {
+  const t = paraTexto(v, 2);
+  return t.includes(".") ? t : t.replace(/,00$/, "").replace(/(,\d)0$/, "$1");
+}
+
+export function valoresParaForm(
+  v: Partial<PlanejamentoValores> | null | undefined,
+): PlanejamentoForm {
   if (!v) return planejamentoFormVazio();
   return {
-    custos: numParaTexto(v.custos),
-    moPct: numParaTexto(v.moPct),
-    mtPct: numParaTexto(v.mtPct),
-    terceirizadoPct: numParaTexto(v.terceirizadoPct),
-    administrativoPct: numParaTexto(v.administrativoPct),
-    impostoPct: numParaTexto(v.impostoPct),
-    lucroPct: numParaTexto(v.lucroPct),
+    custos: dinheiroParaTexto(v.custos),
+    moPct: percentualParaTexto(v.moPct),
+    mtPct: percentualParaTexto(v.mtPct),
+    terceirizadoPct: percentualParaTexto(v.terceirizadoPct),
+    administrativoPct: percentualParaTexto(v.administrativoPct),
+    impostoPct: percentualParaTexto(v.impostoPct),
+    lucroPct: percentualParaTexto(v.lucroPct),
   };
 }
 
@@ -93,7 +117,7 @@ export function formParaValores(f: PlanejamentoForm): PlanejamentoValores {
   };
 }
 
-/** Soma dos seis percentuais — acima de 100 a tela avisa (sem bloquear). */
+/** Soma dos seis percentuais — fora de 100 a tela avisa (sem bloquear). */
 export function somaPercentuais(f: PlanejamentoForm): number {
   return CAMPOS_PCT.reduce((a, c) => a + parseNumeroBR(f[c.chave]), 0);
 }
@@ -101,30 +125,24 @@ export function somaPercentuais(f: PlanejamentoForm): number {
 /** Planejamento em branco — usado por telas que não preenchem esses campos. */
 export function planejamentoZerado(): PlanejamentoValores {
   return {
-    custos: 0, moPct: 0, mtPct: 0, terceirizadoPct: 0,
-    administrativoPct: 0, impostoPct: 0, lucroPct: 0,
+    custos: 0,
+    moPct: 0,
+    mtPct: 0,
+    terceirizadoPct: 0,
+    administrativoPct: 0,
+    impostoPct: 0,
+    lucroPct: 0,
   };
 }
 
 /** true quando nada foi preenchido — usado para não sobrescrever à toa. */
 export function planejamentoVazio(v: PlanejamentoValores): boolean {
-  return Object.values(v).every(n => !n);
-}
-
-/**
- * Custos planejados sugeridos: valor do contrato menos lucro e imposto.
- * É a equivalência que planejamento-execucao.ts assume entre a coluna
- * planejado_custos e o "custo previsto".
- */
-export function custosSugeridos(valorBase: number, lucroPct: number, impostoPct: number): number {
-  if (!valorBase) return 0;
-  const restante = 100 - lucroPct - impostoPct;
-  if (restante <= 0) return 0;
-  return Math.round(valorBase * (restante / 100) * 100) / 100;
+  return Object.values(v).every((n) => !n);
 }
 
 /** Compara dois planejamentos para decidir se vale perguntar sobre sobrescrever. */
 export function mesmoPlanejamento(a: PlanejamentoValores, b: PlanejamentoValores): boolean {
-  return (Object.keys(a) as (keyof PlanejamentoValores)[])
-    .every(k => Math.abs(a[k] - b[k]) < 0.005);
+  return (Object.keys(a) as (keyof PlanejamentoValores)[]).every(
+    (k) => Math.abs(a[k] - b[k]) < 0.005,
+  );
 }
