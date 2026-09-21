@@ -94,6 +94,12 @@ export type Entrega = {
   assinado: boolean;
   dataAssinatura?: string;
   observacoes: string;
+  /** Foto do colaborador recebendo os EPIs, no bucket privado termos-epi. É a assinatura. */
+  fotoRecebimentoPath?: string;
+  /** PDF do termo já com a foto, no bucket termos-epi. */
+  termoPdfPath?: string;
+  /** Momento exato da assinatura por foto (ISO). */
+  assinadoEm?: string;
 };
 
 export type Fornecedor = {
@@ -205,6 +211,9 @@ function mapEntrega(r: any): Entrega {
     assinado: r.assinado ?? false,
     dataAssinatura: r.data_assinatura ?? undefined,
     observacoes: r.observacoes ?? "",
+    fotoRecebimentoPath: r.foto_recebimento_path ?? undefined,
+    termoPdfPath: r.termo_pdf_path ?? undefined,
+    assinadoEm: r.assinado_em ?? undefined,
   };
 }
 function mapItem(r: any): EntregaItem {
@@ -626,21 +635,35 @@ export const epiActions = {
     const salvas = await epiActions.registrarEntregaEmLote({ ...resto, funcionarioIds: [funcionarioId] });
     return salvas[0] ?? null;
   },
-  async marcarAssinado(entregaId: string, assinado: boolean) {
-    const dataAssinatura = assinado ? new Date().toISOString().slice(0, 10) : null;
-    state = {
-      ...state,
-      entregas: state.entregas.map(e => e.id === entregaId
-        ? { ...e, assinado, status: assinado ? "ASSINADO" : "PENDENTE", dataAssinatura: dataAssinatura ?? undefined }
-        : e),
-    };
-    emit();
+  /**
+   * Termo assinado por FOTO. Só é chamado depois que a foto e o PDF já
+   * estão no Storage (termo-epi-assinatura.ts) — não existe mais marcar
+   * assinado à mão. Sem escrita otimista: se o banco recusar, a tela não
+   * pode mostrar ASSINADO nem por um instante. Devolve a mensagem de erro
+   * ou null.
+   */
+  async registrarAssinaturaComFoto(input: {
+    entregaId: string;
+    fotoPath: string;
+    pdfPath: string;
+    assinadoEm: Date;
+    assinadoPor: string | null;
+  }): Promise<string | null> {
+    // Data local (não UTC): às 22h de Brasília o UTC já é o dia seguinte.
+    const d = input.assinadoEm;
+    const dataLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const { error } = await supabase.from("entregas_epi").update({
-      assinado,
-      status: assinado ? "ASSINADO" : "PENDENTE",
-      data_assinatura: dataAssinatura,
-    }).eq("id", entregaId);
-    toastErr("Erro ao atualizar termo", error);
+      status: "ASSINADO",
+      assinado: true,
+      data_assinatura: dataLocal,
+      assinado_em: input.assinadoEm.toISOString(),
+      assinado_por: input.assinadoPor,
+      foto_recebimento_path: input.fotoPath,
+      termo_pdf_path: input.pdfPath,
+    } as never).eq("id", input.entregaId);
+    if (error) return error.message;
+    await fetchAll();
+    return null;
   },
   async excluirEntrega(id: string) {
     // Devolve ao estoque o que essa entrega tinha dado baixa: o termo

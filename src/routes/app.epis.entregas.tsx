@@ -1,10 +1,22 @@
 // /app/epis/entregas — aba "Entregas"
+//
+// Termo só fica ASSINADO com a foto de recebimento salva: não existe
+// mais o botão de marcar assinado à mão. Pendente ganha "TIRAR FOTO";
+// assinado com foto baixa o termo.pdf guardado no Storage (o mesmo
+// gerado na assinatura) e mostra a foto.
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -13,12 +25,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { useEpiStore, epiActions, diasParaVencer } from "@/lib/epis-store";
+import {
+  Plus,
+  Trash2,
+  FileText,
+  AlertTriangle,
+  CheckCircle2,
+  Camera,
+  Image as ImageIcon,
+  Loader2,
+} from "lucide-react";
+import { useEpiStore, diasParaVencer, type Entrega } from "@/lib/epis-store";
 import { inteiro } from "@/lib/formato";
-import { gerarTermoEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
+import { gerarTermoEpiPDF, nomeArquivoTermoEpi } from "@/lib/termo-epi-pdf";
+import { baixarTermoSalvo, dadosDoTermo, urlDaFoto } from "@/lib/termo-epi-assinatura";
 import { fmtBr } from "@/components/epis/epis-formato";
 import { useEpisAcoes } from "@/components/epis/epis-acoes-contexto";
+import { FotoRecebimentoDialog, type TermoParaFoto } from "@/components/epis/FotoRecebimento";
 
 export const Route = createFileRoute("/app/epis/entregas")({ component: AbaEntregas });
 
@@ -27,6 +50,23 @@ function AbaEntregas() {
   const entregas = useEpiStore((s) => s.entregas);
   const itens = useEpiStore((s) => s.itens);
   const { abrirEntrega, pedirExclusao } = useEpisAcoes();
+  const [paraFoto, setParaFoto] = useState<TermoParaFoto | null>(null);
+  const [verFoto, setVerFoto] = useState<{ numero: string; url: string } | null>(null);
+  const [baixando, setBaixando] = useState<string | null>(null);
+
+  const termoDe = (ent: Entrega) =>
+    dadosDoTermo(
+      ent,
+      funcionarios.find((f) => f.id === ent.funcionarioId),
+      itens.filter((i) => i.entregaId === ent.id),
+    );
+
+  const abrirFoto = async (ent: Entrega) => {
+    if (!ent.fotoRecebimentoPath) return;
+    const url = await urlDaFoto(ent.fotoRecebimentoPath);
+    if (!url) return toast.error("Não foi possível abrir a foto.");
+    setVerFoto({ numero: ent.numeroTermo, url });
+  };
 
   const itensVencendo = useMemo(
     () =>
@@ -37,44 +77,25 @@ function AbaEntregas() {
     [itens],
   );
 
-  const regenerarTermo = async (entregaId: string) => {
-    const ent = entregas.find((e) => e.id === entregaId);
-    if (!ent) return;
-    const func = funcionarios.find((f) => f.id === ent.funcionarioId);
-    const its = itens.filter((i) => i.entregaId === entregaId);
-    const termo: TermoEpiData = {
-      numero: ent.numeroTermo,
-      emissao: ent.dataEntrega,
-      funcionario: {
-        nome: func?.nome ?? "",
-        cpf: func?.cpf,
-        rg: func?.rg,
-        cargo: func?.cargo,
-        setor: func?.setor,
-        matricula: func?.matricula,
-        dataAdmissao: func?.dataAdmissao,
-      },
-      // Tudo vem do snapshot do item, não do catálogo: o termo antigo mostra
-      // o que foi entregue mesmo que o EPI tenha mudado ou sido excluído.
-      itens: its.map((i) => ({
-        epiNome: i.epiNome,
-        ca: i.ca,
-        fabricante: i.fabricante,
-        unidade: i.unidade,
-        fotoUrl: i.epiFotoUrl,
-        quantidade: i.quantidade,
-        motivo: i.motivo,
-        dataEntrega: i.dataEntrega,
-        dataValidade: i.dataValidade,
-      })),
-      responsavelEntrega: ent.responsavelEntrega,
-      responsavelCargo: ent.responsavelCargo,
-      observacoes: ent.observacoes,
-    };
+  /**
+   * Assinado com foto: baixa o termo.pdf salvo, e não um PDF novo — o
+   * arquivo guardado é o que vale. Sem PDF salvo (pendente, ou termo
+   * antigo assinado à mão), gera o PDF como antes, sem foto.
+   */
+  const baixarTermo = async (ent: Entrega) => {
+    const termo = termoDe(ent);
+    setBaixando(ent.id);
     try {
-      await gerarTermoEpiPDF(termo);
+      if (ent.termoPdfPath) {
+        const erro = await baixarTermoSalvo(ent.termoPdfPath, nomeArquivoTermoEpi(termo));
+        if (erro) toast.error(`Não foi possível baixar o termo salvo: ${erro}`);
+      } else {
+        await gerarTermoEpiPDF(termo);
+      }
     } catch (err) {
       toast.error(`Falha ao gerar PDF: ${err instanceof Error ? err.message : "desconhecido"}`);
+    } finally {
+      setBaixando(null);
     }
   };
 
@@ -135,23 +156,43 @@ function AbaEntregas() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {!e.assinado && (
+                            <Button
+                              size="sm"
+                              onClick={() => setParaFoto({ entrega: e, termo: termoDe(e) })}
+                              className="h-8 bg-[#F37032] px-2 text-white hover:bg-[#ff8850]"
+                              title="Tirar a foto de recebimento — ela assina o termo"
+                            >
+                              <Camera className="mr-1 h-4 w-4" /> Tirar foto
+                            </Button>
+                          )}
+                          {e.fotoRecebimentoPath && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2"
+                              title="Ver a foto de recebimento"
+                              onClick={() => abrirFoto(e)}
+                            >
+                              <ImageIcon className="mr-1 h-4 w-4 text-[#213368]" /> Ver foto
+                            </Button>
+                          )}
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Gerar/baixar termo (PDF)"
-                            onClick={() => regenerarTermo(e.id)}
+                            disabled={baixando === e.id}
+                            title={
+                              e.termoPdfPath
+                                ? "Baixar o termo assinado (PDF salvo)"
+                                : "Gerar/baixar termo (PDF)"
+                            }
+                            onClick={() => baixarTermo(e)}
                           >
-                            <FileText className="h-4 w-4 text-[#213368]" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title={e.assinado ? "Marcar como pendente" : "Marcar como assinado"}
-                            onClick={() => epiActions.marcarAssinado(e.id, !e.assinado)}
-                          >
-                            <CheckCircle2
-                              className={`h-4 w-4 ${e.assinado ? "text-green-600" : "text-muted-foreground"}`}
-                            />
+                            {baixando === e.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-[#213368]" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-[#213368]" />
+                            )}
                           </Button>
                           <Button
                             size="icon"
@@ -226,6 +267,32 @@ function AbaEntregas() {
           </div>
         </Card>
       )}
+
+      {paraFoto && (
+        <FotoRecebimentoDialog
+          key={paraFoto.entrega.id}
+          termo={paraFoto}
+          onClose={() => setParaFoto(null)}
+        />
+      )}
+
+      <Dialog open={!!verFoto} onOpenChange={(o) => !o && setVerFoto(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="uppercase text-[#213368]">Foto de recebimento</DialogTitle>
+            <DialogDescription className="uppercase">Termo {verFoto?.numero}</DialogDescription>
+          </DialogHeader>
+          {verFoto && (
+            <div className="flex justify-center overflow-hidden rounded-lg border bg-muted">
+              <img
+                src={verFoto.url}
+                alt={`Foto de recebimento do termo ${verFoto.numero}`}
+                className="max-h-[70vh] w-auto object-contain"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -107,6 +107,31 @@ export interface TermoEpiData {
   responsavelEntrega?: string;
   responsavelCargo?: string;
   observacoes?: string;
+  /**
+   * Assinatura por foto: o colaborador fotografado recebendo os EPIs.
+   * Sem isto o termo sai como sempre saiu, com as linhas para assinar.
+   */
+  fotoRecebimento?: TermoEpiFoto;
+}
+
+export interface TermoEpiFoto {
+  /** JPEG já reduzido (data URL). */
+  dataUrl: string;
+  w: number;
+  h: number;
+  /** Momento em que a foto foi registrada. */
+  registradoEm: Date;
+  /** Usuário logado que registrou — o responsável pela entrega. */
+  registradoPor: string;
+}
+
+/** "21/09/2026 às 14:05", no fuso do aparelho. */
+function fmtDataHora(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()} às ${hh}:${mi}`;
 }
 
 // Larguras da tabela de itens, em proporção de uma área útil de 180mm.
@@ -124,8 +149,8 @@ const LARG_BASE = COLUNAS.reduce((a, c) => a + c.larg, 0);
 
 /**
  * Desenha um termo completo a partir da página atual do documento.
- * Separado de `gerarTermoEpiPDF` para que a entrega em lote consiga
- * emitir vários termos — um por funcionário — no mesmo arquivo.
+ * Separado de `montarTermoEpiPDF` para o documento poder ser montado
+ * uma vez e servir tanto para subir no Storage quanto para baixar.
  */
 async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
   const W = doc.internal.pageSize.getWidth();
@@ -251,6 +276,94 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
     doc.setTextColor(...TEXT_DARK);
     doc.text(lines, M + 3, y + 4.5);
     y += h + 4;
+  };
+
+  /**
+   * Bloco de assinaturas quando o termo foi assinado por foto.
+   *
+   * Recebedor: a foto no lugar do espaço em branco, encaixada sem
+   * distorcer e com borda fina; embaixo, nome, cargo, CPF e o carimbo de
+   * data e hora. Responsável GRD: sem linha — quem registrou no Portal e
+   * quando.
+   *
+   * A foto cresce até FOTO_MAX, mas encolhe para caber no que sobra da
+   * página (até FOTO_MIN). Só se nem o mínimo couber o bloco inteiro vai
+   * para a página seguinte — nunca fica partido entre duas páginas.
+   */
+  const desenharAssinaturaPorFoto = (f: TermoEpiFoto, colW: number, gapCol: number) => {
+    // FOTO_MIN ~ altura de uma foto 3x4: ainda reconhece o rosto, e é o
+    // que cabe na página 1 de um termo típico (3 itens) — maior que isso
+    // jogaria as assinaturas sozinhas para uma página 2.
+    const FOTO_MAX = 62;
+    const FOTO_MIN = 30;
+    const rotuloH = 5;
+    const textoH = 18; // nome, cargo, CPF e carimbo, embaixo da foto
+    const limite = H - M - 12; // topo do rodapé
+
+    let fotoMaxH = Math.min(FOTO_MAX, limite - y - rotuloH - textoH);
+    if (fotoMaxH < FOTO_MIN) {
+      novaPagina();
+      fotoMaxH = Math.min(FOTO_MAX, limite - y - rotuloH - textoH);
+    }
+
+    const escala = Math.min(colW / f.w, fotoMaxH / f.h);
+    const fw = f.w * escala;
+    const fh = f.h * escala;
+    const xRecebedor = M;
+    const xGrd = M + colW + gapCol;
+    const quando = fmtDataHora(f.registradoEm);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_MUTED);
+    doc.text("FUNCIONÁRIO (RECEBEDOR)", xRecebedor + colW / 2, y + 3, { align: "center" });
+    doc.text("RESPONSÁVEL PELA ENTREGA — GRD", xGrd + colW / 2, y + 3, { align: "center" });
+
+    const yFoto = y + rotuloH;
+    const xFoto = xRecebedor + (colW - fw) / 2;
+    try {
+      doc.addImage(f.dataUrl, "JPEG", xFoto, yFoto, fw, fh);
+    } catch {
+      /* sem a imagem o termo não deveria nem ter chegado aqui; segue */
+    }
+    doc.setDrawColor(...TEXT_MUTED);
+    doc.setLineWidth(0.3);
+    doc.rect(xFoto, yFoto, fw, fh, "S");
+
+    const yTexto = yFoto + fh + 4;
+    const linhaCentro = (texto: string, x: number, yy: number) => {
+      const l = doc.splitTextToSize(texto, colW).slice(0, 1);
+      doc.text(l, x + colW / 2, yy, { align: "center" });
+    };
+
+    // Recebedor
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...NAVY);
+    linhaCentro((t.funcionario.nome || "—").toUpperCase(), xRecebedor, yTexto);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...TEXT_DARK);
+    linhaCentro(t.funcionario.cargo || "—", xRecebedor, yTexto + 4.2);
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_MUTED);
+    linhaCentro(`CPF: ${t.funcionario.cpf || "—"}`, xRecebedor, yTexto + 8.4);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_DARK);
+    linhaCentro(`Recebimento registrado por foto em ${quando}`, xRecebedor, yTexto + 12.6);
+
+    // Responsável GRD: alinhado com o nome do recebedor, sem linha.
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...NAVY);
+    linhaCentro((f.registradoPor || "—").toUpperCase(), xGrd, yTexto);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT_DARK);
+    linhaCentro(`Registrado no Portal GRD em ${quando}`, xGrd, yTexto + 4.2);
+
+    y = yTexto + textoH - 4;
   };
 
   // ============ Cabeçalho e faixa do título ============
@@ -407,13 +520,20 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
   }
 
   // ============ Assinaturas ============
-  // Espaço para assinar, linha, e abaixo dela nome e cargo impressos.
+  const gap = 10;
+  const colW2 = (W - 2 * M - gap) / 2;
+
+  if (t.fotoRecebimento) {
+    desenharAssinaturaPorFoto(t.fotoRecebimento, colW2, gap);
+    desenharRodape();
+    return;
+  }
+
+  // Sem foto: espaço para assinar, linha, e abaixo dela nome e cargo impressos.
   const assinaturasH = 36;
   garantirEspaco(assinaturasH + 6);
   if (y + assinaturasH + 6 > H - M) y = H - M - assinaturasH - 6;
 
-  const gap = 10;
-  const colW2 = (W - 2 * M - gap) / 2;
   const blocos = [
     {
       x: M,
@@ -464,32 +584,24 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
   desenharRodape();
 }
 
-function nomeArquivo(t: TermoEpiData) {
+export function nomeArquivoTermoEpi(t: TermoEpiData) {
   const slug = (t.funcionario.nome || "funcionario").replace(/\s+/g, "-").toLowerCase();
   return `termo-epi-${slug}-${t.numero}.pdf`;
 }
 
-/** Gera e baixa o termo de um funcionário. */
-export async function gerarTermoEpiPDF(t: TermoEpiData) {
+/**
+ * Monta o termo sem baixar. É o que a assinatura por foto usa: o mesmo
+ * documento vira o blob que sobe para o Storage e o arquivo que a
+ * pessoa baixa — os dois são idênticos byte a byte.
+ */
+export async function montarTermoEpiPDF(t: TermoEpiData): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   await desenharTermo(doc, t);
-  doc.save(nomeArquivo(t));
+  return doc;
 }
 
-/**
- * Gera os termos de vários funcionários num único arquivo, cada termo
- * começando em página nova — um PDF só evita o bloqueio de downloads
- * múltiplos do navegador e é mais prático de imprimir em lote.
- */
-export async function gerarTermosEpiPDF(termos: TermoEpiData[], nomeArq?: string) {
-  if (!termos.length) return;
-  if (termos.length === 1) return gerarTermoEpiPDF(termos[0]);
-
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
-  for (let i = 0; i < termos.length; i++) {
-    if (i > 0) doc.addPage();
-    await desenharTermo(doc, termos[i]);
-  }
-  const ano = new Date().getFullYear();
-  doc.save(nomeArq ?? `termos-epi-${ano}-${termos.length}-funcionarios.pdf`);
+/** Gera e baixa o termo de um funcionário. */
+export async function gerarTermoEpiPDF(t: TermoEpiData) {
+  const doc = await montarTermoEpiPDF(t);
+  doc.save(nomeArquivoTermoEpi(t));
 }

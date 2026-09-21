@@ -3,8 +3,9 @@
 // Permite escolher um ou vários funcionários, adicionar EPIs (com
 // quantidade e motivo) e calcula a validade automaticamente. Ao
 // salvar, registra uma entrega por funcionário — cada um com seu
-// número de termo, para que cada um assine o seu — e gera os
-// Termos em PDF (NR-6).
+// número de termo — e passa ao passo FOTO DE RECEBIMENTO: um
+// colaborador por vez, e a foto de cada um assina o seu termo (NR-6).
+// O PDF é baixado já com a foto, depois de salvo no Storage.
 // ============================================================
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,14 +16,15 @@ import { InputNumero } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HardHat, Plus, Trash2, ShieldCheck, Search, Users } from "lucide-react";
+import { HardHat, Plus, Trash2, ShieldCheck, Search, Users, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/current-user";
 import {
   useEpiStore, epiActions, somaDias,
-  MOTIVOS_ENTREGA, type MotivoEntrega, type EntregaSalva,
+  MOTIVOS_ENTREGA, type MotivoEntrega,
 } from "@/lib/epis-store";
-import { gerarTermosEpiPDF, type TermoEpiData } from "@/lib/termo-epi-pdf";
+import { dadosDoTermo } from "@/lib/termo-epi-assinatura";
+import { FotoRecebimento, type TermoParaFoto } from "@/components/epis/FotoRecebimento";
 
 // Quantidade inteira: EPI é entregue por peça (un/par/cx), então aqui
 // casa decimal seria ruído — ao contrário de metragem e valor.
@@ -59,9 +61,14 @@ export function EntregaEpiDialog({
   const [obs, setObs] = useState("");
   const [linhas, setLinhas] = useState<Linha[]>([novaLinha()]);
   const [saving, setSaving] = useState(false);
+  // Depois de salvar: a fila de termos esperando foto. null = formulário.
+  const [fila, setFila] = useState<TermoParaFoto[] | null>(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setFila(null);
+    setEnviandoFoto(false);
     setFuncionarioIds(funcionarioIdInicial ? [funcionarioIdInicial] : []);
     setBuscaFunc("");
     setDataEntrega(new Date().toISOString().slice(0, 10));
@@ -107,34 +114,6 @@ export function EntregaEpiDialog({
     return somaDias(dataEntrega, epi.validadeDias);
   };
 
-  const montaTermo = (salvo: EntregaSalva): TermoEpiData => ({
-    numero: salvo.entrega.numeroTermo,
-    emissao: salvo.entrega.dataEntrega,
-    funcionario: {
-      nome: salvo.funcionario?.nome ?? "",
-      cpf: salvo.funcionario?.cpf,
-      rg: salvo.funcionario?.rg,
-      cargo: salvo.funcionario?.cargo,
-      setor: salvo.funcionario?.setor,
-      matricula: salvo.funcionario?.matricula,
-      dataAdmissao: salvo.funcionario?.dataAdmissao,
-    },
-    itens: salvo.itens.map(i => ({
-      epiNome: i.epiNome,
-      ca: i.ca,
-      fabricante: i.fabricante,
-      unidade: i.unidade,
-      fotoUrl: i.epiFotoUrl,
-      quantidade: i.quantidade,
-      motivo: i.motivo,
-      dataEntrega: i.dataEntrega,
-      dataValidade: i.dataValidade,
-    })),
-    responsavelEntrega: salvo.entrega.responsavelEntrega,
-    responsavelCargo: salvo.entrega.responsavelCargo,
-    observacoes: salvo.entrega.observacoes,
-  });
-
   const salvar = async () => {
     if (saving) return;
     if (!funcionarioIds.length) return toast.error("Selecione ao menos um funcionário");
@@ -158,24 +137,42 @@ export function EntregaEpiDialog({
 
       if (salvas.length < funcionarioIds.length) {
         toast.warning(`${salvas.length} de ${funcionarioIds.length} entregas registradas — veja os erros acima.`);
-      } else if (salvas.length === 1) {
-        toast.success(`Entrega registrada — termo ${salvas[0].entrega.numeroTermo}.`);
-      } else {
-        toast.success(`${salvas.length} entregas registradas — um termo para cada funcionário.`);
       }
-      onOpenChange(false);
 
-      try {
-        await gerarTermosEpiPDF(salvas.map(montaTermo));
-      } catch (err) {
-        toast.error(`Falha ao gerar o PDF dos termos: ${err instanceof Error ? err.message : "desconhecido"}`);
-      }
+      // Em vez de baixar o PDF direto, vai para a foto: o termo só é
+      // assinado (e baixado) com a foto salva.
+      setFila(salvas.map(s => ({
+        entrega: s.entrega,
+        termo: dadosDoTermo(s.entrega, s.funcionario, s.itens),
+      })));
     } catch (err) {
       toast.error(`Erro ao registrar entrega: ${err instanceof Error ? err.message : "desconhecido"}`);
     } finally {
       setSaving(false);
     }
   };
+
+  // Passo 2: foto de recebimento. Fechar o diálogo aqui deixa os termos
+  // que faltam como PENDENTES — dá para fotografar depois pela lista.
+  if (fila) {
+    return (
+      <Dialog open={open} onOpenChange={v => { if (!v && enviandoFoto) return; onOpenChange(v); }}>
+        <DialogContent className="max-h-[92vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 uppercase text-[#213368]">
+              <Camera className="h-5 w-5 text-[#F37032]" />
+              Foto de recebimento
+            </DialogTitle>
+          </DialogHeader>
+          <FotoRecebimento
+            fila={fila}
+            onFim={() => onOpenChange(false)}
+            onOcupado={setEnviandoFoto}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -331,8 +328,8 @@ export function EntregaEpiDialog({
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#213368]" />
           <span>
             {funcionarioIds.length > 1
-              ? `Ao salvar, cada um dos ${funcionarioIds.length} funcionários recebe seu próprio Termo de Entrega de EPI (NR-6), com número de termo individual para assinar. Os termos vêm num único PDF, um por página.`
-              : "Ao salvar, o Termo de Entrega de EPI (NR-6) é gerado em PDF para o funcionário e a GRD assinarem."}
+              ? `Ao salvar, cada um dos ${funcionarioIds.length} funcionários recebe seu próprio Termo de Entrega de EPI (NR-6), com número individual. Em seguida, tire a foto de cada um recebendo os EPIs: a foto assina o termo, que fica salvo com o PDF.`
+              : "Ao salvar, tire a foto do funcionário recebendo os EPIs: a foto assina o Termo de Entrega de EPI (NR-6), que fica salvo com o PDF."}
           </span>
         </div>
 
