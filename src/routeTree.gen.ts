@@ -34,6 +34,7 @@ import { Route as AppEpisCatalogoRouteImport } from './routes/app.epis.catalogo'
 import { Route as AppEpisComprasRouteImport } from './routes/app.epis.compras'
 import { Route as AppEpisEntregasRouteImport } from './routes/app.epis.entregas'
 import { Route as AppEpisFuncionariosRouteImport } from './routes/app.epis.funcionarios'
+import { Route as AppEpisRelatorioRouteImport } from './routes/app.epis.relatorio'
 import { Route as AppFinanceiroIndexRouteImport } from './routes/app.financeiro.index'
 import { Route as AppFinanceiroPagarRouteImport } from './routes/app.financeiro.pagar'
 import { Route as AppFinanceiroReceberRouteImport } from './routes/app.financeiro.receber'
@@ -183,6 +184,11 @@ const AppEpisFuncionariosRoute = AppEpisFuncionariosRouteImport.update({
   path: '/funcionarios',
   getParentRoute: () => AppEpisRoute,
 } as any)
+const AppEpisRelatorioRoute = AppEpisRelatorioRouteImport.update({
+  id: '/relatorio',
+  path: '/relatorio',
+  getParentRoute: () => AppEpisRoute,
+} as any)
 const AppFinanceiroIndexRoute = AppFinanceiroIndexRouteImport.update({
   id: '/financeiro/',
   path: '/financeiro/',
@@ -313,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
   '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/epis/relatorio': typeof AppEpisRelatorioRoute
   '/app/financeiro/pagar': typeof AppFinanceiroPagarRoute
   '/app/financeiro/receber': typeof AppFinanceiroReceberRoute
   '/app/integracoes/contaazul': typeof AppIntegracoesContaazulRoute
@@ -357,6 +364,7 @@ export interface FileRoutesByTo {
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
   '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/epis/relatorio': typeof AppEpisRelatorioRoute
   '/app/financeiro/pagar': typeof AppFinanceiroPagarRoute
   '/app/financeiro/receber': typeof AppFinanceiroReceberRoute
   '/app/integracoes/contaazul': typeof AppIntegracoesContaazulRoute
@@ -406,6 +414,7 @@ export interface FileRoutesById {
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
   '/app/epis/funcionarios': typeof AppEpisFuncionariosRoute
+  '/app/epis/relatorio': typeof AppEpisRelatorioRoute
   '/app/financeiro/pagar': typeof AppFinanceiroPagarRoute
   '/app/financeiro/receber': typeof AppFinanceiroReceberRoute
   '/app/integracoes/contaazul': typeof AppIntegracoesContaazulRoute
@@ -456,6 +465,7 @@ export interface FileRouteTypes {
     | '/app/epis/compras'
     | '/app/epis/entregas'
     | '/app/epis/funcionarios'
+    | '/app/epis/relatorio'
     | '/app/financeiro/pagar'
     | '/app/financeiro/receber'
     | '/app/integracoes/contaazul'
@@ -500,6 +510,7 @@ export interface FileRouteTypes {
     | '/app/epis/compras'
     | '/app/epis/entregas'
     | '/app/epis/funcionarios'
+    | '/app/epis/relatorio'
     | '/app/financeiro/pagar'
     | '/app/financeiro/receber'
     | '/app/integracoes/contaazul'
@@ -548,6 +559,7 @@ export interface FileRouteTypes {
     | '/app/epis/compras'
     | '/app/epis/entregas'
     | '/app/epis/funcionarios'
+    | '/app/epis/relatorio'
     | '/app/financeiro/pagar'
     | '/app/financeiro/receber'
     | '/app/integracoes/contaazul'
@@ -761,6 +773,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEpisFuncionariosRouteImport
       parentRoute: typeof AppEpisRoute
     }
+    '/app/epis/relatorio': {
+      id: '/app/epis/relatorio'
+      path: '/relatorio'
+      fullPath: '/app/epis/relatorio'
+      preLoaderRoute: typeof AppEpisRelatorioRouteImport
+      parentRoute: typeof AppEpisRoute
+    }
     '/app/financeiro/': {
       id: '/app/financeiro/'
       path: '/financeiro'
@@ -931,6 +950,7 @@ interface AppEpisRouteChildren {
   AppEpisComprasRoute: typeof AppEpisComprasRoute
   AppEpisEntregasRoute: typeof AppEpisEntregasRoute
   AppEpisFuncionariosRoute: typeof AppEpisFuncionariosRoute
+  AppEpisRelatorioRoute: typeof AppEpisRelatorioRoute
   AppEpisIndexRoute: typeof AppEpisIndexRoute
 }
 
@@ -939,6 +959,7 @@ const AppEpisRouteChildren: AppEpisRouteChildren = {
   AppEpisComprasRoute: AppEpisComprasRoute,
   AppEpisEntregasRoute: AppEpisEntregasRoute,
   AppEpisFuncionariosRoute: AppEpisFuncionariosRoute,
+  AppEpisRelatorioRoute: AppEpisRelatorioRoute,
   AppEpisIndexRoute: AppEpisIndexRoute,
 }
 

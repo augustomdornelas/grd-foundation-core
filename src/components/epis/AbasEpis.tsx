@@ -15,6 +15,7 @@ export const ABAS_EPIS = [
   { to: "/app/epis/entregas", label: "Entregas" },
   { to: "/app/epis/compras", label: "Compras" },
   { to: "/app/epis/catalogo", label: "Catálogo de EPIs" },
+  { to: "/app/epis/relatorio", label: "Relatório" },
 ] as const;
 
 export function AbasEpis() {

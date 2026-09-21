@@ -20,7 +20,7 @@ const TEXT_MUTED: [number, number, number] = [110, 110, 120];
 const WHITE: [number, number, number] = [255, 255, 255];
 
 // ---------- Carregamento de imagens ----------
-type ImagemPdf = { dataUrl: string; w: number; h: number };
+export type ImagemPdf = { dataUrl: string; w: number; h: number };
 
 const cacheImagens = new Map<string, Promise<ImagemPdf | null>>();
 
@@ -30,7 +30,7 @@ const cacheImagens = new Map<string, Promise<ImagemPdf | null>>();
  * (webp/avif) e transparência que alguns leitores renderizam escura.
  * Devolve null em qualquer falha — o termo sai sem a foto, nunca quebra.
  */
-function carregarImagem(url: string, maxPx = 320): Promise<ImagemPdf | null> {
+export function carregarImagem(url: string, maxPx = 320): Promise<ImagemPdf | null> {
   const chave = `${url}|${maxPx}`;
   const emCache = cacheImagens.get(chave);
   if (emCache) return emCache;

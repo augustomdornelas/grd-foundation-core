@@ -166,6 +166,7 @@ const items: NavItem[] = [
       { to: "/app/epis/entregas", label: "Entregas", perm: "epis" },
       { to: "/app/epis/compras", label: "Compras", perm: "epis" },
       { to: "/app/epis/catalogo", label: "Catálogo de EPIs", perm: "epis" },
+      { to: "/app/epis/relatorio", label: "Relatório", perm: "epis" },
     ],
   },
   {

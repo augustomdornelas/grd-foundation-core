@@ -25,6 +25,7 @@ const titles: Record<string, string> = {
   "/app/epis/entregas": "EPIs — Entregas",
   "/app/epis/compras": "EPIs — Compras",
   "/app/epis/catalogo": "EPIs — Catálogo de EPIs",
+  "/app/epis/relatorio": "EPIs — Relatório de entregas",
   "/app/colaboradores": "Colaboradores",
   "/app/colaboradores/secullum": "Colaboradores — Importar da Secullum",
   "/app/rh": "Painel de RH",
