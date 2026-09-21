@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#213368" />
+    <title>Portal GRD — sem conexão</title>
+    <!--
+      Página mostrada pelo service worker (public/sw.js) quando uma tela
+      é aberta sem internet. Tudo inline e sem script: a CSP do Portal
+      não vale para este arquivo estático, mas ele também não precisa de
+      nada além do logo, que fica no cache do service worker.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #ffffff;
+        color: #213368;
+        font-family:
+          Montserrat,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      main {
+        box-sizing: border-box;
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+        text-align: center;
+      }
+      img {
+        width: min(240px, 70vw);
+        height: auto;
+      }
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      a {
+        display: inline-block;
+        padding: 12px 24px;
+        border-radius: 8px;
+        background: #f37032;
+        color: #ffffff;
+        font-weight: 700;
+        text-decoration: none;
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/logo-grd.png" alt="Grupo GRD" />
+      <h1>SEM CONEXÃO — TENTE NOVAMENTE</h1>
+      <!-- Link comum, e não script: recarregar tenta a rede de novo. -->
+      <a href="">TENTAR NOVAMENTE</a>
+    </main>
+  </body>
+</html>

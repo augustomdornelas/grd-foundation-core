@@ -20,7 +20,19 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Download,
+  Share,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { usePwa, instalarPwa } from "@/lib/pwa";
 import { Logo } from "@/components/brand/Logo";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -393,6 +405,18 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
     });
   };
 
+  const pwa = usePwa();
+  const [ajudaIos, setAjudaIos] = useState(false);
+
+  const aoInstalar = async () => {
+    // iPhone não tem convite de instalação: só dá para explicar.
+    if (!pwa.podeInstalar) {
+      setAjudaIos(true);
+      return;
+    }
+    await instalarPwa();
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     sessionActions.logout();
@@ -442,18 +466,28 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="relative flex h-full w-64 flex-col bg-[#213368]">
-            <div className="flex h-20 items-center justify-between border-b border-white/10 px-5">
+          {/* Padding do notch e da barra de baixo do iPhone: no app
+              instalado a gaveta vai de borda a borda da tela.
+              max-w deixa sempre uma faixa do fundo à vista para fechar
+              com um toque fora, mesmo em tela estreita. */}
+          <aside className="relative flex h-full w-64 max-w-[80vw] flex-col bg-[#213368] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+            <div className="flex h-20 items-center justify-between border-b border-white/10 pl-5 pr-2">
               <Logo variant="light" />
-              <button onClick={() => setMobileOpen(false)} className="text-white">
+              {/* 44px de área de toque: o X sozinho tinha 24. */}
+              <button
+                onClick={() => setMobileOpen(false)}
+                aria-label="Fechar menu"
+                className="flex h-11 w-11 items-center justify-center rounded-md text-white active:bg-white/10"
+              >
                 <X />
               </button>
             </div>
             {/* A gaveta rola, como a barra de desktop já rolava. Sem
                 isto, com EPIs, RH e Ponto abertos o menu passa de mil
                 pixels num celular de 844 e o fim da lista fica
-                inalcançável. */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                inalcançável. overscroll-contain impede que, no fim da
+                lista, o arrasto passe a rolar a página de trás. */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
               <SidebarNav collapsed={false} onNavigate={() => setMobileOpen(false)} />
             </div>
           </aside>
@@ -462,8 +496,14 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-white px-4 md:px-6">
-          <button className="md:hidden" onClick={() => setMobileOpen(true)} aria-label="Menu">
+        {/* A altura cresce o tanto do notch: no app instalado o
+            cabeçalho começa atrás da barra de status do iPhone. */}
+        <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] items-center gap-3 border-b bg-white px-4 pt-[env(safe-area-inset-top)] md:px-6">
+          <button
+            className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md active:bg-muted md:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
+          >
             <Menu />
           </button>
           <h1 className="min-w-0 flex-1 truncate text-lg font-bold text-[#213368]">{title}</h1>
@@ -493,6 +533,14 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
               <DropdownMenuItem>
                 <UserIcon className="mr-2 h-4 w-4" /> Perfil
               </DropdownMenuItem>
+              {/* Some quando o Portal já está aberto como app. No
+                  Android só aparece quando o Chrome liberou a instalação;
+                  no iPhone aparece sempre e explica o caminho. */}
+              {!pwa.instalado && (pwa.podeInstalar || pwa.ios) && (
+                <DropdownMenuItem onClick={aoInstalar}>
+                  <Download className="mr-2 h-4 w-4" /> Instalar app
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" /> Sair
               </DropdownMenuItem>
@@ -500,8 +548,32 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
           </DropdownMenu>
         </header>
 
-        <main className="min-w-0 flex-1 p-4 md:p-8">{children ?? <Outlet />}</main>
+        <main className="min-w-0 flex-1 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-8 md:pb-[calc(2rem+env(safe-area-inset-bottom))]">
+          {children ?? <Outlet />}
+        </main>
       </div>
+
+      <Dialog open={ajudaIos} onOpenChange={setAjudaIos}>
+        {/* uppercase na mão: o Dialog abre fora do .app-layout (portal
+            no body), onde a regra global de caixa alta não alcança. */}
+        <DialogContent className="max-w-sm uppercase">
+          <DialogHeader>
+            <DialogTitle className="text-[#213368]">Instalar o app no iPhone</DialogTitle>
+            <DialogDescription>
+              Toque em <Share className="mx-0.5 inline h-4 w-4 align-text-bottom" />{" "}
+              <strong>Compartilhar</strong> e depois em <strong>Adicionar à Tela de Início</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setAjudaIos(false)}
+              className="bg-[#213368] text-white hover:bg-[#2a4185]"
+            >
+              Entendi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

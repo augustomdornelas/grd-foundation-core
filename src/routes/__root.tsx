@@ -7,11 +7,12 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { nonceAtual } from "@/lib/csp-nonce";
 import { Toaster } from "@/components/ui/sonner";
+import { registrarServiceWorker } from "@/lib/pwa";
 
 function NotFoundComponent() {
   return (
@@ -72,7 +73,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // viewport-fit=cover: no app instalado (tela cheia) o conteúdo vai
+      // até as bordas do iPhone, e quem desvia do notch e da barra de
+      // baixo é o env(safe-area-inset-*) no cabeçalho e no menu.
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      // PWA: cor da barra do sistema e como o iPhone trata o atalho da
+      // tela de início (ver public/manifest.webmanifest).
+      { name: "theme-color", content: "#213368" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "GRD" },
       // O cliente lê o nonce daqui para carimbar o que ele injetar
       // depois da hidratação. O nome `csp-nonce` não é escolha nossa:
       // é o que o TanStack Router procura.
@@ -111,6 +122,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -141,6 +154,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => {
+    registrarServiceWorker();
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
