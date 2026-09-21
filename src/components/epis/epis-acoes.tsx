@@ -4,12 +4,12 @@
 // Quando as quatro abas viraram rotas, três coisas ficaram sem dono:
 // os diálogos de entrega e compra (abertos tanto pelo cabeçalho quanto
 // de dentro das abas), e a confirmação de exclusão, que era um
-// AlertDialog só atendendo os quatro tipos de registro.
+// AlertDialog só atendendo os tipos de registro (EPI, entrega, compra).
 //
 // Nada disso pertence a uma aba: o layout provê, e cada rota pede.
-// Em especial o "Entregar EPI" da aba Funcionários, que abre a entrega
-// já com o funcionário escolhido — a única dependência cruzada real
-// que existia entre as abas.
+// A aba Funcionários saiu (o cadastro agora é do menu Colaboradores);
+// o funcionário pré-escolhido de abrirEntrega ficou para quem precisar
+// abrir a entrega já apontando para alguém.
 // ============================================================
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -53,7 +53,6 @@ export function EpisAcoesProvider({ children }: { children: ReactNode }) {
   const confirmarExclusao = async () => {
     if (!confirmar) return;
     if (confirmar.kind === "epi") await epiActions.excluirEpi(confirmar.id);
-    if (confirmar.kind === "func") await epiActions.excluirFuncionario(confirmar.id);
     if (confirmar.kind === "entrega") await epiActions.excluirEntrega(confirmar.id);
     if (confirmar.kind === "compra") await epiActions.excluirCompra(confirmar.id);
     toast.success("Registro excluído.");

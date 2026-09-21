@@ -5,8 +5,8 @@
 // cabeçalho, os quatro cards de resumo, a barra de abas e os diálogos
 // compartilhados — e o <Outlet /> recebe a aba da vez.
 //
-// As abas viraram rotas de verdade (entregas · compras · catalogo ·
-// funcionarios), então quem manda no que está aberto é a URL: link
+// As abas viraram rotas de verdade (entregas · compras · catalogo),
+// então quem manda no que está aberto é a URL: link
 // direto funciona, o botão voltar funciona, e o submenu do menu
 // lateral fica em sincronia com a barra de abas de graça, porque os
 // dois leem o mesmo pathname.
@@ -84,8 +84,7 @@ function Moldura() {
             <HardHat className="h-6 w-6 text-[#F37032]" /> EPIs — Segurança do Trabalho
           </h2>
           <p className="text-xs text-muted-foreground">
-            Cadastro de EPIs e funcionários, entregas com validade e termo de responsabilidade
-            (NR-6).
+            Catálogo de EPIs, compras, entregas com validade e termo de responsabilidade (NR-6).
           </p>
         </div>
         {/* flex-wrap porque a 390px os dois botões somam 375px numa
@@ -111,7 +110,7 @@ function Moldura() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ResumoCard
           icon={<Users className="h-5 w-5" />}
-          label="Funcionários"
+          label="Colaboradores"
           valor={funcionarios.length}
         />
         <ResumoCard

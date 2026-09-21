@@ -10,8 +10,10 @@
 // definição de turnover discutida fica escrita ao lado do turnover, e
 // não num documento que ninguém abre.
 // ============================================================
+import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -39,7 +41,6 @@ import {
   type Qualidade,
   type Divergencias,
 } from "@/lib/ponto-metricas";
-import { formatarCpf } from "@/lib/documento";
 
 const reais = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -704,30 +705,25 @@ export function AbaDivergencias({ div }: { div: Divergencias }) {
         <MiniTile rotulo="Sem CPF válido" valor={c.semCpfValido} alerta={c.semCpfValido > 0} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ListaConciliacao
-          titulo="Batem ponto e não existem no Portal"
-          descricao="Estão ativos na Secullum e não têm colaborador no cadastro do Portal. É o que a carga inicial da tela de Integração resolve."
-          vazio="Todo mundo que bate ponto tem cadastro no Portal."
-          linhas={c.soNaSecullum.map((p) => ({
-            principal: p.nome,
-            cpf: p.cpf,
-            secundario: [p.obra, p.funcao].filter(Boolean).join(" · ") || "—",
-          }))}
-          rotuloSecundario="Obra e função"
-        />
-        <ListaConciliacao
-          titulo="Estão no Portal e não batem ponto"
-          descricao="Ativos no cadastro do Portal sem correspondente ativo na Secullum. Pode ser admissão que ainda não foi cadastrada no Ponto Web — ou alguém que já saiu e não foi desligado aqui."
-          vazio="Todo colaborador ativo do Portal tem cadastro na Secullum."
-          linhas={c.soNoPortal.map((p) => ({
-            principal: p.nome,
-            cpf: p.cpf,
-            secundario: p.matricula || "sem matrícula",
-          }))}
-          rotuloSecundario="Matrícula"
-        />
-      </div>
+      {/* Só os números: a lista de nomes e a correção moram no menu
+          Colaboradores, que é o dono do cadastro. Repetir as listas
+          aqui era ter duas telas dizendo a mesma coisa. */}
+      <Card className="flex flex-wrap items-center gap-3 p-4">
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+          {c.soNaSecullum.length + c.soNoPortal.length > 0
+            ? "Quem está de um lado e não do outro, com nome e CPF, e a importação de quem bate ponto sem cadastro no Portal."
+            : "Os dois cadastros batem. A conciliação completa fica no menu Colaboradores."}
+        </p>
+        <Button
+          asChild
+          size="sm"
+          className="h-auto whitespace-normal bg-[#213368] py-2 text-white hover:bg-[#2a4185]"
+        >
+          <Link to="/app/colaboradores/secullum">
+            Resolver em Colaboradores → Importar da Secullum
+          </Link>
+        </Button>
+      </Card>
 
       <Card className="p-4 sm:p-5">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-[#213368]">
@@ -825,54 +821,6 @@ function MiniTile({
       >
         {valor}
       </p>
-    </Card>
-  );
-}
-
-function ListaConciliacao({
-  titulo,
-  descricao,
-  vazio,
-  linhas,
-  rotuloSecundario,
-}: {
-  titulo: string;
-  descricao: string;
-  vazio: string;
-  linhas: { principal: string; cpf: string; secundario: string }[];
-  rotuloSecundario: string;
-}) {
-  return (
-    <Card className="p-4 sm:p-5">
-      <h3 className="text-sm font-semibold text-[#213368]">{titulo}</h3>
-      <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>
-      {linhas.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[#1F8A70]">{vazio}</p>
-      ) : (
-        <div className="mt-3 max-h-72 overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>{rotuloSecundario}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {linhas.map((l) => (
-                <TableRow key={l.cpf}>
-                  <TableCell className="text-sm font-medium text-[#213368]">
-                    {l.principal}
-                    <span className="block font-mono text-[11px] font-normal text-muted-foreground">
-                      {formatarCpf(l.cpf)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm">{l.secundario}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
     </Card>
   );
 }

@@ -168,7 +168,7 @@ function ClientesPage() {
   const kpiCards = [
     { label: "Total de clientes", value: inteiro(kpis.total), icon: Users, tone: "#213368" },
     { label: "Clientes ativos", value: inteiro(kpis.ativos), icon: UserCheck, tone: "#213368" },
-    { label: "Colaboradores GRD", value: inteiro(kpis.colabs), icon: HeartHandshake, tone: "#F37032" },
+    { label: "Parceiros GRD", value: inteiro(kpis.colabs), icon: HeartHandshake, tone: "#F37032" },
     { label: "Valor gerado (aprovados)", value: brl(kpis.valorTotal), icon: DollarSign, tone: "#F37032" },
   ];
 
@@ -227,7 +227,7 @@ function ClientesPage() {
                   <th className="py-2 pr-3">Tipo</th>
                   <th className="py-2 pr-3">Telefone</th>
                   <th className="py-2 pr-3">Cidade</th>
-                  <th className="py-2 pr-3">Colaborador</th>
+                  <th className="py-2 pr-3">Parceiro GRD</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3 text-right">Ações</th>
                 </tr>
@@ -309,7 +309,7 @@ function ClientesPage() {
               <Input maxLength={2} value={form.estado ?? ""} onChange={e => setForm({ ...form, estado: e.target.value.toUpperCase() })} />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <Label className="cursor-pointer">Colaborador GRD?</Label>
+              <Label className="cursor-pointer">Parceiro GRD?</Label>
               <Switch checked={form.colaborador_grd} onCheckedChange={v => setForm({ ...form, colaborador_grd: v })} />
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">

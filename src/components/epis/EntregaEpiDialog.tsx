@@ -219,7 +219,7 @@ export function EntregaEpiDialog({
               <div className="max-h-48 overflow-y-auto p-1">
                 {funcionariosAtivos.length === 0 ? (
                   <p className="p-3 text-xs text-[#F37032]">
-                    Cadastre um funcionário primeiro na aba “Funcionários”.
+                    Nenhum colaborador ativo. O cadastro fica no menu Colaboradores.
                   </p>
                 ) : funcionariosFiltrados.length === 0 ? (
                   <p className="p-3 text-xs text-muted-foreground">Nenhum funcionário encontrado.</p>

@@ -9,7 +9,7 @@
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Lock } from "lucide-react";
-import { useCurrentUser, useHasPermission } from "@/lib/current-user";
+import { rotuloPerfil, useCurrentUser, useHasPermission } from "@/lib/current-user";
 
 export function RhTela({
   titulo,
@@ -48,7 +48,7 @@ export function RhTela({
         <Lock className="h-8 w-8 text-muted-foreground" />
         <h2 className="text-lg font-bold text-[#213368]">Você não tem acesso a esta tela</h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          O perfil <strong>{user.perfil || "sem perfil"}</strong> não abre <strong>{titulo}</strong>
+          O perfil <strong>{user.perfil ? rotuloPerfil(user.perfil) : "sem perfil"}</strong> não abre <strong>{titulo}</strong>
           . Se precisa deste acesso, peça à Diretoria ou ao RH pela tela de Administração.
         </p>
       </Card>

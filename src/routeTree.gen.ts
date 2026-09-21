@@ -17,6 +17,7 @@ import { Route as PontoRouteImport } from './routes/ponto'
 import { Route as TrabalheConoscoRouteImport } from './routes/trabalhe-conosco'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as AppColaboradoresRouteImport } from './routes/app.colaboradores'
 import { Route as AppComercialRouteImport } from './routes/app.comercial'
 import { Route as AppEpisRouteImport } from './routes/app.epis'
 import { Route as AppPontoRouteImport } from './routes/app.ponto'
@@ -25,6 +26,9 @@ import { Route as AppWebmailRouteImport } from './routes/app.webmail'
 import { Route as VagasSlugRouteImport } from './routes/vagas.$slug'
 import { Route as AppClientesIndexRouteImport } from './routes/app.clientes.index'
 import { Route as AppClientesIdRouteImport } from './routes/app.clientes.$id'
+import { Route as AppColaboradoresIndexRouteImport } from './routes/app.colaboradores.index'
+import { Route as AppColaboradoresDocumentosRouteImport } from './routes/app.colaboradores.documentos'
+import { Route as AppColaboradoresSecullumRouteImport } from './routes/app.colaboradores.secullum'
 import { Route as AppEpisIndexRouteImport } from './routes/app.epis.index'
 import { Route as AppEpisCatalogoRouteImport } from './routes/app.epis.catalogo'
 import { Route as AppEpisComprasRouteImport } from './routes/app.epis.compras'
@@ -92,6 +96,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppColaboradoresRoute = AppColaboradoresRouteImport.update({
+  id: '/colaboradores',
+  path: '/colaboradores',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppComercialRoute = AppComercialRouteImport.update({
   id: '/comercial',
   path: '/comercial',
@@ -132,6 +141,23 @@ const AppClientesIdRoute = AppClientesIdRouteImport.update({
   path: '/clientes/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppColaboradoresIndexRoute = AppColaboradoresIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppColaboradoresRoute,
+} as any)
+const AppColaboradoresDocumentosRoute =
+  AppColaboradoresDocumentosRouteImport.update({
+    id: '/documentos',
+    path: '/documentos',
+    getParentRoute: () => AppColaboradoresRoute,
+  } as any)
+const AppColaboradoresSecullumRoute =
+  AppColaboradoresSecullumRouteImport.update({
+    id: '/secullum',
+    path: '/secullum',
+    getParentRoute: () => AppColaboradoresRoute,
+  } as any)
 const AppEpisIndexRoute = AppEpisIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -272,6 +298,7 @@ export interface FileRoutesByFullPath {
   '/ponto': typeof PontoRoute
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/colaboradores': typeof AppColaboradoresRouteWithChildren
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRouteWithChildren
   '/app/ponto': typeof AppPontoRouteWithChildren
@@ -280,6 +307,8 @@ export interface FileRoutesByFullPath {
   '/vagas/$slug': typeof VagasSlugRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
+  '/app/colaboradores/documentos': typeof AppColaboradoresDocumentosRoute
+  '/app/colaboradores/secullum': typeof AppColaboradoresSecullumRoute
   '/app/epis/catalogo': typeof AppEpisCatalogoRoute
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
@@ -300,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/app/rh/selecao': typeof AppRhSelecaoRoute
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
+  '/app/colaboradores/': typeof AppColaboradoresIndexRoute
   '/app/epis/': typeof AppEpisIndexRoute
   '/app/financeiro/': typeof AppFinanceiroIndexRoute
   '/app/integracoes/': typeof AppIntegracoesIndexRoute
@@ -321,6 +351,8 @@ export interface FileRoutesByTo {
   '/vagas/$slug': typeof VagasSlugRoute
   '/app': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
+  '/app/colaboradores/documentos': typeof AppColaboradoresDocumentosRoute
+  '/app/colaboradores/secullum': typeof AppColaboradoresSecullumRoute
   '/app/epis/catalogo': typeof AppEpisCatalogoRoute
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
@@ -341,6 +373,7 @@ export interface FileRoutesByTo {
   '/app/rh/selecao': typeof AppRhSelecaoRoute
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes': typeof AppClientesIndexRoute
+  '/app/colaboradores': typeof AppColaboradoresIndexRoute
   '/app/epis': typeof AppEpisIndexRoute
   '/app/financeiro': typeof AppFinanceiroIndexRoute
   '/app/integracoes': typeof AppIntegracoesIndexRoute
@@ -358,6 +391,7 @@ export interface FileRoutesById {
   '/ponto': typeof PontoRoute
   '/trabalhe-conosco': typeof TrabalheConoscoRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/colaboradores': typeof AppColaboradoresRouteWithChildren
   '/app/comercial': typeof AppComercialRoute
   '/app/epis': typeof AppEpisRouteWithChildren
   '/app/ponto': typeof AppPontoRouteWithChildren
@@ -366,6 +400,8 @@ export interface FileRoutesById {
   '/vagas/$slug': typeof VagasSlugRoute
   '/app/': typeof AppIndexRoute
   '/app/clientes/$id': typeof AppClientesIdRoute
+  '/app/colaboradores/documentos': typeof AppColaboradoresDocumentosRoute
+  '/app/colaboradores/secullum': typeof AppColaboradoresSecullumRoute
   '/app/epis/catalogo': typeof AppEpisCatalogoRoute
   '/app/epis/compras': typeof AppEpisComprasRoute
   '/app/epis/entregas': typeof AppEpisEntregasRoute
@@ -386,6 +422,7 @@ export interface FileRoutesById {
   '/app/rh/selecao': typeof AppRhSelecaoRoute
   '/app/rh/vagas': typeof AppRhVagasRoute
   '/app/clientes/': typeof AppClientesIndexRoute
+  '/app/colaboradores/': typeof AppColaboradoresIndexRoute
   '/app/epis/': typeof AppEpisIndexRoute
   '/app/financeiro/': typeof AppFinanceiroIndexRoute
   '/app/integracoes/': typeof AppIntegracoesIndexRoute
@@ -404,6 +441,7 @@ export interface FileRouteTypes {
     | '/ponto'
     | '/trabalhe-conosco'
     | '/app/admin'
+    | '/app/colaboradores'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
@@ -412,6 +450,8 @@ export interface FileRouteTypes {
     | '/vagas/$slug'
     | '/app/'
     | '/app/clientes/$id'
+    | '/app/colaboradores/documentos'
+    | '/app/colaboradores/secullum'
     | '/app/epis/catalogo'
     | '/app/epis/compras'
     | '/app/epis/entregas'
@@ -432,6 +472,7 @@ export interface FileRouteTypes {
     | '/app/rh/selecao'
     | '/app/rh/vagas'
     | '/app/clientes/'
+    | '/app/colaboradores/'
     | '/app/epis/'
     | '/app/financeiro/'
     | '/app/integracoes/'
@@ -453,6 +494,8 @@ export interface FileRouteTypes {
     | '/vagas/$slug'
     | '/app'
     | '/app/clientes/$id'
+    | '/app/colaboradores/documentos'
+    | '/app/colaboradores/secullum'
     | '/app/epis/catalogo'
     | '/app/epis/compras'
     | '/app/epis/entregas'
@@ -473,6 +516,7 @@ export interface FileRouteTypes {
     | '/app/rh/selecao'
     | '/app/rh/vagas'
     | '/app/clientes'
+    | '/app/colaboradores'
     | '/app/epis'
     | '/app/financeiro'
     | '/app/integracoes'
@@ -489,6 +533,7 @@ export interface FileRouteTypes {
     | '/ponto'
     | '/trabalhe-conosco'
     | '/app/admin'
+    | '/app/colaboradores'
     | '/app/comercial'
     | '/app/epis'
     | '/app/ponto'
@@ -497,6 +542,8 @@ export interface FileRouteTypes {
     | '/vagas/$slug'
     | '/app/'
     | '/app/clientes/$id'
+    | '/app/colaboradores/documentos'
+    | '/app/colaboradores/secullum'
     | '/app/epis/catalogo'
     | '/app/epis/compras'
     | '/app/epis/entregas'
@@ -517,6 +564,7 @@ export interface FileRouteTypes {
     | '/app/rh/selecao'
     | '/app/rh/vagas'
     | '/app/clientes/'
+    | '/app/colaboradores/'
     | '/app/epis/'
     | '/app/financeiro/'
     | '/app/integracoes/'
@@ -594,6 +642,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/colaboradores': {
+      id: '/app/colaboradores'
+      path: '/colaboradores'
+      fullPath: '/app/colaboradores'
+      preLoaderRoute: typeof AppColaboradoresRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/comercial': {
       id: '/app/comercial'
       path: '/comercial'
@@ -649,6 +704,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/clientes/$id'
       preLoaderRoute: typeof AppClientesIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/app/colaboradores/': {
+      id: '/app/colaboradores/'
+      path: '/'
+      fullPath: '/app/colaboradores/'
+      preLoaderRoute: typeof AppColaboradoresIndexRouteImport
+      parentRoute: typeof AppColaboradoresRoute
+    }
+    '/app/colaboradores/documentos': {
+      id: '/app/colaboradores/documentos'
+      path: '/documentos'
+      fullPath: '/app/colaboradores/documentos'
+      preLoaderRoute: typeof AppColaboradoresDocumentosRouteImport
+      parentRoute: typeof AppColaboradoresRoute
+    }
+    '/app/colaboradores/secullum': {
+      id: '/app/colaboradores/secullum'
+      path: '/secullum'
+      fullPath: '/app/colaboradores/secullum'
+      preLoaderRoute: typeof AppColaboradoresSecullumRouteImport
+      parentRoute: typeof AppColaboradoresRoute
     }
     '/app/epis/': {
       id: '/app/epis/'
@@ -835,6 +911,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppColaboradoresRouteChildren {
+  AppColaboradoresDocumentosRoute: typeof AppColaboradoresDocumentosRoute
+  AppColaboradoresSecullumRoute: typeof AppColaboradoresSecullumRoute
+  AppColaboradoresIndexRoute: typeof AppColaboradoresIndexRoute
+}
+
+const AppColaboradoresRouteChildren: AppColaboradoresRouteChildren = {
+  AppColaboradoresDocumentosRoute: AppColaboradoresDocumentosRoute,
+  AppColaboradoresSecullumRoute: AppColaboradoresSecullumRoute,
+  AppColaboradoresIndexRoute: AppColaboradoresIndexRoute,
+}
+
+const AppColaboradoresRouteWithChildren =
+  AppColaboradoresRoute._addFileChildren(AppColaboradoresRouteChildren)
+
 interface AppEpisRouteChildren {
   AppEpisCatalogoRoute: typeof AppEpisCatalogoRoute
   AppEpisComprasRoute: typeof AppEpisComprasRoute
@@ -874,6 +965,7 @@ const AppPontoRouteWithChildren = AppPontoRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppColaboradoresRoute: typeof AppColaboradoresRouteWithChildren
   AppComercialRoute: typeof AppComercialRoute
   AppEpisRoute: typeof AppEpisRouteWithChildren
   AppPontoRoute: typeof AppPontoRouteWithChildren
@@ -903,6 +995,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppColaboradoresRoute: AppColaboradoresRouteWithChildren,
   AppComercialRoute: AppComercialRoute,
   AppEpisRoute: AppEpisRouteWithChildren,
   AppPontoRoute: AppPontoRouteWithChildren,

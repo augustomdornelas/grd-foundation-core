@@ -15,13 +15,12 @@ export const ABAS_EPIS = [
   { to: "/app/epis/entregas", label: "Entregas" },
   { to: "/app/epis/compras", label: "Compras" },
   { to: "/app/epis/catalogo", label: "Catálogo de EPIs" },
-  { to: "/app/epis/funcionarios", label: "Funcionários" },
 ] as const;
 
 export function AbasEpis() {
   return (
     // A barra rola sozinha no celular em vez de espremer os rótulos ou
-    // empurrar a página: quatro abas não cabem em 390px.
+    // empurrar a página: as abas não cabem em 390px.
     <div className="-mx-1 overflow-x-auto px-1">
       <nav
         aria-label="Seções de EPIs"

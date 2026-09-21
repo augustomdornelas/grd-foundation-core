@@ -2,7 +2,7 @@
 // Tabela de documentos com vencimento
 // ------------------------------------------------------------
 // Serve nas duas telas: na ficha de um colaborador e na visão
-// consolidada de /app/rh/documentos, que é a que se abre quando o
+// consolidada de /app/colaboradores/documentos, que é a que se abre quando o
 // cliente industrial pede a documentação da equipe.
 //
 // A situação (vencido, vence em 7, vence em 30) vem de

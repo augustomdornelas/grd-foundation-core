@@ -124,7 +124,7 @@ function ClienteDetalhe() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{cliente.tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}</Badge>
-            {cliente.colaborador_grd && <Badge style={{ background: "#F37032" }} className="text-white">Colaborador GRD</Badge>}
+            {cliente.colaborador_grd && <Badge style={{ background: "#F37032" }} className="text-white">Parceiro GRD</Badge>}
             {cliente.ativo
               ? <Badge style={{ background: "#213368" }} className="text-white">ATIVO</Badge>
               : <Badge variant="secondary">INATIVO</Badge>}

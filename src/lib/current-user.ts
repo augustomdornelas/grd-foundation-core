@@ -225,6 +225,19 @@ export const sessionActions = {
   },
 };
 
+/**
+ * Nome do perfil para MOSTRAR na tela. Só rótulo: o valor gravado em
+ * profiles.perfil continua o mesmo ("Colaborador"/"colaborador"), e
+ * toda comparação de acesso segue usando o valor, nunca o rótulo.
+ *
+ * "Colaborador" virou "Usuário padrão" porque colaborador, no Portal,
+ * é quem está no cadastro de funcionários — e muita conta com esse
+ * perfil nem é funcionário.
+ */
+export function rotuloPerfil(perfil: string): string {
+  return perfil.toLowerCase() === "colaborador" ? "Usuário padrão" : perfil;
+}
+
 export function iniciaisDe(nome: string): string {
   const partes = nome.trim().split(/\s+/).filter(Boolean);
   if (partes.length === 0) return "GR";

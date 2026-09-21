@@ -4,7 +4,7 @@
 import { createContext, useContext } from "react";
 
 export type AlvoExclusao = {
-  kind: "epi" | "func" | "entrega" | "compra";
+  kind: "epi" | "entrega" | "compra";
   id: string;
   label: string;
 };

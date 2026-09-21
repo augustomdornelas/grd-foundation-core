@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PortfolioAdmin } from "@/components/portal/PortfolioAdmin";
 import { ResponsaveisAdmin } from "@/components/portal/ResponsaveisAdmin";
-import { permissoesDoPerfil as permissoesCanonicas, type ModuloKey } from "@/lib/current-user";
+import { permissoesDoPerfil as permissoesCanonicas, rotuloPerfil, type ModuloKey } from "@/lib/current-user";
 import { MODULO_KEYS, MODULO_LABEL, MODULO_AJUDA } from "@/lib/access-store";
 
 export const Route = createFileRoute("/app/admin")({ component: Admin });
@@ -50,6 +50,8 @@ const PERFIS = [
   "Projetos",
   "Almoxarifado",
   "Campo",
+  // Aparece como "Usuário padrão" (rotuloPerfil); o valor gravado segue
+  // sendo "Colaborador" para não mexer nas contas que já existem.
   "Colaborador",
 ];
 
@@ -177,7 +179,7 @@ function Admin() {
                 <TableRow key={u.id}>
                   <TableCell className="font-semibold">{u.nome}</TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell><Badge variant="outline">{u.perfil}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{rotuloPerfil(u.perfil)}</Badge></TableCell>
                   <TableCell>
                     <Badge className={u.status === "ativo" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}>
                       {u.status === "ativo" ? "Ativo" : "Inativo"}
@@ -226,7 +228,7 @@ function Admin() {
                 <tr key={u.id} className="border-b hover:bg-muted/30">
                   <td className="py-2 pr-4">
                     <div className="font-semibold">{u.nome}</div>
-                    <div className="text-xs text-[#F37032]">{u.perfil}</div>
+                    <div className="text-xs text-[#F37032]">{rotuloPerfil(u.perfil)}</div>
                   </td>
                   {MODULOS.map(m => (
                     <>
@@ -272,7 +274,7 @@ function Admin() {
                 <tr key={u.id} className="border-b hover:bg-muted/30">
                   <td className="py-2 pr-4">
                     <div className="font-semibold">{u.nome}</div>
-                    <div className="text-xs text-[#F37032]">{u.perfil}</div>
+                    <div className="text-xs text-[#F37032]">{rotuloPerfil(u.perfil)}</div>
                   </td>
                   {PAINEIS.map(p => {
                     const bloqueado = !temPermissao(u, p.modulo, "ver");
@@ -372,7 +374,7 @@ function NovoUsuarioModal({ open, onClose, onCriado }: { open: boolean; onClose:
               <label className="text-sm font-medium">Perfil</label>
               <Select value={form.perfil} onValueChange={v => setForm({ ...form, perfil: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{PERFIS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                <SelectContent>{PERFIS.map(p => <SelectItem key={p} value={p}>{rotuloPerfil(p)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
@@ -425,7 +427,7 @@ function EditarUsuarioModal({ usuario, onClose, onSalvo }: { usuario: Usuario; o
               <label className="text-sm font-medium">Perfil</label>
               <Select value={form.perfil} onValueChange={v => setForm({ ...form, perfil: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{PERFIS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                <SelectContent>{PERFIS.map(p => <SelectItem key={p} value={p}>{rotuloPerfil(p)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">

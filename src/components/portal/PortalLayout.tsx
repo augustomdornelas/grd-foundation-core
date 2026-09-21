@@ -6,6 +6,7 @@ import {
   Wallet,
   FolderKanban,
   HardHat,
+  IdCard,
   Users,
   Mail,
   Users2,
@@ -39,6 +40,7 @@ import {
   useCurrentUser,
   sessionActions,
   iniciaisDe,
+  rotuloPerfil,
   PERFIS_RH,
   PERFIS_PONTO,
   type ModuloKey,
@@ -68,8 +70,8 @@ type NavItem = {
 // O RH entra como grupo, e não como nove entradas soltas: são nove
 // telas e a barra lateral já tem oito itens. Cada filho carrega os
 // perfis que o enxergam, direto da matriz do briefing — o
-// almoxarifado, por exemplo, abre o grupo e vê só colaboradores e
-// cargos.
+// almoxarifado, por exemplo, abre o grupo e vê só cargos (a lista de
+// colaboradores virou o grupo Colaboradores, logo abaixo do Financeiro).
 //
 // O grupo RH não tem rota própria de propósito: /app/rh é uma tela com
 // dono (PERFIS_RH.painel), e clicar no rótulo levaria o almoxarifado a
@@ -115,6 +117,38 @@ const items: NavItem[] = [
       { to: "/app/financeiro/pagar", label: "Contas a pagar", perm: "financeiro" },
     ],
   },
+  // Colaboradores é o ÚNICO lugar com cadastro e lista de gente. Saiu
+  // de dentro do RH (e absorveu o cadastro paralelo do EPIs e a
+  // importação da Secullum do Ponto) porque quem mais usa não é só o
+  // RH: almoxarifado e engenharia também abrem a ficha. Os rótulos são
+  // os mesmos de ABAS_COLABORADORES — quem mudar lá muda aqui.
+  {
+    key: "colaboradores",
+    label: "Colaboradores",
+    icon: IdCard,
+    perm: "rh",
+    filhos: [
+      {
+        to: "/app/colaboradores",
+        label: "Lista de colaboradores",
+        exact: true,
+        perm: "rh",
+        perfis: PERFIS_RH.colaboradores,
+      },
+      {
+        to: "/app/colaboradores/documentos",
+        label: "Documentos",
+        perm: "rh",
+        perfis: PERFIS_RH.colaboradores,
+      },
+      {
+        to: "/app/colaboradores/secullum",
+        label: "Importar da Secullum",
+        perm: "rh",
+        perfis: PERFIS_RH.integracoes,
+      },
+    ],
+  },
   { key: "projetos", to: "/app/projetos", label: "Projetos", icon: FolderKanban, perm: "projetos" },
   {
     key: "epis",
@@ -126,7 +160,6 @@ const items: NavItem[] = [
       { to: "/app/epis/entregas", label: "Entregas", perm: "epis" },
       { to: "/app/epis/compras", label: "Compras", perm: "epis" },
       { to: "/app/epis/catalogo", label: "Catálogo de EPIs", perm: "epis" },
-      { to: "/app/epis/funcionarios", label: "Funcionários", perm: "epis" },
     ],
   },
   {
@@ -139,18 +172,6 @@ const items: NavItem[] = [
       { to: "/app/rh/selecao", label: "Seleção", perm: "rh", perfis: PERFIS_RH.selecao },
       { to: "/app/rh/candidatos", label: "Candidatos", perm: "rh", perfis: PERFIS_RH.selecao },
       { to: "/app/rh/admissoes", label: "Admissões", perm: "rh", perfis: PERFIS_RH.admissoes },
-      {
-        to: "/app/rh/colaboradores",
-        label: "Colaboradores",
-        perm: "rh",
-        perfis: PERFIS_RH.colaboradores,
-      },
-      {
-        to: "/app/rh/documentos",
-        label: "Documentos",
-        perm: "rh",
-        perfis: PERFIS_RH.colaboradores,
-      },
       { to: "/app/rh/cargos", label: "Cargos", perm: "rh", perfis: PERFIS_RH.cargos },
       {
         to: "/app/rh/configuracoes",
@@ -471,7 +492,7 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
                 <div className="font-semibold">{user.nome}</div>
                 <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
                 <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#F37032]">
-                  {user.perfil}
+                  {rotuloPerfil(user.perfil)}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

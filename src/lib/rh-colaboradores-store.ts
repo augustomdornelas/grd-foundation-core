@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Resultado } from "@/lib/rh-store";
+import { upperizePayload } from "@/lib/utils";
 
 function toastErr(msg: string, err: { message?: string } | null | undefined) {
   if (err) toast.error(`${msg}: ${err.message ?? "erro desconhecido"}`);
@@ -450,7 +451,85 @@ export function historicoRemuneracao(s: State, funcionarioId: string): Remunerac
 // ============================================================
 // Ações
 // ============================================================
+export type CadastroColaborador = {
+  nome: string;
+  cpf: string;
+  rg: string;
+  cargo: string;
+  setor: string;
+  matricula: string;
+  dataAdmissao: string | null;
+  telefone: string;
+  email: string;
+  observacoes: string;
+};
+
+/**
+ * O EPIs lê a mesma tabela para a entrega. Import dinâmico de
+ * propósito: o epis-store busca tudo assim que o módulo carrega, e um
+ * import estático faria toda tela de RH baixar as tabelas de EPI.
+ */
+async function refetchEpis() {
+  const epis = await import("@/lib/epis-store");
+  await epis.refetchEpis();
+}
+
+function linhaCadastro(input: CadastroColaborador) {
+  return {
+    nome: input.nome,
+    cpf: input.cpf,
+    rg: input.rg,
+    cargo: input.cargo,
+    setor: input.setor,
+    matricula: input.matricula,
+    data_admissao: input.dataAdmissao,
+    telefone: input.telefone,
+    // E-mail em minúsculas: upperizePayload pula a chave, mas quem
+    // digita nem sempre digita em minúsculas.
+    email: input.email.toLowerCase(),
+    observacoes: input.observacoes,
+  };
+}
+
 export const colaboradorActions = {
+  /**
+   * Cadastro direto, sem passar por admissão. É o ÚNICO lugar do Portal
+   * que cria linha em `funcionarios` à mão — o EPIs tinha um segundo
+   * cadastro e ele foi removido. Não existe o par "excluir": quem sai é
+   * desligado (colaboradorActions.desligar), para o histórico, os
+   * termos de EPI e as batidas continuarem apontando para alguém.
+   *
+   * O store do EPIs é recarregado junto — senão o recém-cadastrado só
+   * apareceria na entrega depois de um F5.
+   */
+  async criar(input: CadastroColaborador): Promise<Resultado<string>> {
+    const { data, error } = await supabase
+      .from("funcionarios")
+      .insert(
+        upperizePayload({
+          ...linhaCadastro(input),
+          situacao: "ativo",
+          ativo: true,
+        }) as never,
+      )
+      .select("id")
+      .single();
+    if (error) return falha<string>(error);
+    await Promise.all([recarregarColaboradores(), refetchEpis()]);
+    return { ok: true, dado: txt((data as Row).id) };
+  },
+
+  /** Só os campos do formulário; situação e obra têm fluxo próprio. */
+  async atualizarCadastro(id: string, input: CadastroColaborador): Promise<Resultado> {
+    const { error } = await supabase
+      .from("funcionarios")
+      .update(upperizePayload(linhaCadastro(input)) as never)
+      .eq("id", id);
+    if (error) return falha(error);
+    await Promise.all([recarregarColaboradores(), refetchEpis()]);
+    return { ok: true };
+  },
+
   async atualizar(id: string, patch: Record<string, unknown>): Promise<Resultado> {
     const { error } = await supabase.from("funcionarios").update(patch).eq("id", id);
     if (error) return falha(error);

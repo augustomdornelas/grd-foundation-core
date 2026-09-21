@@ -253,7 +253,7 @@ function PainelRh() {
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-bold text-[#213368]">Documentos vencendo</h3>
               <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-                <Link to="/app/rh/documentos">
+                <Link to="/app/colaboradores/documentos">
                   Ver todos <ArrowRight className="ml-1 h-3 w-3" />
                 </Link>
               </Button>

@@ -1,7 +1,7 @@
 // ============================================================
 // Store de EPIs — integração real com Supabase
 // ------------------------------------------------------------
-// Cobre: funcionários, catálogo de EPIs, entregas (termos) e os
+// Cobre: funcionários (só leitura), catálogo de EPIs, entregas (termos) e os
 // itens de cada entrega (com data de entrega e validade calculada).
 // Segue o padrão dos demais stores do portal: estado em módulo,
 // subscribe/emit, hook useEpiStore com equality shallow e escrita
@@ -525,55 +525,9 @@ async function inserirEntrega(
 
 // ---------- Actions ----------
 export const epiActions = {
-  // ----- Funcionários -----
-  async criarFuncionario(input: Omit<Funcionario, "id">): Promise<string | null> {
-    try {
-      const { data, error } = await supabase
-        .from("funcionarios")
-        .insert(upperizePayload({
-          nome: input.nome,
-          cpf: input.cpf ?? "",
-          rg: input.rg ?? "",
-          cargo: input.cargo ?? "",
-          setor: input.setor ?? "",
-          matricula: input.matricula ?? "",
-          data_admissao: input.dataAdmissao || null,
-          ativo: input.ativo,
-          observacoes: input.observacoes ?? "",
-        }) as any)
-        .select("*")
-        .single();
-      if (error) { toast.error(`Erro ao salvar funcionário: ${error.message}`); return null; }
-      await fetchAll();
-      return data?.id ?? null;
-    } catch (err) {
-      toast.error(`Erro ao salvar funcionário: ${err instanceof Error ? err.message : "desconhecido"}`);
-      return null;
-    }
-  },
-  async atualizarFuncionario(id: string, patch: Partial<Funcionario>) {
-    state = { ...state, funcionarios: state.funcionarios.map(f => f.id === id ? { ...f, ...patch } : f) };
-    emit();
-    const row: Record<string, unknown> = {};
-    if (patch.nome !== undefined) row.nome = patch.nome;
-    if (patch.cpf !== undefined) row.cpf = patch.cpf;
-    if (patch.rg !== undefined) row.rg = patch.rg;
-    if (patch.cargo !== undefined) row.cargo = patch.cargo;
-    if (patch.setor !== undefined) row.setor = patch.setor;
-    if (patch.matricula !== undefined) row.matricula = patch.matricula;
-    if (patch.dataAdmissao !== undefined) row.data_admissao = patch.dataAdmissao || null;
-    if (patch.ativo !== undefined) row.ativo = patch.ativo;
-    if (patch.observacoes !== undefined) row.observacoes = patch.observacoes;
-    const { error } = await supabase.from("funcionarios").update(upperizePayload(row)).eq("id", id);
-    toastErr("Erro ao salvar no banco", error);
-  },
-  async excluirFuncionario(id: string) {
-    state = { ...state, funcionarios: state.funcionarios.filter(f => f.id !== id) };
-    emit();
-    const { error } = await supabase.from("funcionarios").delete().eq("id", id);
-    toastErr("Erro ao excluir funcionário", error);
-    await fetchAll();
-  },
+  // Funcionários: este store só LÊ a tabela, para a entrega. Criar e
+  // editar ficam em colaboradorActions (menu Colaboradores); excluir não
+  // existe — quem sai é desligado.
 
   // ----- EPIs (catálogo) -----
   async criarEpi(input: Omit<Epi, "id">): Promise<string | null> {
