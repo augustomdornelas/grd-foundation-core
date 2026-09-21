@@ -189,7 +189,6 @@ function AbaRelatorio() {
             quantidade: item.quantidade,
             unidade: item.unidade,
             motivo: item.motivo,
-            validade: item.dataValidade,
           }))
           .sort((a, b) => a.data.localeCompare(b.data) || a.termo.localeCompare(b.termo)),
       }));

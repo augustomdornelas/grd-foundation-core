@@ -39,8 +39,6 @@ export type ItemRelatorioEpi = {
   quantidade: number;
   unidade: string;
   motivo: string;
-  /** ISO; ausente = EPI sem validade */
-  validade?: string;
 };
 
 export type ColaboradorRelatorioEpi = {
@@ -69,17 +67,22 @@ function fmtDataHora(d: Date) {
   return `${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`;
 }
 
-// Larguras em proporção de uma área útil de 180 mm.
+// Larguras em mm, somando a área útil de 180 mm. ASSINATURA é a mais
+// larga de propósito: é onde o colaborador assina, item por item, à
+// caneta. O nome do EPI quebra em até 2 linhas para caber.
 const COLUNAS: { titulo: string; larg: number; centro?: boolean }[] = [
-  { titulo: "DATA", larg: 19 },
-  { titulo: "Nº DO TERMO", larg: 27 },
-  { titulo: "EPI", larg: 58 },
-  { titulo: "C.A.", larg: 17 },
-  { titulo: "QTD.", larg: 15, centro: true },
-  { titulo: "MOTIVO", larg: 25 },
-  { titulo: "VALIDADE", larg: 19 },
+  { titulo: "DATA", larg: 17 },
+  { titulo: "Nº DO TERMO", larg: 23 },
+  { titulo: "EPI", larg: 39 },
+  { titulo: "C.A.", larg: 13 },
+  { titulo: "QTD.", larg: 12, centro: true },
+  { titulo: "MOTIVO", larg: 21 },
+  { titulo: "ASSINATURA", larg: 55, centro: true },
 ];
 const LARG_BASE = COLUNAS.reduce((a, c) => a + c.larg, 0);
+const COL_ASSINATURA = COLUNAS.length - 1;
+/** Altura mínima da linha: espaço para assinar à mão. */
+const LINHA_MIN = 10;
 
 export function nomeArquivoRelatorioEpi(deIso: string, ateIso: string) {
   return `relatorio-epi-${deIso}_a_${ateIso}.pdf`;
@@ -236,38 +239,68 @@ export async function montarRelatorioEpiPDF(input: EntradaRelatorioEpi): Promise
     it.ca || "—",
     `${it.quantidade} ${(it.unidade || "un").trim()}`,
     it.motivo || "—",
-    it.validade ? fmtData(it.validade) : "—",
+    "", // ASSINATURA: em branco, para a caneta
   ];
+
+  /**
+   * Texto da célula em até 2 linhas. Não coube em 7,5 pt? Tenta 6,5 pt.
+   * Nem assim? Corta a 2ª linha com "…" — o corte fica visível, em vez
+   * de o fim do nome do EPI sumir sem aviso.
+   */
+  const MAX_LINHAS = 2;
+  const textoDaCelula = (texto: string, largura: number) => {
+    doc.setFont("helvetica", "normal");
+    for (const fonte of [7.5, 6.5]) {
+      doc.setFontSize(fonte);
+      const linhas = doc.splitTextToSize(texto, largura) as string[];
+      if (linhas.length <= MAX_LINHAS) return { linhas, fonte };
+    }
+    const linhas = (doc.splitTextToSize(texto, largura) as string[]).slice(0, MAX_LINHAS);
+    let ultima = linhas[MAX_LINHAS - 1];
+    while (ultima.length > 1 && doc.getTextWidth(`${ultima}…`) > largura) {
+      ultima = ultima.slice(0, -1);
+    }
+    linhas[MAX_LINHAS - 1] = `${ultima.trimEnd()}…`;
+    return { linhas, fonte: 6.5 };
+  };
 
   /** Altura da linha pelo texto que mais quebra (até 2 linhas por célula). */
   const alturaLinha = (it: ItemRelatorioEpi) => {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
     const maxLinhas = Math.max(
-      ...celulas(it).map(
-        (t, i) => (doc.splitTextToSize(t, colsW[i] - 3) as string[]).slice(0, 2).length,
-      ),
+      ...celulas(it).map((t, i) => textoDaCelula(t, colsW[i] - 3).linhas.length),
     );
-    return Math.max(7, maxLinhas * 3.1 + 3);
+    return Math.max(LINHA_MIN, maxLinhas * 3.1 + 3);
   };
 
+  const xAssinatura = M + colsW.slice(0, COL_ASSINATURA).reduce((a, w) => a + w, 0);
+  const largAssinatura = colsW[COL_ASSINATURA];
+
   const linhaTabela = (it: ItemRelatorioEpi, idx: number, h: number) => {
+    // Zebra só até a coluna de assinatura: a caneta aparece melhor no
+    // branco.
     if (idx % 2 === 1) {
       doc.setFillColor(...GREY_BG);
-      doc.rect(M, y, larg, h, "F");
+      doc.rect(M, y, xAssinatura - M, h, "F");
     }
     doc.setDrawColor(...GREY_LINE);
     doc.setLineWidth(0.1);
     doc.line(M, y + h, M + larg, y + h);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
+    // Divisória à esquerda da assinatura e a linha fina de base, onde se
+    // assina.
+    doc.line(xAssinatura, y, xAssinatura, y + h);
+    doc.setLineWidth(0.2);
+    doc.line(xAssinatura + 3, y + h - 2.5, xAssinatura + largAssinatura - 3, y + h - 2.5);
+
     doc.setTextColor(...TEXT_DARK);
     let cx = M;
     celulas(it).forEach((t, i) => {
-      const linhas = (doc.splitTextToSize(t, colsW[i] - 3) as string[]).slice(0, 2);
-      const ty = y + (h - linhas.length * 3.1) / 2 + 2.4;
-      if (COLUNAS[i].centro) doc.text(linhas, cx + colsW[i] / 2, ty, { align: "center" });
-      else doc.text(linhas, cx + 1.5, ty);
+      if (i !== COL_ASSINATURA) {
+        const { linhas, fonte } = textoDaCelula(t, colsW[i] - 3);
+        doc.setFontSize(fonte);
+        const ty = y + (h - linhas.length * 3.1) / 2 + 2.4;
+        if (COLUNAS[i].centro) doc.text(linhas, cx + colsW[i] / 2, ty, { align: "center" });
+        else doc.text(linhas, cx + 1.5, ty);
+      }
       cx += colsW[i];
     });
     y += h;
