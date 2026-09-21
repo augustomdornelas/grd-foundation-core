@@ -153,7 +153,7 @@ export async function reduzirFoto(arquivo: File): Promise<FotoReduzida> {
 function seguro(texto: string): string {
   return texto
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^A-Za-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }

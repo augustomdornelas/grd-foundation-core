@@ -16,7 +16,12 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { ChevronLeft, Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { brl, brlCompacto, num, pct } from "@/lib/formato";
-import { useProjetosStore, projetosActions, resumoProjeto, calcularValorNota, type Projeto, type ProjetoStatus } from "@/lib/projetos-store";
+import { useProjetosStore, projetosActions, resumoProjeto, calcularValorNota, type Projeto, type ProjetoStatus, type Custo, type NotaFiscal } from "@/lib/projetos-store";
+import { useFornecedores } from "@/lib/fornecedores-store";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { UnidadeSelect } from "@/components/portal/UnidadeSelect";
 import { FornecedorSelect } from "@/components/fornecedores/FornecedorSelect";
 import { AbaFornecedores } from "@/components/fornecedores/AbaFornecedores";
@@ -47,6 +52,10 @@ export const Route = createFileRoute("/app/projetos/$id")({
 });
 
 const hoje = () => new Date().toISOString().slice(0, 10);
+const custoVazio = () => ({ data: hoje(), descricao: "", categoria: "Insumo" as Custo["categoria"], valor: null as number | null });
+/** Para achar o fornecedor cadastrado pelo nome gravado na nota. */
+const normalizarNome = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
 const STATUS_OPTIONS: ProjetoStatus[] = ["PLANEJAMENTO", "EM ANDAMENTO", "PARALISADO", "CONCLUÍDO"];
 
 function ProjetoDetalhe() {
@@ -63,8 +72,14 @@ function ProjetoDetalhe() {
   const [medOpen, setMedOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const [custo, setCusto] = useState({ data: hoje(), descricao: "", categoria: "Insumo" as const, valor: null as number | null });
+  const [custo, setCusto] = useState(custoVazio);
   const [nota, setNota] = useState(NOTA_VAZIA);
+  // O mesmo diálogo serve para lançar e para editar: com id, é edição.
+  const [custoEditId, setCustoEditId] = useState<string | null>(null);
+  const [notaEditId, setNotaEditId] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [aExcluir, setAExcluir] = useState<{ tipo: "custo" | "nota"; id: string } | null>(null);
+  const fornecedores = useFornecedores();
   const [med, setMed] = useState({ data: hoje(), periodo: "", pct: null as number | null, valor: null as number | null, status: "ENVIADA" as const });
   const [edit, setEdit] = useState({
     nome: p.nome, cliente: p.cliente, clienteId: p.clienteId as string | null,
@@ -106,17 +121,64 @@ function ProjetoDetalhe() {
     });
   }, [r.medicoes, r.orcado]);
 
-  const submitCusto = () => {
+  const abrirNovoCusto = () => {
+    setCustoEditId(null);
+    setCusto(custoVazio());
+    setCustoOpen(true);
+  };
+  const abrirEdicaoCusto = (c: Custo) => {
+    setCustoEditId(c.id);
+    setCusto({ data: c.data.slice(0, 10), descricao: c.descricao, categoria: c.categoria, valor: c.valor });
+    setCustoOpen(true);
+  };
+  const submitCusto = async () => {
     // O campo já entrega número: o `replace(/\D/g, "")` que existia aqui
     // apagava a vírgula junto com o resto e transformava 1.234,56 em 123456.
     const valor = custo.valor ?? 0;
     if (!custo.descricao.trim() || !valor) return toast.error("Preencha descrição e valor");
-    projetosActions.adicionarCusto({ projetoId: id, data: custo.data, descricao: custo.descricao, categoria: custo.categoria, valor });
-    toast.success("Custo lançado");
-    setCusto({ data: hoje(), descricao: "", categoria: "Insumo", valor: null });
+    if (custoEditId) {
+      setSalvando(true);
+      const ok = await projetosActions.atualizarCusto(custoEditId, {
+        data: custo.data, descricao: custo.descricao, categoria: custo.categoria, valor,
+      });
+      setSalvando(false);
+      if (!ok) return; // o store já avisou e desfez
+      toast.success("Custo atualizado");
+    } else {
+      projetosActions.adicionarCusto({ projetoId: id, data: custo.data, descricao: custo.descricao, categoria: custo.categoria, valor });
+      toast.success("Custo lançado");
+    }
+    setCusto(custoVazio());
+    setCustoEditId(null);
     setCustoOpen(false);
   };
-  const submitNota = () => {
+
+  const abrirNovaNota = () => {
+    setNotaEditId(null);
+    setNota({ ...NOTA_VAZIA, data: hoje() });
+    setNotaOpen(true);
+  };
+  const abrirEdicaoNota = (n: NotaFiscal) => {
+    // O fornecedor está gravado como NOME. Se bater com um cadastro, o
+    // select já abre com ele escolhido; senão fica o nome solto
+    // (fallbackNome), como nas notas antigas.
+    const alvo = normalizarNome(n.fornecedor);
+    const cadastrado = alvo ? fornecedores.find(f => normalizarNome(f.nome) === alvo) : undefined;
+    // Nota antiga (de antes de quantidade × unitário) tem unitário 0 e o
+    // valor só no total. Abrir com unitário 0 faria o salvar zerar o
+    // valor; o unitário é deduzido do total para o valor continuar o mesmo.
+    const quantidade = n.quantidade || 1;
+    const valorUnitario = n.valorUnitario || (n.valor ? Math.round((n.valor / quantidade) * 100) / 100 : null);
+    setNotaEditId(n.id);
+    setNota({
+      data: n.data.slice(0, 10), numero: n.numero,
+      fornecedor: n.fornecedor, fornecedorId: cadastrado?.id ?? null,
+      descricao: n.descricao, unidade: n.unidade || "un",
+      quantidade, valorUnitario,
+    });
+    setNotaOpen(true);
+  };
+  const submitNota = async () => {
     const quantidade = nota.quantidade ?? 0;
     const valorUnitario = nota.valorUnitario ?? 0;
     // O número da nota deixou de ser obrigatório: nem toda entrada de
@@ -124,17 +186,42 @@ function ProjetoDetalhe() {
     if (!nota.fornecedor.trim()) return toast.error("Informe o fornecedor");
     if (!quantidade) return toast.error("Informe a quantidade");
     if (!valorUnitario) return toast.error("Informe o valor unitário");
-    projetosActions.adicionarNota({
-      projetoId: id, numero: nota.numero, fornecedor: nota.fornecedor,
-      descricao: nota.descricao, data: nota.data || hoje(),
-      unidade: nota.unidade, quantidade, valorUnitario,
-      // Sem interface por enquanto: a tabela `funcionarios` ainda não
-      // existe no banco, então não há de onde escolher.
-      funcionarioId: null,
-    });
-    toast.success("Nota lançada");
+    if (notaEditId) {
+      setSalvando(true);
+      // Sem `valor`: o store recalcula de quantidade × unitário.
+      const ok = await projetosActions.atualizarNota(notaEditId, {
+        numero: nota.numero, fornecedor: nota.fornecedor, descricao: nota.descricao,
+        data: nota.data || hoje(), unidade: nota.unidade, quantidade, valorUnitario,
+      });
+      setSalvando(false);
+      if (!ok) return;
+      toast.success("Nota atualizada");
+    } else {
+      projetosActions.adicionarNota({
+        projetoId: id, numero: nota.numero, fornecedor: nota.fornecedor,
+        descricao: nota.descricao, data: nota.data || hoje(),
+        unidade: nota.unidade, quantidade, valorUnitario,
+        // Sem interface por enquanto: a tabela `funcionarios` ainda não
+        // existe no banco, então não há de onde escolher.
+        funcionarioId: null,
+      });
+      toast.success("Nota lançada");
+    }
     setNota({ ...NOTA_VAZIA, data: hoje() });
+    setNotaEditId(null);
     setNotaOpen(false);
+  };
+
+  const confirmarExclusao = () => {
+    if (!aExcluir) return;
+    if (aExcluir.tipo === "custo") {
+      projetosActions.excluirCusto(aExcluir.id);
+      toast.success("Custo excluído");
+    } else {
+      projetosActions.excluirNota(aExcluir.id);
+      toast.success("Nota excluída");
+    }
+    setAExcluir(null);
   };
   const submitMed = () => {
     const valor = med.valor ?? 0;
@@ -294,10 +381,11 @@ function ProjetoDetalhe() {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-bold text-[#213368]">Custos lançados</h3>
-              <Dialog open={custoOpen} onOpenChange={setCustoOpen}>
-                <DialogTrigger asChild><Button className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Lançar custo</Button></DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Novo custo</DialogTitle></DialogHeader>
+              <Button onClick={abrirNovoCusto} className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Lançar custo</Button>
+              <Dialog open={custoOpen} onOpenChange={o => { if (!salvando) setCustoOpen(o); }}>
+                {/* uppercase: o Dialog abre fora do .app-layout (portal). */}
+                <DialogContent className="uppercase">
+                  <DialogHeader><DialogTitle>{custoEditId ? "Editar custo" : "Novo custo"}</DialogTitle></DialogHeader>
                   <div className="space-y-3">
                     <div><Label>Data</Label><Input type="date" value={custo.data} onChange={e => setCusto({ ...custo, data: e.target.value })} /></div>
                     <div><Label>Descrição</Label><Input value={custo.descricao} onChange={e => setCusto({ ...custo, descricao: e.target.value })} /></div>
@@ -310,7 +398,7 @@ function ProjetoDetalhe() {
                     </div>
                     <div><Label>Valor</Label><InputMoeda valor={custo.valor} onChange={v => setCusto({ ...custo, valor: v })} placeholder="0,00" /></div>
                   </div>
-                  <DialogFooter><Button variant="outline" onClick={() => setCustoOpen(false)}>Cancelar</Button><Button onClick={submitCusto} className="bg-[#213368] text-white">Salvar</Button></DialogFooter>
+                  <DialogFooter><Button variant="outline" onClick={() => setCustoOpen(false)} disabled={salvando}>Cancelar</Button><Button onClick={submitCusto} disabled={salvando} className="bg-[#213368] text-white">{salvando ? "Salvando…" : "Salvar"}</Button></DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
@@ -320,11 +408,16 @@ function ProjetoDetalhe() {
                 {r.custos.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Nenhum custo lançado.</TableCell></TableRow>}
                 {r.custos.map(c => (
                   <TableRow key={c.id}>
-                    <TableCell>{new Date(c.data).toLocaleDateString("pt-BR")}</TableCell>
+                    <TableCell>{dataBR(c.data)}</TableCell>
                     <TableCell>{c.descricao}</TableCell>
                     <TableCell>{c.categoria}</TableCell>
                     <TableCell className="font-semibold">{brl(c.valor)}</TableCell>
-                    <TableCell><Button variant="ghost" size="sm" onClick={() => projetosActions.excluirCusto(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" title="Editar custo" onClick={() => abrirEdicaoCusto(c)}><Pencil className="h-4 w-4 text-[#213368]" /></Button>
+                        <Button variant="ghost" size="sm" title="Excluir custo" onClick={() => setAExcluir({ tipo: "custo", id: c.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -339,10 +432,10 @@ function ProjetoDetalhe() {
                 <h3 className="font-bold text-[#213368]">Notas fiscais</h3>
                 <p className="text-xs text-muted-foreground">Total: <b className="text-[#F37032]">{brl(r.notas.reduce((a, n) => a + n.valor, 0))}</b></p>
               </div>
-              <Dialog open={notaOpen} onOpenChange={setNotaOpen}>
-                <DialogTrigger asChild><Button className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Lançar nota</Button></DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Nova nota fiscal</DialogTitle></DialogHeader>
+              <Button onClick={abrirNovaNota} className="bg-[#F37032] text-white hover:bg-[#ff8850]"><Plus className="mr-1 h-4 w-4" /> Lançar nota</Button>
+              <Dialog open={notaOpen} onOpenChange={o => { if (!salvando) setNotaOpen(o); }}>
+                <DialogContent className="uppercase">
+                  <DialogHeader><DialogTitle>{notaEditId ? "Editar nota fiscal" : "Nova nota fiscal"}</DialogTitle></DialogHeader>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
                       <Label>Número <span className="font-normal text-muted-foreground">(opcional)</span></Label>
@@ -385,7 +478,7 @@ function ProjetoDetalhe() {
                       </div>
                     </div>
                   </div>
-                  <DialogFooter><Button variant="outline" onClick={() => setNotaOpen(false)}>Cancelar</Button><Button onClick={submitNota} className="bg-[#213368] text-white">Salvar</Button></DialogFooter>
+                  <DialogFooter><Button variant="outline" onClick={() => setNotaOpen(false)} disabled={salvando}>Cancelar</Button><Button onClick={submitNota} disabled={salvando} className="bg-[#213368] text-white">{salvando ? "Salvando…" : "Salvar"}</Button></DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
@@ -400,14 +493,19 @@ function ProjetoDetalhe() {
                     <TableCell className="font-semibold">{n.numero || <span className="font-normal text-muted-foreground">—</span>}</TableCell>
                     <TableCell>{n.fornecedor}</TableCell>
                     <TableCell>{n.descricao}</TableCell>
-                    <TableCell>{n.data ? new Date(n.data).toLocaleDateString("pt-BR") : "—"}</TableCell>
+                    <TableCell>{dataBR(n.data)}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {num(n.quantidade)}
                       {n.unidade && <span className="ml-1 text-xs text-muted-foreground">{n.unidade}</span>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{n.valorUnitario ? brl(n.valorUnitario) : "—"}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{brl(n.valor)}</TableCell>
-                    <TableCell><Button variant="ghost" size="sm" onClick={() => projetosActions.excluirNota(n.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" title="Editar nota fiscal" onClick={() => abrirEdicaoNota(n)}><Pencil className="h-4 w-4 text-[#213368]" /></Button>
+                        <Button variant="ghost" size="sm" title="Excluir nota fiscal" onClick={() => setAExcluir({ tipo: "nota", id: n.id })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -484,6 +582,19 @@ function ProjetoDetalhe() {
       </Tabs>
 
       {/* Editar projeto */}
+      <AlertDialog open={!!aExcluir} onOpenChange={o => !o && setAExcluir(null)}>
+        <AlertDialogContent className="uppercase">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{aExcluir?.tipo === "nota" ? "Excluir esta nota?" : "Excluir este custo?"}</AlertDialogTitle>
+            <AlertDialogDescription>Essa ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExclusao} className="bg-red-600 text-white hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Editar projeto</DialogTitle></DialogHeader>

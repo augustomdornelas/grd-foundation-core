@@ -58,6 +58,26 @@ const PLANEJAMENTO_ZERADO: PlanejamentoProjeto = {
 
 const num = (v: unknown) => Number(v ?? 0) || 0;
 
+// Linha do banco -> objeto. Usados na carga e para ressincronizar depois
+// de uma edição (o .select().single() devolve a linha como ficou gravada,
+// já em caixa alta pelo upperizePayload).
+function mapCusto(r: any): Custo {
+  return {
+    id: r.id, projetoId: r.projeto_id ?? "", data: r.data ?? "",
+    descricao: r.descricao ?? "", categoria: r.categoria ?? "Outro",
+    valor: num(r.valor),
+  };
+}
+function mapNota(r: any): NotaFiscal {
+  return {
+    id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? "",
+    fornecedor: r.fornecedor ?? "", descricao: r.descricao ?? "",
+    data: r.data ?? "", unidade: r.unidade ?? "",
+    quantidade: num(r.quantidade) || 1, valorUnitario: num(r.valor_unitario),
+    valor: num(r.valor), funcionarioId: r.funcionario_id ?? null,
+  };
+}
+
 export type Custo = {
   id: string;
   projetoId: string;
@@ -181,18 +201,8 @@ async function fetchAll() {
       planejadoCustos: num(r.planejado_custos),
       metragem: num(r.metragem),
     })),
-    custos: (c.data ?? []).map((r: any) => ({
-      id: r.id, projetoId: r.projeto_id ?? "", data: r.data ?? "",
-      descricao: r.descricao ?? "", categoria: r.categoria ?? "Outro",
-      valor: num(r.valor),
-    })),
-    notas: (n.data ?? []).map((r: any) => ({
-      id: r.id, projetoId: r.projeto_id ?? "", numero: r.numero ?? "",
-      fornecedor: r.fornecedor ?? "", descricao: r.descricao ?? "",
-      data: r.data ?? "", unidade: r.unidade ?? "",
-      quantidade: num(r.quantidade) || 1, valorUnitario: num(r.valor_unitario),
-      valor: num(r.valor), funcionarioId: r.funcionario_id ?? null,
-    })),
+    custos: (c.data ?? []).map(mapCusto),
+    notas: (n.data ?? []).map(mapNota),
     medicoes: (m.data ?? []).map((r: any) => ({
       id: r.id, projetoId: r.projeto_id ?? "", numero: num(r.numero),
       periodo: r.periodo ?? "", data: r.data ?? "",
@@ -323,6 +333,37 @@ export const projetosActions = {
       descricao: c.descricao, categoria: c.categoria, valor: c.valor,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
   },
+  /**
+   * Edita um custo já lançado. A tela muda na hora (totais e gráficos
+   * leem o estado); a linha que o banco devolve substitui a local, e se
+   * o banco recusar, o custo volta a ser o que era.
+   */
+  async atualizarCusto(
+    id: string,
+    patch: Partial<Pick<Custo, "data" | "descricao" | "categoria" | "valor">>,
+  ): Promise<boolean> {
+    const anterior = state.custos.find(c => c.id === id);
+    if (!anterior) return false;
+    state = { ...state, custos: state.custos.map(c => c.id === id ? { ...c, ...patch } : c) };
+    emit();
+    const row: Record<string, unknown> = {};
+    if (patch.data !== undefined) row.data = patch.data;
+    if (patch.descricao !== undefined) row.descricao = patch.descricao;
+    if (patch.categoria !== undefined) row.categoria = patch.categoria;
+    if (patch.valor !== undefined) row.valor = patch.valor;
+    const { data, error } = await supabase
+      .from("custos").update(upperizePayload(row)).eq("id", id).select().single();
+    if (error || !data) {
+      state = { ...state, custos: state.custos.map(c => c.id === id ? anterior : c) };
+      emit();
+      toastErr("Erro ao salvar o custo", error ?? { message: "o banco não devolveu a linha" });
+      return false;
+    }
+    const gravado = mapCusto(data);
+    state = { ...state, custos: state.custos.map(c => c.id === id ? gravado : c) };
+    emit();
+    return true;
+  },
   excluirCusto(id: string) {
     state = { ...state, custos: state.custos.filter(c => c.id !== id) };
     emit();
@@ -346,6 +387,46 @@ export const projetosActions = {
       valor_unitario: n.valorUnitario, valor,
       funcionario_id: n.funcionarioId,
     })).then(({ error }) => toastErr("Erro ao salvar no banco", error));
+  },
+  /**
+   * Edita uma nota já lançada. O valor NÃO vem no patch: é sempre
+   * recalculado de quantidade × valor unitário (os do patch, ou os que a
+   * nota já tinha), para os três números nunca se contradizerem.
+   */
+  async atualizarNota(
+    id: string,
+    patch: Partial<Pick<NotaFiscal,
+      "numero" | "fornecedor" | "descricao" | "data" | "unidade" | "quantidade" | "valorUnitario">>,
+  ): Promise<boolean> {
+    const anterior = state.notas.find(n => n.id === id);
+    if (!anterior) return false;
+    const quantidade = patch.quantidade ?? anterior.quantidade;
+    const valorUnitario = patch.valorUnitario ?? anterior.valorUnitario;
+    const valor = calcularValorNota(quantidade, valorUnitario);
+    state = {
+      ...state,
+      notas: state.notas.map(n => n.id === id ? { ...n, ...patch, quantidade, valorUnitario, valor } : n),
+    };
+    emit();
+    const row: Record<string, unknown> = { quantidade, valor_unitario: valorUnitario, valor };
+    // Número em branco vira NULL, como no lançamento.
+    if (patch.numero !== undefined) row.numero = patch.numero.trim() || null;
+    if (patch.fornecedor !== undefined) row.fornecedor = patch.fornecedor;
+    if (patch.descricao !== undefined) row.descricao = patch.descricao;
+    if (patch.data !== undefined) row.data = patch.data;
+    if (patch.unidade !== undefined) row.unidade = patch.unidade;
+    const { data, error } = await supabase
+      .from("notas_fiscais").update(upperizePayload(row)).eq("id", id).select().single();
+    if (error || !data) {
+      state = { ...state, notas: state.notas.map(n => n.id === id ? anterior : n) };
+      emit();
+      toastErr("Erro ao salvar a nota", error ?? { message: "o banco não devolveu a linha" });
+      return false;
+    }
+    const gravada = mapNota(data);
+    state = { ...state, notas: state.notas.map(n => n.id === id ? gravada : n) };
+    emit();
+    return true;
   },
   excluirNota(id: string) {
     state = { ...state, notas: state.notas.filter(n => n.id !== id) };
