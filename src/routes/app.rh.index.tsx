@@ -250,13 +250,9 @@ function PainelRh() {
 
           {/* ---------- Documentos vencendo ---------- */}
           <Card className="p-4">
+            {/* Sem "Ver todos": a tela de vencimentos saiu do Portal. */}
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-bold text-[#213368]">Documentos vencendo</h3>
-              <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-                <Link to="/app/colaboradores/documentos">
-                  Ver todos <ArrowRight className="ml-1 h-3 w-3" />
-                </Link>
-              </Button>
             </div>
             {docs.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">

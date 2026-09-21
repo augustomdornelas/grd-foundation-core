@@ -20,12 +20,6 @@ export const ABAS_COLABORADORES = [
     perfis: PERFIS_RH.colaboradores,
   },
   {
-    to: "/app/colaboradores/documentos",
-    label: "Documentos",
-    exact: false,
-    perfis: PERFIS_RH.colaboradores,
-  },
-  {
     to: "/app/colaboradores/secullum",
     label: "Importar da Secullum",
     exact: false,

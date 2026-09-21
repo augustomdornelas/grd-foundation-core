@@ -1,9 +1,9 @@
 // ============================================================
 // Documentos do RH em PDF — padrão visual GRD
 // ------------------------------------------------------------
-// Seis documentos, uma casca só: carta-proposta, ficha de admissão,
-// parecer de entrevista, termo de consentimento LGPD, ficha do
-// colaborador e requisição de vaga.
+// Cinco documentos, uma casca só: carta-proposta, ficha de admissão,
+// parecer de entrevista, termo de consentimento LGPD e requisição de
+// vaga. (A ficha do colaborador em PDF saiu junto com a ficha completa.)
 //
 // O modelo é `termo-epi-pdf.ts`, do módulo de EPIs: mesmas cores,
 // mesmo cabeçalho com logo e mesmo rodapé. O que muda é que aqui a
@@ -641,90 +641,7 @@ export async function gerarTermoLgpdPDF(t: TermoLgpd) {
 }
 
 // ============================================================
-// 5) Ficha do colaborador — a que o cliente industrial pede
-// ============================================================
-export type FichaColaborador = {
-  nome: string;
-  matricula: string;
-  cpf: string;
-  rg: string;
-  cargo: string;
-  setor: string;
-  obra: string;
-  situacao: string;
-  dataAdmissao: string | null;
-  telefone: string;
-  contatoEmergencia: string;
-  apto: boolean;
-  pendencias: string[];
-  documentos: {
-    tipo: string;
-    numero: string;
-    emissao: string;
-    vencimento: string;
-    situacao: string;
-  }[];
-  epis: { termo: string; data: string; assinado: boolean; itens: string }[];
-};
-
-export async function gerarFichaColaboradorPDF(f: FichaColaborador) {
-  const d = await novoDocumento(`Ficha do colaborador · ${f.matricula || f.nome}`);
-  d.titulo("Ficha do colaborador");
-
-  d.campos([
-    ["Nome", f.nome],
-    ["Matrícula", f.matricula],
-    ["CPF", f.cpf],
-    ["RG", f.rg],
-    ["Cargo", f.cargo],
-    ["Setor", f.setor],
-    ["Obra atual", f.obra],
-    ["Situação", f.situacao],
-    ["Admissão", dataBr(f.dataAdmissao)],
-    ["Telefone", f.telefone],
-    ["Contato de emergência", f.contatoEmergencia],
-    ["Apto para alocação", f.apto ? "Sim" : "Não"],
-  ]);
-
-  if (!f.apto && f.pendencias.length > 0) {
-    d.aviso(
-      "Este colaborador NÃO está apto para entrar em obra. Pendências: " +
-        f.pendencias.join("; ") +
-        ".",
-    );
-  }
-
-  d.secao("Documentos e validades");
-  if (f.documentos.length === 0) {
-    d.paragrafo("Nenhum documento cadastrado.");
-  } else {
-    d.tabela(
-      ["Documento", "Número", "Emissão", "Vencimento", "Situação"],
-      f.documentos.map((doc) => [doc.tipo, doc.numero, doc.emissao, doc.vencimento, doc.situacao]),
-      [38, 22, 18, 18, 20],
-    );
-  }
-
-  d.secao("Entregas de EPI");
-  if (f.epis.length === 0) {
-    d.paragrafo("Nenhuma entrega registrada.");
-  } else {
-    d.tabela(
-      ["Termo", "Data", "Assinado", "Itens"],
-      f.epis.map((e) => [e.termo || "—", e.data, e.assinado ? "Sim" : "Não", e.itens]),
-      [20, 18, 16, 60],
-    );
-  }
-
-  d.paragrafo(
-    `Documento emitido em ${hoje()}. As validades refletem o cadastro do RH nesta data.`,
-    { tamanho: 8 },
-  );
-  d.salvar(nomeArquivo("ficha-colaborador", f.matricula || f.nome));
-}
-
-// ============================================================
-// 6) Requisição de vaga
+// 5) Requisição de vaga
 // ============================================================
 export type RequisicaoVaga = {
   codigo: string;

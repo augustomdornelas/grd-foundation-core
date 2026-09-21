@@ -136,12 +136,6 @@ const items: NavItem[] = [
         perfis: PERFIS_RH.colaboradores,
       },
       {
-        to: "/app/colaboradores/documentos",
-        label: "Documentos",
-        perm: "rh",
-        perfis: PERFIS_RH.colaboradores,
-      },
-      {
         to: "/app/colaboradores/secullum",
         label: "Importar da Secullum",
         perm: "rh",
