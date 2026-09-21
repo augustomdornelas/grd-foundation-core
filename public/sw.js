@@ -24,7 +24,7 @@
 // ESTE arquivo? Suba a versão abaixo: no activate os caches com outro
 // nome são apagados.
 // ============================================================
-const VERSAO = "grd-v1";
+const VERSAO = "grd-v2";
 const OFFLINE = "/offline.html";
 const PRECACHE = [OFFLINE, "/icons/logo-grd.png", "/icons/icon-192.png", "/favicon.ico"];
 // Teto de arquivos no cache: /assets/ de deploys antigos não são mais
