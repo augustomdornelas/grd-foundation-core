@@ -43,6 +43,8 @@ export type Epi = {
   unidade: string;
   fotoUrl?: string;
   ativo: boolean;
+  /** Código da etiqueta do almoxarifado (GRD-ALM-XX-000) — é o que o QR code contém. */
+  codigoInterno?: string;
 };
 
 export type MotivoEntrega =
@@ -197,7 +199,38 @@ function mapEpi(r: any): Epi {
     unidade: r.unidade ?? "un",
     fotoUrl: r.foto_url ?? undefined,
     ativo: r.ativo ?? true,
+    codigoInterno: r.codigo_interno ?? undefined,
   };
+}
+
+// ---------- Código interno / QR code ----------
+/** Maiúsculas e sem espaço nenhum: " grd-alm-lv 001 " -> "GRD-ALM-LV001". */
+export function normalizarCodigoEpi(codigo: string | null | undefined): string {
+  return (codigo ?? "").toUpperCase().replace(/\s+/g, "");
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Acha o EPI pelo que o QR code leu. A etiqueta traz só o código
+ * interno; aceita também o id (uuid) do EPI. Compara sem diferenciar
+ * maiúsculas nem espaços — igual ao índice único do banco, que é sobre
+ * upper(codigo_interno).
+ */
+export function acharEpiPorQr(epis: Epi[], lido: string): Epi | undefined {
+  const texto = lido.trim();
+  if (UUID.test(texto)) return epis.find(e => e.id.toLowerCase() === texto.toLowerCase());
+  const codigo = normalizarCodigoEpi(texto);
+  if (!codigo) return undefined;
+  return epis.find(e => normalizarCodigoEpi(e.codigoInterno) === codigo);
+}
+
+/** Mensagem legível quando o banco recusa o código por já ser de outro EPI. */
+function erroDeCodigo(error: { code?: string; message?: string }): string {
+  if (error.code === "23505" && /codigo_interno/i.test(error.message ?? "")) {
+    return "Este código interno já está em outro EPI.";
+  }
+  return error.message ?? "erro desconhecido";
 }
 function mapEntrega(r: any): Entrega {
   return {
@@ -395,10 +428,11 @@ async function inserirEpi(input: Omit<Epi, "id">): Promise<{ id: string | null; 
         unidade: input.unidade ?? "un",
         foto_url: input.fotoUrl || null,
         ativo: input.ativo,
+        codigo_interno: normalizarCodigoEpi(input.codigoInterno) || null,
       }) as any)
       .select("*")
       .single();
-    if (error) return { id: null, erro: error.message };
+    if (error) return { id: null, erro: erroDeCodigo(error) };
     return { id: (data?.id as string) ?? null, erro: null };
   } catch (err) {
     return { id: null, erro: err instanceof Error ? err.message : "desconhecido" };
@@ -545,7 +579,14 @@ export const epiActions = {
     await fetchAll();
     return id;
   },
-  async atualizarEpi(id: string, patch: Partial<Epi>) {
+  /**
+   * Devolve a mensagem de erro (ou null). Se o banco recusar — o caso
+   * esperado é código interno repetido —, o EPI volta a ser o que era,
+   * para a tela não mostrar um código que não foi gravado.
+   */
+  async atualizarEpi(id: string, patch: Partial<Epi>): Promise<string | null> {
+    const anterior = state.epis.find(e => e.id === id);
+    if (patch.codigoInterno !== undefined) patch = { ...patch, codigoInterno: normalizarCodigoEpi(patch.codigoInterno) };
     state = { ...state, epis: state.epis.map(e => e.id === id ? { ...e, ...patch } : e) };
     emit();
     const row: Record<string, unknown> = {};
@@ -561,8 +602,19 @@ export const epiActions = {
     // "" limpa o campo no banco (remover a foto / a validade do CA).
     if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl || null;
     if (patch.ativo !== undefined) row.ativo = patch.ativo;
+    // "" vira NULL: tirar o código de um EPI não pode colidir no índice único.
+    if (patch.codigoInterno !== undefined) row.codigo_interno = patch.codigoInterno || null;
     const { error } = await supabase.from("epis").update(upperizePayload(row)).eq("id", id);
-    toastErr("Erro ao salvar no banco", error);
+    if (error) {
+      if (anterior) {
+        state = { ...state, epis: state.epis.map(e => e.id === id ? anterior : e) };
+        emit();
+      }
+      const msg = erroDeCodigo(error);
+      toast.error(`Erro ao salvar o EPI: ${msg}`);
+      return msg;
+    }
+    return null;
   },
   async excluirEpi(id: string) {
     state = { ...state, epis: state.epis.filter(e => e.id !== id) };

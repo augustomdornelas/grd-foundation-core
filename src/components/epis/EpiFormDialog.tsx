@@ -20,10 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShieldCheck, Trash2, Upload, Image as ImageIcon } from "lucide-react";
+import { ShieldCheck, Trash2, Upload, Image as ImageIcon, QrCode } from "lucide-react";
 import { InputNumero } from "@/components/ui/input-moeda";
 import { supabase } from "@/integrations/supabase/client";
-import { epiActions, type Epi } from "@/lib/epis-store";
+import { epiActions, useEpiStore, normalizarCodigoEpi, type Epi } from "@/lib/epis-store";
+import { LeitorQrDialog } from "@/components/epis/LeitorQrDialog";
 
 export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () => void }) {
   const [form, setForm] = useState({
@@ -38,8 +39,18 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
     unidade: epi?.unidade ?? "un",
     fotoUrl: epi?.fotoUrl ?? "",
     ativo: epi?.ativo ?? true,
+    codigoInterno: epi?.codigoInterno ?? "",
   });
   const [saving, setSaving] = useState(false);
+  const [lendoQr, setLendoQr] = useState(false);
+  const epis = useEpiStore((s) => s.epis);
+
+  // O código é único (índice em upper(codigo_interno)). Conferir aqui dá
+  // o aviso antes de ir ao banco; o banco confere de novo de qualquer jeito.
+  const codigo = normalizarCodigoEpi(form.codigoInterno);
+  const donoDoCodigo = codigo
+    ? epis.find((e) => e.id !== epi?.id && normalizarCodigoEpi(e.codigoInterno) === codigo)
+    : undefined;
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const fotoRef = useRef<HTMLInputElement>(null);
 
@@ -71,6 +82,7 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
 
   const salvar = async () => {
     if (!form.nome.trim()) return toast.error("Informe o nome do EPI");
+    if (donoDoCodigo) return toast.error(`O código ${codigo} já é do EPI ${donoDoCodigo.nome}.`);
     setSaving(true);
     const payload = {
       nome: form.nome.trim(),
@@ -86,11 +98,17 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
       unidade: form.unidade.trim() || "un",
       fotoUrl: form.fotoUrl,
       ativo: form.ativo,
+      // Maiúsculas e sem espaço; "" limpa o código no banco.
+      codigoInterno: codigo,
     };
-    if (epi) await epiActions.atualizarEpi(epi.id, payload);
-    else await epiActions.criarEpi(payload);
-    toast.success(epi ? "EPI atualizado." : "EPI cadastrado.");
+    // Se o banco recusar (código repetido, por exemplo), o store já avisou:
+    // o formulário fica aberto com o que a pessoa digitou.
+    const ok = epi
+      ? (await epiActions.atualizarEpi(epi.id, payload)) === null
+      : (await epiActions.criarEpi(payload)) !== null;
     setSaving(false);
+    if (!ok) return;
+    toast.success(epi ? "EPI atualizado." : "EPI cadastrado.");
     onClose();
   };
 
@@ -110,6 +128,41 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
               onChange={(e) => setForm({ ...form, nome: e.target.value })}
               placeholder="Ex.: Capacete de segurança"
             />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Código interno</Label>
+            <div className="flex gap-2">
+              <Input
+                value={form.codigoInterno}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    codigoInterno: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                  })
+                }
+                placeholder="Ex.: GRD-ALM-LV-001"
+                autoCapitalize="characters"
+                aria-invalid={!!donoDoCodigo}
+                className={donoDoCodigo ? "border-red-500" : ""}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLendoQr(true)}
+                className="shrink-0"
+              >
+                <QrCode className="mr-1 h-4 w-4" /> Ler QR
+              </Button>
+            </div>
+            {donoDoCodigo ? (
+              <p className="mt-1 text-xs font-medium text-red-600">
+                Este código já é do EPI {donoDoCodigo.nome}.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                É o que está no QR code da etiqueta do almoxarifado.
+              </p>
+            )}
           </div>
           <div>
             <Label>Nº do C.A.</Label>
@@ -257,6 +310,17 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
             {saving ? "Salvando…" : "Salvar"}
           </Button>
         </DialogFooter>
+
+        {/* Lê a própria etiqueta para preencher o código. */}
+        <LeitorQrDialog
+          open={lendoQr}
+          onClose={() => setLendoQr(false)}
+          titulo="Ler QR da etiqueta"
+          onLer={(texto) => {
+            setForm((f) => ({ ...f, codigoInterno: normalizarCodigoEpi(texto) }));
+            setLendoQr(false);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

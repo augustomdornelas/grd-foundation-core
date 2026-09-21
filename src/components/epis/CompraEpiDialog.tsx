@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Plus, Trash2, PackagePlus } from "lucide-react";
+import { ShoppingCart, Plus, Trash2, PackagePlus, QrCode, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/current-user";
-import { useEpiStore, epiActions, type NovoCompraItemInput } from "@/lib/epis-store";
+import { useEpiStore, epiActions, type NovoCompraItemInput, type Epi } from "@/lib/epis-store";
+import { LeitorEpiQrDialog } from "@/components/epis/LeitorQrDialog";
 import { brl } from "@/lib/formato";
 import { InputMoeda, InputNumero } from "@/components/ui/input-moeda";
 
@@ -83,6 +84,19 @@ export function CompraEpiDialog({
   const addLinha = () => setLinhas(prev => [...prev, novaLinha()]);
   const removeLinha = (i: number) =>
     setLinhas(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+
+  // ---------- QR code das etiquetas ----------
+  // null = fechado; número = "LER QR" daquela linha; "seq" = LER ETIQUETAS.
+  const [leitorQr, setLeitorQr] = useState<number | "seq" | null>(null);
+  /** Modo sequência: mesmo EPI soma 1; EPI novo ocupa a primeira linha vazia ou cria uma. */
+  const lerEmSequencia = (epi: Epi) =>
+    setLinhas(prev => {
+      const i = prev.findIndex(l => l.epiId === epi.id);
+      if (i >= 0) return prev.map((l, idx) => idx === i ? { ...l, quantidade: (l.quantidade ?? 0) + 1 } : l);
+      const vazia = prev.findIndex(l => !l.epiId);
+      if (vazia >= 0) return prev.map((l, idx) => idx === vazia ? { ...l, epiId: epi.id, quantidade: 1 } : l);
+      return [...prev, { ...novaLinha(), epiId: epi.id, quantidade: 1 }];
+    });
 
   const subtotal = (l: Linha) => Math.max(1, l.quantidade ?? 1) * (l.valorUnitario ?? 0);
   const total = linhas.reduce((a, l) => a + (l.epiId ? subtotal(l) : 0), 0);
@@ -200,11 +214,21 @@ export function CompraEpiDialog({
 
         {/* Itens comprados */}
         <div className="mt-2 rounded-lg border border-[#e6e6ea] p-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-[#213368]">EPIs comprados</span>
-            <Button type="button" size="sm" variant="outline" onClick={addLinha}>
-              <Plus className="mr-1 h-4 w-4" /> Adicionar item
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setLeitorQr("seq")}
+                className="bg-[#F37032] text-white hover:bg-[#ff8850]"
+              >
+                <ScanLine className="mr-1 h-4 w-4" /> Ler etiquetas
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={addLinha}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar item
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -213,17 +237,27 @@ export function CompraEpiDialog({
                 <div className="grid grid-cols-12 items-end gap-2">
                   <div className="col-span-12 md:col-span-5">
                     <Label className="text-xs">EPI</Label>
-                    <Select value={l.epiId} onValueChange={v => setLinha(i, { epiId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar EPI" /></SelectTrigger>
-                      <SelectContent>
-                        {episAtivos.map(e => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.nome}{e.ca ? ` (CA ${e.ca})` : ""}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={NOVO}>+ Cadastrar EPI novo…</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-1">
+                      <Select value={l.epiId} onValueChange={v => setLinha(i, { epiId: v })}>
+                        <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Selecionar EPI" /></SelectTrigger>
+                        <SelectContent>
+                          {episAtivos.map(e => (
+                            <SelectItem key={e.id} value={e.id}>
+                              {e.nome}{e.ca ? ` (CA ${e.ca})` : ""}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value={NOVO}>+ Cadastrar EPI novo…</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button" size="icon" variant="outline"
+                        onClick={() => setLeitorQr(i)}
+                        title="Ler QR da etiqueta" aria-label="Ler QR da etiqueta"
+                        className="shrink-0"
+                      >
+                        <QrCode className="h-4 w-4 text-[#213368]" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="col-span-3 md:col-span-2">
                     <Label className="text-xs">Qtd</Label>
@@ -302,6 +336,16 @@ export function CompraEpiDialog({
           <Label>Observações</Label>
           <Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} placeholder="Ex.: reposição do almoxarifado." />
         </div>
+
+        <LeitorEpiQrDialog
+          open={leitorQr !== null}
+          onClose={() => setLeitorQr(null)}
+          modo={leitorQr === "seq" ? "sequencia" : "unico"}
+          onEpi={epi => {
+            if (leitorQr === "seq") lerEmSequencia(epi);
+            else if (typeof leitorQr === "number") setLinha(leitorQr, { epiId: epi.id });
+          }}
+        />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

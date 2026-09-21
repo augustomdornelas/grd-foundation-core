@@ -1,6 +1,6 @@
 // /app/epis/catalogo — aba "Catálogo de EPIs"
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Image as ImageIcon } from "lucide-react";
-import { useEpiStore, type Epi } from "@/lib/epis-store";
+import { Input } from "@/components/ui/input";
+import { Plus, Pencil, Trash2, Image as ImageIcon, Search } from "lucide-react";
+import { useEpiStore, normalizarCodigoEpi, type Epi } from "@/lib/epis-store";
 import { inteiro } from "@/lib/formato";
 import { EpiFormDialog } from "@/components/epis/EpiFormDialog";
 import { useEpisAcoes } from "@/components/epis/epis-acoes-contexto";
@@ -24,6 +25,21 @@ function AbaCatalogo() {
   const epis = useEpiStore((s) => s.epis);
   const { pedirExclusao } = useEpisAcoes();
   const [epiForm, setEpiForm] = useState<Epi | "novo" | null>(null);
+  const [busca, setBusca] = useState("");
+
+  // Busca por nome, código interno, C.A. e categoria. O código é
+  // comparado sem espaços e sem diferenciar maiúsculas, como na leitura
+  // do QR.
+  const lista = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return epis;
+    const qCodigo = normalizarCodigoEpi(busca);
+    return epis.filter(
+      (e) =>
+        `${e.nome} ${e.ca} ${e.categoria}`.toLowerCase().includes(q) ||
+        (!!qCodigo && normalizarCodigoEpi(e.codigoInterno).includes(qCodigo)),
+    );
+  }, [epis, busca]);
 
   return (
     <>
@@ -38,11 +54,21 @@ function AbaCatalogo() {
             <Plus className="mr-1 h-4 w-4" /> Novo EPI
           </Button>
         </div>
+        <div className="relative mb-3 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome, código, C.A. ou categoria…"
+            className="pl-9"
+          />
+        </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-14">Foto</TableHead>
+                <TableHead>Código</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>C.A.</TableHead>
                 <TableHead>Categoria</TableHead>
@@ -53,14 +79,14 @@ function AbaCatalogo() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {epis.length === 0 ? (
+              {lista.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                    Nenhum EPI cadastrado.
+                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                    {epis.length === 0 ? "Nenhum EPI cadastrado." : "Nenhum EPI com essa busca."}
                   </TableCell>
                 </TableRow>
               ) : (
-                epis.map((e) => (
+                lista.map((e) => (
                   <TableRow key={e.id}>
                     <TableCell>
                       <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-[#e6e6ea] bg-[#F4F4F4]">
@@ -74,6 +100,9 @@ function AbaCatalogo() {
                           <ImageIcon className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs">
+                      {e.codigoInterno || "—"}
                     </TableCell>
                     <TableCell className="font-semibold">{e.nome}</TableCell>
                     <TableCell>{e.ca || "—"}</TableCell>

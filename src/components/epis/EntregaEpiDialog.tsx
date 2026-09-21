@@ -7,7 +7,7 @@
 // colaborador por vez, e a foto de cada um assina o seu termo (NR-6).
 // O PDF é baixado já com a foto, depois de salvo no Storage.
 // ============================================================
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,12 +16,13 @@ import { InputNumero } from "@/components/ui/input-moeda";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HardHat, Plus, Trash2, ShieldCheck, Search, Users, Camera } from "lucide-react";
+import { HardHat, Plus, Trash2, ShieldCheck, Search, Users, Camera, QrCode, ScanLine } from "lucide-react";
+import { LeitorEpiQrDialog } from "@/components/epis/LeitorQrDialog";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/lib/current-user";
 import {
   useEpiStore, epiActions, somaDias,
-  MOTIVOS_ENTREGA, type MotivoEntrega,
+  MOTIVOS_ENTREGA, type MotivoEntrega, type Epi,
 } from "@/lib/epis-store";
 import { dadosDoTermo } from "@/lib/termo-epi-assinatura";
 import { FotoRecebimento, type TermoParaFoto } from "@/components/epis/FotoRecebimento";
@@ -106,6 +107,33 @@ export function EntregaEpiDialog({
   const setLinha = (i: number, patch: Partial<Linha>) =>
     setLinhas(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   const addLinha = () => setLinhas(prev => [...prev, novaLinha()]);
+
+  // ---------- QR code das etiquetas ----------
+  // null = fechado; número = "LER QR" daquela linha; "seq" = LER ETIQUETAS.
+  const [leitorQr, setLeitorQr] = useState<number | "seq" | null>(null);
+  const linhasRef = useRef(linhas);
+  linhasRef.current = linhas;
+
+  /** EPI lido com estoque zerado: avisa, mas deixa entregar (a contagem pode estar atrasada). */
+  const avisarEstoque = (epi: Epi) => {
+    if (epi.estoque <= 0) toast.warning(`${epi.nome}: estoque zerado no sistema. Confira antes de entregar.`);
+  };
+  const lerNaLinha = (i: number, epi: Epi) => {
+    avisarEstoque(epi);
+    setLinha(i, { epiId: epi.id });
+  };
+  /** Modo sequência: mesmo EPI soma 1; EPI novo ocupa a primeira linha vazia ou cria uma. */
+  const lerEmSequencia = (epi: Epi) => {
+    const jaTem = linhasRef.current.some(l => l.epiId === epi.id);
+    if (!jaTem) avisarEstoque(epi);
+    setLinhas(prev => {
+      const i = prev.findIndex(l => l.epiId === epi.id);
+      if (i >= 0) return prev.map((l, idx) => idx === i ? { ...l, quantidade: (l.quantidade ?? 0) + 1 } : l);
+      const vazia = prev.findIndex(l => !l.epiId);
+      if (vazia >= 0) return prev.map((l, idx) => idx === vazia ? { ...l, epiId: epi.id, quantidade: 1 } : l);
+      return [...prev, { ...novaLinha(), epiId: epi.id, quantidade: 1 }];
+    });
+  };
   const removeLinha = (i: number) => setLinhas(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
 
   const validadeDaLinha = (l: Linha): string => {
@@ -261,11 +289,22 @@ export function EntregaEpiDialog({
 
         {/* Lista de EPIs */}
         <div className="mt-2 rounded-lg border border-[#e6e6ea] p-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-semibold text-[#213368]">EPIs a entregar</span>
-            <Button type="button" size="sm" variant="outline" onClick={addLinha}>
-              <Plus className="mr-1 h-4 w-4" /> Adicionar EPI
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {/* Opcional: continua dando para escolher pela lista. */}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setLeitorQr("seq")}
+                className="bg-[#F37032] text-white hover:bg-[#ff8850]"
+              >
+                <ScanLine className="mr-1 h-4 w-4" /> Ler etiquetas
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={addLinha}>
+                <Plus className="mr-1 h-4 w-4" /> Adicionar EPI
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -276,16 +315,26 @@ export function EntregaEpiDialog({
                 <div key={i} className="grid grid-cols-12 items-end gap-2 rounded-md bg-[#F4F4F4] p-2">
                   <div className="col-span-12 md:col-span-5">
                     <Label className="text-xs">EPI</Label>
-                    <Select value={l.epiId} onValueChange={v => setLinha(i, { epiId: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecionar EPI" /></SelectTrigger>
-                      <SelectContent>
-                        {episAtivos.map(e => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.nome}{e.ca ? ` (CA ${e.ca})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-1">
+                      <Select value={l.epiId} onValueChange={v => setLinha(i, { epiId: v })}>
+                        <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Selecionar EPI" /></SelectTrigger>
+                        <SelectContent>
+                          {episAtivos.map(e => (
+                            <SelectItem key={e.id} value={e.id}>
+                              {e.nome}{e.ca ? ` (CA ${e.ca})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button" size="icon" variant="outline"
+                        onClick={() => setLeitorQr(i)}
+                        title="Ler QR da etiqueta" aria-label="Ler QR da etiqueta"
+                        className="shrink-0"
+                      >
+                        <QrCode className="h-4 w-4 text-[#213368]" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="col-span-4 md:col-span-2">
                     <Label className="text-xs">Qtd</Label>
@@ -332,6 +381,16 @@ export function EntregaEpiDialog({
               : "Ao salvar, tire a foto do funcionário recebendo os EPIs: a foto assina o Termo de Entrega de EPI (NR-6), que fica salvo com o PDF."}
           </span>
         </div>
+
+        <LeitorEpiQrDialog
+          open={leitorQr !== null}
+          onClose={() => setLeitorQr(null)}
+          modo={leitorQr === "seq" ? "sequencia" : "unico"}
+          onEpi={epi => {
+            if (leitorQr === "seq") lerEmSequencia(epi);
+            else if (typeof leitorQr === "number") lerNaLinha(leitorQr, epi);
+          }}
+        />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
