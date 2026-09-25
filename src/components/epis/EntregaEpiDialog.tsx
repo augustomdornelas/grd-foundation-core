@@ -35,6 +35,13 @@ function novaLinha(): Linha {
   return { epiId: "", quantidade: 1, motivo: "PRIMEIRA ENTREGA" };
 }
 
+/** Hoje no fuso do aparelho — toISOString() é UTC e, depois das 21h em
+ *  Brasília, já daria o dia seguinte. */
+function hojeLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function fmtBr(iso?: string) {
   if (!iso) return "—";
   const [y, m, d] = iso.slice(0, 10).split("-");
@@ -56,7 +63,7 @@ export function EntregaEpiDialog({
 
   const [funcionarioIds, setFuncionarioIds] = useState<string[]>([]);
   const [buscaFunc, setBuscaFunc] = useState("");
-  const [dataEntrega, setDataEntrega] = useState(new Date().toISOString().slice(0, 10));
+  const [dataEntrega, setDataEntrega] = useState(hojeLocal());
   const [responsavel, setResponsavel] = useState("");
   const [cargo, setCargo] = useState("");
   const [obs, setObs] = useState("");
@@ -72,7 +79,7 @@ export function EntregaEpiDialog({
     setEnviandoFoto(false);
     setFuncionarioIds(funcionarioIdInicial ? [funcionarioIdInicial] : []);
     setBuscaFunc("");
-    setDataEntrega(new Date().toISOString().slice(0, 10));
+    setDataEntrega(hojeLocal());
     setResponsavel(user.nome || "");
     setCargo(user.perfil || "");
     setObs("");
@@ -161,11 +168,8 @@ export function EntregaEpiDialog({
         observacoes: obs.trim(),
         itens,
       });
-      if (!salvas.length) { setSaving(false); return; }
-
-      if (salvas.length < funcionarioIds.length) {
-        toast.warning(`${salvas.length} de ${funcionarioIds.length} entregas registradas — veja os erros acima.`);
-      }
+      // Vazio = o banco recusou e nada foi gravado (o toast já explicou).
+      if (!salvas.length) return;
 
       // Em vez de baixar o PDF direto, vai para a foto: o termo só é
       // assinado (e baixado) com a foto salva.
@@ -355,7 +359,11 @@ export function EntregaEpiDialog({
                   </div>
                   <div className="col-span-10 md:col-span-1 text-xs text-muted-foreground">
                     <span className="block font-medium text-[#213368]">Validade</span>
-                    {validade ? fmtBr(validade) : (epi ? "sem validade" : "—")}
+                    {validade ? fmtBr(validade) : epi ? (
+                      <span title="Validade de uso = 0 dias no catálogo. Informe os dias no cadastro do EPI para o termo trazer a data.">
+                        sem validade
+                      </span>
+                    ) : "—"}
                   </div>
                   <div className="col-span-2 md:col-span-1 flex justify-end">
                     <Button type="button" size="icon" variant="ghost" onClick={() => removeLinha(i)} title="Remover">

@@ -383,31 +383,6 @@ export function nomeFuncionario(s: State, id: string): string {
   return s.funcionarios.find(f => f.id === id)?.nome ?? "—";
 }
 
-function formataNumeroTermo(ano: number, seq: number): string {
-  return `EPI-${ano}-${String(seq).padStart(4, "0")}`;
-}
-
-/**
- * Próximo sequencial do ano, lido do banco (e não da contagem local): contar
- * as entregas em memória reaproveita números quando um termo é excluído.
- */
-async function proximoSequencialTermo(ano: number): Promise<number> {
-  const { data, error } = await supabase
-    .from("entregas_epi")
-    .select("numero_termo")
-    .like("numero_termo", `EPI-${ano}-%`)
-    .order("numero_termo", { ascending: false })
-    .limit(1);
-  if (error) {
-    // Sem o banco, cai para a contagem local — melhor um número provável do
-    // que travar a entrega; o índice único barra a colisão no insert.
-    return state.entregas.filter(e => (e.numeroTermo || "").startsWith(`EPI-${ano}-`)).length + 1;
-  }
-  const ultimo = (data?.[0] as { numero_termo?: string } | undefined)?.numero_termo ?? "";
-  const seq = Number(ultimo.slice(ultimo.lastIndexOf("-") + 1));
-  return (Number.isFinite(seq) ? seq : 0) + 1;
-}
-
 /**
  * Insere um EPI no catálogo sem recarregar tudo — a compra pode criar
  * vários EPIs novos de uma vez e um fetchAll por item seria desperdício.
@@ -505,67 +480,6 @@ async function ajustarEstoque(movimentos: { epiId?: string; delta: number }[]) {
   }
 }
 
-/** Snapshot do catálogo para os itens de uma entrega. */
-function montaItensPayload(
-  entregaId: string,
-  dataEntrega: string,
-  itens: NovaEntregaInput["itens"],
-) {
-  return itens.map(it => {
-    const epi = state.epis.find(e => e.id === it.epiId);
-    const dataValidade = epi && epi.validadeDias > 0 ? somaDias(dataEntrega, epi.validadeDias) : null;
-    return {
-      entrega_id: entregaId,
-      epi_id: it.epiId,
-      epi_nome: epi?.nome ?? "",
-      ca: epi?.ca ?? "",
-      fabricante: epi?.fabricante ?? "",
-      unidade: epi?.unidade ?? "un",
-      epi_foto_url: epi?.fotoUrl ?? null,
-      quantidade: it.quantidade,
-      motivo: it.motivo,
-      data_entrega: dataEntrega,
-      data_validade: dataValidade,
-    };
-  });
-}
-
-/**
- * Insere a entrega tentando números sequenciais até um passar no índice único
- * (23505 = unique_violation), cobrindo duas entregas emitidas ao mesmo tempo.
- */
-async function inserirEntrega(
-  funcionarioId: string,
-  input: Omit<NovaEntregaInput, "funcionarioId">,
-  tentativas = 5,
-): Promise<{ row: Record<string, unknown> | null; erro: string | null }> {
-  const ano = new Date().getFullYear();
-  let seq = await proximoSequencialTermo(ano);
-
-  for (let t = 0; t < tentativas; t++) {
-    const { data, error } = await supabase
-      .from("entregas_epi")
-      .insert(upperizePayload({
-        funcionario_id: funcionarioId,
-        numero_termo: formataNumeroTermo(ano, seq),
-        data_entrega: input.dataEntrega,
-        responsavel_entrega: input.responsavelEntrega ?? "",
-        responsavel_cargo: input.responsavelCargo ?? "",
-        status: "PENDENTE",
-        assinado: false,
-        observacoes: input.observacoes ?? "",
-      }) as any)
-      .select("*")
-      .single();
-
-    if (!error && data) return { row: data, erro: null };
-    if (error?.code !== "23505") return { row: null, erro: error?.message ?? "erro desconhecido" };
-    // Número já usado: recalcula e tenta o seguinte.
-    seq = Math.max(seq + 1, await proximoSequencialTermo(ano));
-  }
-  return { row: null, erro: "não foi possível gerar um número de termo livre" };
-}
-
 // ---------- Actions ----------
 export const epiActions = {
   // Funcionários: este store só LÊ a tabela, para a entrega. Criar e
@@ -628,57 +542,47 @@ export const epiActions = {
   /**
    * Registra a mesma entrega para vários funcionários — um termo por pessoa,
    * cada um com seu próprio número, para que cada um assine o seu.
-   * Falha de um funcionário não aborta os demais.
+   *
+   * Tudo acontece numa transação só no banco (epis_registrar_entregas, ver
+   * a migration 20260924100000): número do termo, itens com snapshot e
+   * validade, e baixa de estoque. Ou saem todos os termos, ou nenhum — a
+   * mensagem de erro diz qual funcionário barrou.
    */
   async registrarEntregaEmLote(input: NovaEntregaLoteInput): Promise<EntregaSalva[]> {
-    const funcionarioIds = input.funcionarioIds.filter(Boolean);
+    const funcionarioIds = [...new Set(input.funcionarioIds.filter(Boolean))];
     if (!funcionarioIds.length) { toast.error("Selecione ao menos um funcionário"); return []; }
     if (!input.itens.length) { toast.error("Adicione ao menos um EPI"); return []; }
 
-    const criadas: { entregaId: string; funcionarioId: string }[] = [];
+    const { data, error } = await supabase.rpc("epis_registrar_entregas", {
+      p_funcionarios: funcionarioIds,
+      p_data_entrega: input.dataEntrega,
+      p_responsavel: input.responsavelEntrega ?? "",
+      p_responsavel_cargo: input.responsavelCargo ?? "",
+      p_observacoes: input.observacoes ?? "",
+      p_itens: input.itens.map(it => ({
+        epi_id: it.epiId,
+        quantidade: it.quantidade,
+        motivo: it.motivo,
+      })),
+    });
 
-    for (const funcionarioId of funcionarioIds) {
-      const nome = state.funcionarios.find(f => f.id === funcionarioId)?.nome ?? "funcionário";
-      try {
-        const { row, erro } = await inserirEntrega(funcionarioId, input);
-        if (!row || erro) { toast.error(`Erro ao registrar entrega de ${nome}: ${erro ?? "desconhecido"}`); continue; }
-
-        const entregaId = row.id as string;
-        const itensPayload = montaItensPayload(entregaId, input.dataEntrega, input.itens);
-        const { error: itErr } = await supabase
-          .from("entrega_epi_itens")
-          .insert(itensPayload.map(p => upperizePayload(p)) as any);
-
-        if (itErr) {
-          // Termo sem item nenhum não serve para nada e ainda consome um
-          // número — desfaz para não deixar lixo na lista de entregas.
-          await supabase.from("entregas_epi").delete().eq("id", entregaId);
-          toast.error(`Erro ao salvar os itens de ${nome}: ${itErr.message}`);
-          continue;
-        }
-
-        criadas.push({ entregaId, funcionarioId });
-      } catch (err) {
-        toast.error(`Erro ao registrar entrega de ${nome}: ${err instanceof Error ? err.message : "desconhecido"}`);
-      }
+    if (error) {
+      // PGRST202: a função ainda não existe no banco (migration não aplicada).
+      const msg = error.code === "PGRST202"
+        ? "o banco ainda não foi atualizado (falta aplicar a migration 20260924100000 no Supabase)"
+        : error.message;
+      toast.error(`Nenhum termo foi gravado: ${msg}`);
+      return [];
     }
 
-    // Baixa de estoque somando o consumo de todos os termos criados.
-    await ajustarEstoque(
-      input.itens.map(it => ({ epiId: it.epiId, delta: -it.quantidade * criadas.length })),
-    );
-
+    const criadas = ((data ?? []) as Record<string, unknown>[]).map(mapEntrega);
     await fetchAll();
 
-    return criadas.flatMap(({ entregaId, funcionarioId }) => {
-      const entrega = state.entregas.find(e => e.id === entregaId);
-      if (!entrega) return [];
-      return [{
-        entrega,
-        funcionario: state.funcionarios.find(f => f.id === funcionarioId),
-        itens: state.itens.filter(i => i.entregaId === entregaId),
-      }];
-    });
+    return criadas.map(salva => ({
+      entrega: state.entregas.find(e => e.id === salva.id) ?? salva,
+      funcionario: state.funcionarios.find(f => f.id === salva.funcionarioId),
+      itens: state.itens.filter(i => i.entregaId === salva.id),
+    }));
   },
 
   async registrarEntrega(input: NovaEntregaInput): Promise<EntregaSalva | null> {

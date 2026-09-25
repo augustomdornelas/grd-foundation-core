@@ -252,8 +252,14 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
       doc.setTextColor(...TEXT_DARK);
-      const linhas = doc.splitTextToSize(r[1] || "—", colW - 8).slice(0, 2);
-      doc.text(linhas, x, yy + 3.8);
+      let linhas = doc.splitTextToSize(r[1] || "—", colW - 8) as string[];
+      // Valor que quebra (nome completo longo) desce para 7pt: em 8.5pt a
+      // segunda linha encostava no rótulo de baixo.
+      if (linhas.length > 1) {
+        doc.setFontSize(7);
+        linhas = doc.splitTextToSize(r[1], colW - 8) as string[];
+      }
+      doc.text(linhas.slice(0, 2), x, yy + 3.8);
     });
     y += boxH + 4;
   };
@@ -585,8 +591,15 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
 }
 
 export function nomeArquivoTermoEpi(t: TermoEpiData) {
-  const slug = (t.funcionario.nome || "funcionario").replace(/\s+/g, "-").toLowerCase();
-  return `termo-epi-${slug}-${t.numero}.pdf`;
+  // Sem acento nem símbolo: "JOÃO D'ÁVILA" vira "joao-d-avila". Alguns
+  // celulares recusam ou trocam caractere especial no nome do download.
+  const slug = (t.funcionario.nome || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "funcionario";
+  return `termo-epi-${slug}-${t.numero || "sem-numero"}.pdf`;
 }
 
 /**
