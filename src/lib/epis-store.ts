@@ -147,11 +147,13 @@ type State = {
   fornecedores: Fornecedor[];
   compras: CompraEpi[];
   compraItens: CompraItem[];
+  /** Compras que geraram lote (epi_lotes.compra_id): só estas pedem estorno. */
+  comprasComLote: string[];
 };
 
 const SSR: State = {
   funcionarios: [], epis: [], entregas: [], itens: [],
-  fornecedores: [], compras: [], compraItens: [],
+  fornecedores: [], compras: [], compraItens: [], comprasComLote: [],
 };
 let state: State = SSR;
 const listeners = new Set<() => void>();
@@ -307,7 +309,7 @@ function mapCompraItem(r: any): CompraItem {
 
 async function fetchAll() {
   try {
-    const [fun, epi, ent, itn, forn, cmp, cItn] = await Promise.all([
+    const [fun, epi, ent, itn, forn, cmp, cItn, lot] = await Promise.all([
       supabase.from("funcionarios").select("*").order("nome", { ascending: true }),
       supabase.from("epis").select("*").order("nome", { ascending: true }),
       supabase.from("entregas_epi").select("*").order("data_entrega", { ascending: false }),
@@ -315,6 +317,7 @@ async function fetchAll() {
       supabase.from("fornecedores").select("id, nome, ativo").order("nome", { ascending: true }),
       supabase.from("compras_epi").select("*").order("data_compra", { ascending: false }),
       supabase.from("compra_epi_itens").select("*").order("created_at", { ascending: true }),
+      supabase.from("epi_lotes").select("compra_id").not("compra_id", "is", null),
     ]);
     toastErr("Falha ao carregar funcionários", fun.error);
     toastErr("Falha ao carregar EPIs", epi.error);
@@ -323,6 +326,7 @@ async function fetchAll() {
     toastErr("Falha ao carregar fornecedores", forn.error);
     toastErr("Falha ao carregar compras", cmp.error);
     toastErr("Falha ao carregar itens de compra", cItn.error);
+    toastErr("Falha ao carregar lotes de estoque", lot.error);
     state = {
       funcionarios: (fun.data ?? []).map(mapFuncionario),
       epis: (epi.data ?? []).map(mapEpi),
@@ -331,6 +335,7 @@ async function fetchAll() {
       fornecedores: (forn.data ?? []).map(mapFornecedor),
       compras: (cmp.data ?? []).map(mapCompra),
       compraItens: (cItn.data ?? []).map(mapCompraItem),
+      comprasComLote: [...new Set(((lot.data ?? []) as { compra_id: string }[]).map(l => l.compra_id))],
     };
     emit();
   } catch (err) {
@@ -884,13 +889,21 @@ export const epiActions = {
   },
 
   /**
-   * Só compra SEM itens (sobra de um lançamento que falhou) se exclui.
-   * Compra com itens gerou lote e ENTRADA_COMPRA, que são imutáveis:
-   * corrigir é com ajuste de estoque. Devolve a mensagem de erro ou null.
+   * Só compra SEM LOTE se exclui (lançamento que não gerou estoque, ou que
+   * falhou no meio). Compra com lote tem ENTRADA_COMPRA imutável: aí é
+   * Estornar compra. Itens primeiro, depois o cabeçalho — cada passo
+   * conferido. Devolve a mensagem de erro ou null.
    */
   async excluirCompra(id: string): Promise<string | null> {
-    if (state.compraItens.some(i => i.compraId === id)) {
+    if (state.comprasComLote.includes(id)) {
       return "a compra já gerou lote de estoque; use Estornar compra";
+    }
+    if (state.compraItens.some(i => i.compraId === id)) {
+      const { error } = await supabase.from("compra_epi_itens").delete().eq("compra_id", id).select("id");
+      if (error) {
+        await fetchAll();
+        return `os itens da compra não foram excluídos (${error.message})`;
+      }
     }
     const erro = await apagarConfirmado("compras_epi", id);
     await fetchAll();

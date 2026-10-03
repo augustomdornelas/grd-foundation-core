@@ -39,6 +39,7 @@ export const Route = createFileRoute("/app/epis/compras")({ component: AbaCompra
 function AbaCompras() {
   const compras = useEpiStore((s) => s.compras);
   const compraItens = useEpiStore((s) => s.compraItens);
+  const comprasComLote = useEpiStore((s) => s.comprasComLote);
   const { abrirCompra, pedirExclusao } = useEpisAcoes();
   const podeEstornar = podeAjustarEstoque(useCurrentUser().perfil);
   const [paraEstornar, setParaEstornar] = useState<CompraEpi | null>(null);
@@ -104,13 +105,13 @@ function AbaCompras() {
                       <TableCell className="text-center">{inteiro(qtd)}</TableCell>
                       <TableCell className="text-right">{brl(total)}</TableCell>
                       <TableCell className="text-right">
-                        {/* Compra com itens já gerou lote (imutável). Só a vazia,
-                          sobra de lançamento que falhou, pode ser excluída. */}
-                        {its.length === 0 ? (
+                        {/* Compra com lote tem ENTRADA_COMPRA (imutável): estorna.
+                          Sem lote não entrou no estoque e pode ser excluída. */}
+                        {!comprasComLote.includes(c.id) ? (
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Excluir compra sem itens"
+                            title="Excluir compra (não gerou lote de estoque)"
                             onClick={() =>
                               pedirExclusao({
                                 kind: "compra",
