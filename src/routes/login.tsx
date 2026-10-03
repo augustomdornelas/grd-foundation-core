@@ -5,11 +5,20 @@ import { Logo } from "@/components/brand/Logo";
 import { GridMotif } from "@/components/brand/GridMotif";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { marcarAtividadeAgora } from "@/lib/sessao-inatividade";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+type LoginSearch = { motivo?: "inatividade" };
+
+export const Route = createFileRoute("/login")({
+  // ?motivo=inatividade: veio do logout automático (InatividadeGuard).
+  validateSearch: (s: Record<string, unknown>): LoginSearch =>
+    s.motivo === "inatividade" ? { motivo: "inatividade" } : {},
+  component: LoginPage,
+});
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { motivo } = Route.useSearch();
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +36,8 @@ function LoginPage() {
       setError("Usuário ou senha incorretos.");
       setLoading(false);
     } else {
+      // O prazo de inatividade conta a partir deste login.
+      marcarAtividadeAgora();
       navigate({ to: "/app" });
     }
   };
@@ -80,6 +91,11 @@ function LoginPage() {
               />
 
             </div>
+            {motivo === "inatividade" && !error && (
+              <p role="status" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                SESSÃO ENCERRADA POR INATIVIDADE
+              </p>
+            )}
             {error && (
               <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                 {error}

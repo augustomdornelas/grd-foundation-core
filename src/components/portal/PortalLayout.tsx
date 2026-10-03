@@ -58,6 +58,7 @@ import {
   type ModuloKey,
 } from "@/lib/current-user";
 import { supabase } from "@/integrations/supabase/client";
+import { InatividadeGuard } from "@/components/portal/InatividadeGuard";
 type NavFilho = {
   to: string;
   label: string;
@@ -426,6 +427,8 @@ export function PortalLayout({ title, children }: { title: string; children?: Re
 
   return (
     <div className="app-layout flex min-h-screen w-full bg-[#F4F4F4]">
+      {/* Logout automático por inatividade: só nas rotas internas, logado. */}
+      <InatividadeGuard />
       {/* Desktop sidebar */}
       <aside
         className={`relative hidden shrink-0 flex-col bg-[#213368] transition-[width] duration-300 ease-in-out md:flex ${collapsed ? "w-[64px]" : "w-64"}`}
