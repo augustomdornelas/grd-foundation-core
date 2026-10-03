@@ -8,7 +8,7 @@
 // anterior buscava https://grupogrdbrasil.com.br/logo_grd.jpeg,
 // que responde 404, então todo termo saía sem logo.
 // ============================================================
-import { jsPDF } from "jspdf";
+import { GState, jsPDF } from "jspdf";
 import logoGrd from "@/assets/logo_grd.png";
 
 const NAVY: [number, number, number] = [33, 51, 104];
@@ -18,6 +18,7 @@ const GREY_LINE: [number, number, number] = [210, 210, 215];
 const TEXT_DARK: [number, number, number] = [40, 40, 45];
 const TEXT_MUTED: [number, number, number] = [110, 110, 120];
 const WHITE: [number, number, number] = [255, 255, 255];
+const RED: [number, number, number] = [200, 30, 30];
 
 // ---------- Carregamento de imagens ----------
 export type ImagemPdf = { dataUrl: string; w: number; h: number };
@@ -112,6 +113,8 @@ export interface TermoEpiData {
    * Sem isto o termo sai como sempre saiu, com as linhas para assinar.
    */
   fotoRecebimento?: TermoEpiFoto;
+  /** Entrega cancelada: o termo sai com a marca CANCELADA e o motivo. */
+  cancelamento?: { motivo: string; em?: string };
 }
 
 export interface TermoEpiFoto {
@@ -328,7 +331,7 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
     const yFoto = y + rotuloH;
     const xFoto = xRecebedor + (colW - fw) / 2;
     try {
-      doc.addImage(f.dataUrl, "JPEG", xFoto, yFoto, fw, fh);
+      doc.addImage(f.dataUrl, f.dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG", xFoto, yFoto, fw, fh);
     } catch {
       /* sem a imagem o termo não deveria nem ter chegado aqui; segue */
     }
@@ -525,6 +528,14 @@ async function desenharTermo(doc: jsPDF, t: TermoEpiData) {
     drawTextBox(t.observacoes.trim(), 16);
   }
 
+  // ============ Cancelamento ============
+  if (t.cancelamento) {
+    garantirEspaco(24);
+    drawSectionTitle("Termo cancelado");
+    const quando = t.cancelamento.em ? ` em ${fmtDataHora(new Date(t.cancelamento.em))}` : "";
+    drawTextBox(`Entrega cancelada${quando}. Os EPIs voltaram ao estoque.\nMotivo: ${t.cancelamento.motivo || "—"}`, 14);
+  }
+
   // ============ Assinaturas ============
   const gap = 10;
   const colW2 = (W - 2 * M - gap) / 2;
@@ -610,7 +621,31 @@ export function nomeArquivoTermoEpi(t: TermoEpiData) {
 export async function montarTermoEpiPDF(t: TermoEpiData): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   await desenharTermo(doc, t);
+  if (t.cancelamento) carimbarCancelada(doc, t.cancelamento.motivo);
   return doc;
+}
+
+/** "CANCELADA" na diagonal de cada página, translúcido, com o motivo embaixo. */
+function carimbarCancelada(doc: jsPDF, motivo: string) {
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const total = doc.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    doc.saveGraphicsState();
+    doc.setGState(new GState({ opacity: 0.22 }));
+    doc.setTextColor(...RED);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(90);
+    doc.text("CANCELADA", W / 2, H / 2, { align: "center", baseline: "middle", angle: 35 });
+    doc.restoreGraphicsState();
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...RED);
+    const linha = doc.splitTextToSize(`TERMO CANCELADO — MOTIVO: ${motivo || "—"}`.toUpperCase(), W - 30).slice(0, 2);
+    doc.text(linha, W / 2, 12, { align: "center" });
+  }
 }
 
 /** Gera e baixa o termo de um funcionário. */

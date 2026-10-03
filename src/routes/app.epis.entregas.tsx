@@ -4,16 +4,24 @@
 // mais o botão de marcar assinado à mão. Pendente ganha "TIRAR FOTO";
 // assinado com foto baixa o termo.pdf guardado no Storage (o mesmo
 // gerado na assinatura) e mostra a foto.
+//
+// Entrega não se exclui: cada uma tem SAIDA_ENTREGA no livro de estoque
+// por lote, que é imutável. O que existe é CANCELAR, com motivo — a RPC
+// devolve o estoque e a linha fica CANCELADA (oculta por padrão).
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -27,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import {
   Plus,
-  Trash2,
+  Ban,
   FileText,
   AlertTriangle,
   CheckCircle2,
@@ -35,9 +43,9 @@ import {
   Image as ImageIcon,
   Loader2,
 } from "lucide-react";
-import { useEpiStore, diasParaVencer, type Entrega } from "@/lib/epis-store";
+import { useEpiStore, diasParaVencer, epiActions, type Entrega } from "@/lib/epis-store";
 import { inteiro } from "@/lib/formato";
-import { gerarTermoEpiPDF, nomeArquivoTermoEpi } from "@/lib/termo-epi-pdf";
+import { carregarImagem, gerarTermoEpiPDF, nomeArquivoTermoEpi } from "@/lib/termo-epi-pdf";
 import { baixarTermoSalvo, dadosDoTermo, urlDaFoto } from "@/lib/termo-epi-assinatura";
 import { fmtBr } from "@/components/epis/epis-formato";
 import { useEpisAcoes } from "@/components/epis/epis-acoes-contexto";
@@ -49,7 +57,9 @@ function AbaEntregas() {
   const funcionarios = useEpiStore((s) => s.funcionarios);
   const entregas = useEpiStore((s) => s.entregas);
   const itens = useEpiStore((s) => s.itens);
-  const { abrirEntrega, pedirExclusao } = useEpisAcoes();
+  const { abrirEntrega } = useEpisAcoes();
+  const [mostrarCanceladas, setMostrarCanceladas] = useState(false);
+  const [paraCancelar, setParaCancelar] = useState<Entrega | null>(null);
   const [paraFoto, setParaFoto] = useState<TermoParaFoto | null>(null);
   const [verFoto, setVerFoto] = useState<{ numero: string; url: string } | null>(null);
   const [baixando, setBaixando] = useState<string | null>(null);
@@ -68,25 +78,48 @@ function AbaEntregas() {
     setVerFoto({ numero: ent.numeroTermo, url });
   };
 
-  const itensVencendo = useMemo(
-    () =>
-      itens.filter((i) => {
-        const d = diasParaVencer(i.dataValidade);
-        return d !== null && d <= 30;
-      }),
-    [itens],
+  const visiveis = useMemo(
+    () => (mostrarCanceladas ? entregas : entregas.filter((e) => !e.cancelada)),
+    [entregas, mostrarCanceladas],
   );
+  const qtdCanceladas = useMemo(() => entregas.filter((e) => e.cancelada).length, [entregas]);
+
+  // EPI de entrega cancelada voltou ao estoque: não está com ninguém para vencer.
+  const itensVencendo = useMemo(() => {
+    const canceladas = new Set(entregas.filter((e) => e.cancelada).map((e) => e.id));
+    return itens.filter((i) => {
+      if (canceladas.has(i.entregaId)) return false;
+      const d = diasParaVencer(i.dataValidade);
+      return d !== null && d <= 30;
+    });
+  }, [itens, entregas]);
 
   /**
    * Assinado com foto: baixa o termo.pdf salvo, e não um PDF novo — o
    * arquivo guardado é o que vale. Sem PDF salvo (pendente, ou termo
    * antigo assinado à mão), gera o PDF como antes, sem foto.
+   *
+   * Cancelada: o PDF salvo não diz que foi cancelado, então gera um novo
+   * com a marca CANCELADA e o motivo (e a foto, se havia).
    */
   const baixarTermo = async (ent: Entrega) => {
     const termo = termoDe(ent);
     setBaixando(ent.id);
     try {
-      if (ent.termoPdfPath) {
+      if (ent.cancelada) {
+        const url = ent.fotoRecebimentoPath ? await urlDaFoto(ent.fotoRecebimentoPath) : null;
+        const img = url ? await carregarImagem(url, 900) : null;
+        await gerarTermoEpiPDF({
+          ...termo,
+          fotoRecebimento: img
+            ? {
+                ...img,
+                registradoEm: new Date(ent.assinadoEm ?? ent.dataEntrega),
+                registradoPor: ent.responsavelEntrega,
+              }
+            : undefined,
+        });
+      } else if (ent.termoPdfPath) {
         const erro = await baixarTermoSalvo(ent.termoPdfPath, nomeArquivoTermoEpi(termo));
         if (erro) toast.error(`Não foi possível baixar o termo salvo: ${erro}`);
       } else {
@@ -102,8 +135,18 @@ function AbaEntregas() {
   return (
     <>
       <Card className="p-6">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-bold text-[#213368]">Entregas de EPI</h3>
+          <div className="ml-auto flex items-center gap-2">
+            <Switch
+              id="mostrar-canceladas"
+              checked={mostrarCanceladas}
+              onCheckedChange={setMostrarCanceladas}
+            />
+            <Label htmlFor="mostrar-canceladas" className="text-xs uppercase text-muted-foreground">
+              Mostrar canceladas{qtdCanceladas ? ` (${qtdCanceladas})` : ""}
+            </Label>
+          </div>
           <Button
             size="sm"
             onClick={() => abrirEntrega(undefined)}
@@ -125,20 +168,22 @@ function AbaEntregas() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entregas.length === 0 ? (
+              {visiveis.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                    Nenhuma entrega registrada.
+                    {entregas.length === 0
+                      ? "Nenhuma entrega registrada."
+                      : "Nenhuma entrega ativa. Ligue “Mostrar canceladas” para ver as canceladas."}
                   </TableCell>
                 </TableRow>
               ) : (
-                entregas.map((e) => {
+                visiveis.map((e) => {
                   const func = funcionarios.find((f) => f.id === e.funcionarioId);
                   const qtd = itens
                     .filter((i) => i.entregaId === e.id)
                     .reduce((a, i) => a + i.quantidade, 0);
                   return (
-                    <TableRow key={e.id}>
+                    <TableRow key={e.id} className={e.cancelada ? "opacity-60" : undefined}>
                       <TableCell className="font-semibold text-[#213368]">
                         {e.numeroTermo || "—"}
                       </TableCell>
@@ -146,7 +191,16 @@ function AbaEntregas() {
                       <TableCell>{fmtBr(e.dataEntrega)}</TableCell>
                       <TableCell className="text-center">{inteiro(qtd)}</TableCell>
                       <TableCell>
-                        {e.assinado ? (
+                        {e.cancelada ? (
+                          <Badge
+                            className="bg-gray-200 text-gray-700"
+                            title={
+                              e.motivoCancelamento ? `Motivo: ${e.motivoCancelamento}` : undefined
+                            }
+                          >
+                            <Ban className="mr-1 h-3 w-3" /> Cancelada
+                          </Badge>
+                        ) : e.assinado ? (
                           <Badge className="bg-green-100 text-green-700">
                             <CheckCircle2 className="mr-1 h-3 w-3" /> Assinado
                           </Badge>
@@ -156,7 +210,7 @@ function AbaEntregas() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {!e.assinado && (
+                          {!e.assinado && !e.cancelada && (
                             <Button
                               size="sm"
                               onClick={() => setParaFoto({ entrega: e, termo: termoDe(e) })}
@@ -182,9 +236,11 @@ function AbaEntregas() {
                             variant="ghost"
                             disabled={baixando === e.id}
                             title={
-                              e.termoPdfPath
-                                ? "Baixar o termo assinado (PDF salvo)"
-                                : "Gerar/baixar termo (PDF)"
+                              e.cancelada
+                                ? "Baixar o termo com a marca CANCELADA"
+                                : e.termoPdfPath
+                                  ? "Baixar o termo assinado (PDF salvo)"
+                                  : "Gerar/baixar termo (PDF)"
                             }
                             onClick={() => baixarTermo(e)}
                           >
@@ -194,20 +250,16 @@ function AbaEntregas() {
                               <FileText className="h-4 w-4 text-[#213368]" />
                             )}
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            title="Excluir"
-                            onClick={() =>
-                              pedirExclusao({
-                                kind: "entrega",
-                                id: e.id,
-                                label: `termo ${e.numeroTermo}`,
-                              })
-                            }
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                          {!e.cancelada && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title="Cancelar entrega (devolve o estoque)"
+                              onClick={() => setParaCancelar(e)}
+                            >
+                              <Ban className="h-4 w-4 text-red-600" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -276,6 +328,14 @@ function AbaEntregas() {
         />
       )}
 
+      {paraCancelar && (
+        <CancelarEntregaDialog
+          key={paraCancelar.id}
+          entrega={paraCancelar}
+          onClose={() => setParaCancelar(null)}
+        />
+      )}
+
       <Dialog open={!!verFoto} onOpenChange={(o) => !o && setVerFoto(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -294,5 +354,73 @@ function AbaEntregas() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/** Pede o motivo e chama a RPC; só fecha com a confirmação do banco. */
+function CancelarEntregaDialog({ entrega, onClose }: { entrega: Entrega; onClose: () => void }) {
+  const [motivo, setMotivo] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const letras = motivo.replace(/[^\p{L}]/gu, "").length;
+
+  const confirmar = async () => {
+    if (letras < 3 || salvando) return;
+    setSalvando(true);
+    const erro = await epiActions.cancelarEntrega(entrega.id, motivo);
+    setSalvando(false);
+    if (erro) {
+      toast.error(`Entrega não cancelada: ${erro}`);
+      return;
+    }
+    toast.success(`Termo ${entrega.numeroTermo} cancelado. O estoque foi devolvido.`);
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !salvando && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="uppercase text-[#213368]">Cancelar entrega</DialogTitle>
+          <DialogDescription>
+            Termo {entrega.numeroTermo || "—"}. Os EPIs voltam ao estoque e o termo fica marcado
+            como CANCELADO. Não dá para desfazer.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="motivo-cancelamento" className="text-xs uppercase">
+            Motivo
+          </Label>
+          <Textarea
+            id="motivo-cancelamento"
+            autoFocus
+            rows={3}
+            value={motivo}
+            onChange={(ev) => setMotivo(ev.target.value)}
+            placeholder="Ex.: lançada para o funcionário errado"
+            className="uppercase"
+          />
+          {motivo && letras < 3 && (
+            <p className="text-xs text-red-600">Escreva o motivo com pelo menos 3 letras.</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={salvando}>
+            Voltar
+          </Button>
+          <Button
+            onClick={confirmar}
+            disabled={letras < 3 || salvando}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            {salvando ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Ban className="mr-1 h-4 w-4" />
+            )}
+            Cancelar entrega
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

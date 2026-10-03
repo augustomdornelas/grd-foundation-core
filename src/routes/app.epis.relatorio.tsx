@@ -98,6 +98,7 @@ function AbaRelatorio() {
     }
     const porFunc = new Map<string, Candidato>();
     for (const e of entregas) {
+      if (e.cancelada) continue; // cancelada não foi entregue
       const data = (e.dataEntrega || "").slice(0, 10);
       if (!data || data < deIso || data > ateIso) continue;
       const f = funcionarios.find((x) => x.id === e.funcionarioId);

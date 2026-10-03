@@ -66,15 +66,17 @@ function Moldura() {
   const itens = useEpiStore((s) => s.itens);
   const { abrirEntrega, abrirCompra } = useEpisAcoes();
 
-  const itensVencendo = useMemo(
-    () =>
-      itens.filter((i) => {
-        const d = diasParaVencer(i.dataValidade);
-        return d !== null && d <= 30;
-      }),
-    [itens],
-  );
-  const pendentesAssinatura = entregas.filter((e) => !e.assinado).length;
+  // Os cards não contam entrega cancelada: ela não aconteceu.
+  const ativas = useMemo(() => entregas.filter((e) => !e.cancelada), [entregas]);
+  const itensVencendo = useMemo(() => {
+    const ids = new Set(ativas.map((e) => e.id));
+    return itens.filter((i) => {
+      if (!ids.has(i.entregaId)) return false;
+      const d = diasParaVencer(i.dataValidade);
+      return d !== null && d <= 30;
+    });
+  }, [itens, ativas]);
+  const pendentesAssinatura = ativas.filter((e) => !e.assinado).length;
 
   return (
     <div className="space-y-6">
@@ -121,7 +123,7 @@ function Moldura() {
         <ResumoCard
           icon={<FileText className="h-5 w-5" />}
           label="Entregas / termos"
-          valor={entregas.length}
+          valor={ativas.length}
           sub={pendentesAssinatura ? `${pendentesAssinatura} a assinar` : "todos assinados"}
         />
         <ResumoCard

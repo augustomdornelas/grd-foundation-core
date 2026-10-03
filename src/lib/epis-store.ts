@@ -83,7 +83,7 @@ export type EntregaItem = {
   dataValidade?: string;
 };
 
-export type EntregaStatus = "PENDENTE" | "ASSINADO";
+export type EntregaStatus = "PENDENTE" | "ASSINADO" | "CANCELADA";
 
 export type Entrega = {
   id: string;
@@ -102,6 +102,10 @@ export type Entrega = {
   termoPdfPath?: string;
   /** Momento exato da assinatura por foto (ISO). */
   assinadoEm?: string;
+  /** Cancelada pela RPC cancelar_entrega_epi: o estoque já voltou. */
+  cancelada: boolean;
+  motivoCancelamento?: string;
+  canceladaEm?: string;
 };
 
 export type Fornecedor = {
@@ -119,6 +123,9 @@ export type CompraEpi = {
   dataCompra: string;
   responsavel: string;
   observacoes: string;
+  /** Estornada pela RPC estornar_compra_epi (o saldo dos lotes saiu do estoque). */
+  estornadaEm?: string;
+  estornoMotivo?: string;
 };
 
 export type CompraItem = {
@@ -247,6 +254,9 @@ function mapEntrega(r: any): Entrega {
     fotoRecebimentoPath: r.foto_recebimento_path ?? undefined,
     termoPdfPath: r.termo_pdf_path ?? undefined,
     assinadoEm: r.assinado_em ?? undefined,
+    cancelada: r.status === "CANCELADA",
+    motivoCancelamento: r.motivo_cancelamento ?? undefined,
+    canceladaEm: r.cancelada_em ?? undefined,
   };
 }
 function mapItem(r: any): EntregaItem {
@@ -278,6 +288,8 @@ function mapCompra(r: any): CompraEpi {
     dataCompra: r.data_compra ?? "",
     responsavel: r.responsavel ?? "",
     observacoes: r.observacoes ?? "",
+    estornadaEm: r.estornada_em ?? undefined,
+    estornoMotivo: r.estorno_motivo ?? undefined,
   };
 }
 function mapCompraItem(r: any): CompraItem {
@@ -399,7 +411,8 @@ async function inserirEpi(input: Omit<Epi, "id">): Promise<{ id: string | null; 
         fabricante: input.fabricante ?? "",
         validade_dias: input.validadeDias ?? 0,
         ca_validade: input.caValidade || null,
-        estoque: input.estoque ?? 0,
+        // Sempre zero: o saldo nasce das compras (lotes), nunca do cadastro.
+        estoque: 0,
         unidade: input.unidade ?? "un",
         foto_url: input.fotoUrl || null,
         ativo: input.ativo,
@@ -459,25 +472,66 @@ export type NovaCompraInput = {
   itens: NovoCompraItemInput[];
 };
 
+// Estoque: o front nunca grava epis.estoque. Quem mexe nele é o livro
+// por lote no banco (epi_lotes / epi_movimentacoes): a compra gera o lote
+// e a ENTRADA_COMPRA, a entrega a SAIDA_ENTREGA, o cancelamento o
+// ESTORNO_ENTREGA. Um UPDATE direto é barrado por trg_epis_estoque_protegido.
+
 /**
- * Aplica deltas de estoque por EPI — positivo entra (compra), negativo sai
- * (entrega). Soma os deltas do mesmo EPI e trava em zero. Best-effort: uma
- * falha aqui não desfaz o documento já gravado.
+ * DELETE com confirmação: pede a linha apagada de volta (.select). Sem
+ * erro e sem linha quer dizer que o banco não apagou nada — a RLS filtrou,
+ * por exemplo — e isso é erro, não sucesso.
  */
-async function ajustarEstoque(movimentos: { epiId?: string; delta: number }[]) {
-  const porEpi = new Map<string, number>();
-  for (const m of movimentos) {
-    if (!m.epiId || !m.delta) continue;
-    porEpi.set(m.epiId, (porEpi.get(m.epiId) ?? 0) + m.delta);
+async function apagarConfirmado(tabela: "epis" | "compras_epi", id: string): Promise<string | null> {
+  const { data, error } = await supabase.from(tabela).delete().eq("id", id).select("id");
+  if (error) {
+    // 23503: outra tabela aponta para esta linha (movimentações de estoque, entregas).
+    return error.code === "23503"
+      ? "o registro já tem movimentações de estoque ligadas a ele e não pode ser excluído"
+      : error.message;
   }
-  for (const [epiId, delta] of porEpi) {
-    const epi = state.epis.find(e => e.id === epiId);
-    if (!epi) continue;
-    const novoEstoque = Math.max(0, epi.estoque + delta);
-    if (novoEstoque === epi.estoque) continue;
-    const { error } = await supabase.from("epis").update({ estoque: novoEstoque }).eq("id", epiId);
-    toastErr("Erro ao atualizar estoque", error);
-  }
+  if (!data?.length) return "o banco não excluiu o registro (sem permissão ou já removido)";
+  return null;
+}
+
+// ---------- Livro de estoque por lote ----------
+export type TipoAjuste = "AJUSTE_ENTRADA" | "AJUSTE_SAIDA" | "DESCARTE";
+
+export type LoteComSaldo = {
+  id: string;
+  origem: string;
+  numeroCa: string;
+  validadeCa?: string;
+  dataCompra?: string;
+  fornecedorNome: string;
+  numeroNota: string;
+  quantidadeComprada: number;
+  saldo: number;
+  ativo: boolean;
+};
+
+export type ResultadoEstorno = {
+  totalComprado: number;
+  totalEstornado: number;
+  unidadesEmEntregas: number;
+};
+
+/** Mesmo sinal da epi_sinal() do banco. */
+const SINAL: Record<string, number> = {
+  ENTRADA_COMPRA: 1, DEVOLUCAO: 1, AJUSTE_ENTRADA: 1, ESTORNO_ENTREGA: 1,
+  SAIDA_ENTREGA: -1, AJUSTE_SAIDA: -1, DESCARTE: -1,
+};
+
+/** Ajuste de estoque e estorno de compra: o banco só aceita Administrador ou Almoxarifado (epi_pode_ajustar). */
+export function podeAjustarEstoque(perfil: string): boolean {
+  const p = perfil.trim().toLowerCase();
+  return p === "administrador" || p === "almoxarifado";
+}
+
+function msgRpc(error: { code?: string; message?: string }, funcao: string): string {
+  if (error.code === "PGRST202") return `a função ${funcao} não existe no banco (falta aplicar a migration)`;
+  if (error.code === "42501") return "sem permissão: só Administrador ou Almoxarifado";
+  return error.message ?? "erro desconhecido";
 }
 
 // ---------- Actions ----------
@@ -511,7 +565,6 @@ export const epiActions = {
     if (patch.fabricante !== undefined) row.fabricante = patch.fabricante;
     if (patch.validadeDias !== undefined) row.validade_dias = patch.validadeDias;
     if (patch.caValidade !== undefined) row.ca_validade = patch.caValidade || null;
-    if (patch.estoque !== undefined) row.estoque = patch.estoque;
     if (patch.unidade !== undefined) row.unidade = patch.unidade;
     // "" limpa o campo no banco (remover a foto / a validade do CA).
     if (patch.fotoUrl !== undefined) row.foto_url = patch.fotoUrl || null;
@@ -530,12 +583,14 @@ export const epiActions = {
     }
     return null;
   },
-  async excluirEpi(id: string) {
-    state = { ...state, epis: state.epis.filter(e => e.id !== id) };
-    emit();
-    const { error } = await supabase.from("epis").delete().eq("id", id);
-    toastErr("Erro ao excluir EPI", error);
+  /**
+   * Devolve a mensagem de erro (ou null). Sem escrita otimista: o EPI só
+   * some da tela depois que o banco confirma que a linha foi apagada.
+   */
+  async excluirEpi(id: string): Promise<string | null> {
+    const erro = await apagarConfirmado("epis", id);
     await fetchAll();
+    return erro;
   },
 
   // ----- Entregas (termo) -----
@@ -621,20 +676,29 @@ export const epiActions = {
     await fetchAll();
     return null;
   },
-  async excluirEntrega(id: string) {
-    // Devolve ao estoque o que essa entrega tinha dado baixa: o termo
-    // deixou de existir, então os EPIs não saíram.
-    const itensDoTermo = state.itens.filter(i => i.entregaId === id);
-    state = {
-      ...state,
-      entregas: state.entregas.filter(e => e.id !== id),
-      itens: state.itens.filter(i => i.entregaId !== id),
-    };
-    emit();
-    const { error } = await supabase.from("entregas_epi").delete().eq("id", id);
-    toastErr("Erro ao excluir entrega", error);
-    if (!error) await ajustarEstoque(itensDoTermo.map(i => ({ epiId: i.epiId, delta: i.quantidade })));
+  /**
+   * Entrega não se exclui: cada uma gerou SAIDA_ENTREGA no livro de
+   * estoque por lote (epi_movimentacoes), que é imutável. Cancelar é a
+   * RPC cancelar_entrega_epi — numa transação, lança o ESTORNO_ENTREGA
+   * (o estoque volta) e marca a entrega como CANCELADA. Devolve a
+   * mensagem de erro ou null; a tela só confirma com null.
+   */
+  async cancelarEntrega(id: string, motivo: string): Promise<string | null> {
+    const limpo = motivo.trim();
+    if (limpo.replace(/[^\p{L}]/gu, "").length < 3) return "informe o motivo (mínimo 3 letras)";
+    const { error } = await supabase.rpc("cancelar_entrega_epi", {
+      p_entrega_id: id,
+      p_motivo: limpo.toUpperCase(),
+    });
+    if (error) {
+      return error.code === "PGRST202"
+        ? "a função cancelar_entrega_epi não existe no banco"
+        : error.message;
+    }
     await fetchAll();
+    const atual = state.entregas.find(e => e.id === id);
+    if (!atual?.cancelada) return "o banco não confirmou o cancelamento";
+    return null;
   },
 
   // ----- Compras (entrada de estoque) -----
@@ -713,13 +777,16 @@ export const epiActions = {
         .insert(itensPayload.map(p => upperizePayload(p)) as any);
       if (itErr) {
         // Compra sem itens não soma estoque nenhum — desfaz.
-        await supabase.from("compras_epi").delete().eq("id", compraId);
-        toast.error(`Erro ao salvar os itens da compra: ${itErr.message}`);
+        const erroDesfazer = await apagarConfirmado("compras_epi", compraId);
+        toast.error(
+          `Erro ao salvar os itens da compra: ${itErr.message}` +
+            (erroDesfazer ? ` — e a compra vazia ficou gravada (${erroDesfazer}); exclua-a na lista.` : ""),
+        );
+        await fetchAll();
         return null;
       }
 
-      // 4) Entrada no estoque.
-      await ajustarEstoque(resolvidos.map(it => ({ epiId: it.epiId, delta: it.quantidade })));
+      // 4) A entrada no estoque (lote + ENTRADA_COMPRA) é do banco.
       await fetchAll();
 
       return state.compras.find(c => c.id === compraId) ?? mapCompra(compraRow);
@@ -729,19 +796,105 @@ export const epiActions = {
     }
   },
 
-  async excluirCompra(id: string) {
-    // Tira do estoque o que essa compra tinha somado.
-    const itens = state.compraItens.filter(i => i.compraId === id);
-    state = {
-      ...state,
-      compras: state.compras.filter(c => c.id !== id),
-      compraItens: state.compraItens.filter(i => i.compraId !== id),
-    };
-    emit();
-    const { error } = await supabase.from("compras_epi").delete().eq("id", id);
-    toastErr("Erro ao excluir compra", error);
-    if (!error) await ajustarEstoque(itens.map(i => ({ epiId: i.epiId, delta: -i.quantidade })));
+  /**
+   * Estorna a compra (RPC estornar_compra_epi): AJUSTE_SAIDA do saldo de
+   * cada lote, numa transação. O que já saiu em entregas não volta.
+   */
+  async estornarCompra(
+    id: string,
+    motivo: string,
+  ): Promise<{ ok: true; resultado: ResultadoEstorno } | { ok: false; erro: string }> {
+    const limpo = motivo.trim();
+    if (limpo.replace(/[^\p{L}]/gu, "").length < 3) return { ok: false, erro: "informe o motivo (mínimo 3 letras)" };
+    const { data, error } = await supabase.rpc("estornar_compra_epi", {
+      p_compra_id: id,
+      p_motivo: limpo.toUpperCase(),
+    });
+    if (error) return { ok: false, erro: msgRpc(error, "estornar_compra_epi") };
     await fetchAll();
+    const r = (data ?? {}) as Record<string, unknown>;
+    return {
+      ok: true,
+      resultado: {
+        totalComprado: Number(r.total_comprado ?? 0),
+        totalEstornado: Number(r.total_estornado ?? 0),
+        unidadesEmEntregas: Number(r.unidades_em_entregas ?? 0),
+      },
+    };
+  },
+
+  /** Lotes do EPI com o saldo calculado do livro (não há coluna de saldo). */
+  async lotesDoEpi(epiId: string): Promise<{ lotes: LoteComSaldo[]; erro: string | null }> {
+    const [lot, mov] = await Promise.all([
+      supabase.from("epi_lotes").select("*").eq("epi_id", epiId).order("created_at", { ascending: true }),
+      supabase.from("epi_movimentacoes").select("lote_id, tipo, quantidade").eq("epi_id", epiId),
+    ]);
+    const erro = lot.error ?? mov.error;
+    if (erro) return { lotes: [], erro: erro.message };
+    const saldo = new Map<string, number>();
+    for (const m of (mov.data ?? []) as { lote_id: string | null; tipo: string; quantidade: number }[]) {
+      if (!m.lote_id) continue;
+      saldo.set(m.lote_id, (saldo.get(m.lote_id) ?? 0) + (SINAL[m.tipo] ?? 0) * Number(m.quantidade ?? 0));
+    }
+    const lotes = ((lot.data ?? []) as Record<string, any>[]).map(r => ({
+      id: r.id as string,
+      origem: r.origem ?? "",
+      numeroCa: r.numero_ca ?? "",
+      validadeCa: r.validade_ca ?? undefined,
+      dataCompra: r.data_compra ?? undefined,
+      fornecedorNome: r.fornecedor_nome ?? "",
+      numeroNota: r.numero_nota_fiscal ?? "",
+      quantidadeComprada: Number(r.quantidade_comprada ?? 0),
+      saldo: saldo.get(r.id) ?? 0,
+      ativo: r.ativo ?? true,
+    }));
+    return { lotes, erro: null };
+  },
+
+  /**
+   * registrar_ajuste_epi. Com lote: entrada, saída ou descarte nele.
+   * AJUSTE_ENTRADA sem lote: o banco cria um lote novo (origem AJUSTE)
+   * com o EPI e, se ele tiver C.A., número e validade do C.A.
+   */
+  async registrarAjuste(input: {
+    tipo: TipoAjuste;
+    epiId: string;
+    loteId: string | null;
+    quantidade: number;
+    motivo: string;
+    numeroCa?: string;
+    validadeCa?: string;
+  }): Promise<string | null> {
+    const motivo = input.motivo.trim();
+    if (motivo.replace(/[^\p{L}]/gu, "").length < 3) return "informe o motivo (mínimo 3 letras)";
+    if (!(input.quantidade > 0)) return "informe uma quantidade maior que zero";
+    if (!input.loteId && input.tipo !== "AJUSTE_ENTRADA") return "escolha o lote";
+    const { error } = await supabase.rpc("registrar_ajuste_epi", {
+      p_lote_id: input.loteId,
+      p_tipo: input.tipo,
+      p_quantidade: input.quantidade,
+      p_motivo: motivo.toUpperCase(),
+      p_epi_id: input.epiId,
+      p_numero_ca: input.loteId ? null : (input.numeroCa?.trim() || null),
+      p_validade_ca: input.loteId ? null : (input.validadeCa || null),
+    });
+    if (error) return msgRpc(error, "registrar_ajuste_epi");
+    await fetchAll();
+    return null;
+  },
+
+  /**
+   * Só compra SEM itens (sobra de um lançamento que falhou) se exclui.
+   * Compra com itens gerou lote e ENTRADA_COMPRA, que são imutáveis:
+   * corrigir é com ajuste de estoque. Devolve a mensagem de erro ou null.
+   */
+  async excluirCompra(id: string): Promise<string | null> {
+    if (state.compraItens.some(i => i.compraId === id)) {
+      return "a compra já gerou lote de estoque; use Estornar compra";
+    }
+    const erro = await apagarConfirmado("compras_epi", id);
+    await fetchAll();
+    return erro;
   },
 
   /** Cadastra um fornecedor pelo nome (usado pelo diálogo de compra). */

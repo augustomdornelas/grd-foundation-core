@@ -70,6 +70,9 @@ export function dadosDoTermo(
     responsavelEntrega: entrega.responsavelEntrega,
     responsavelCargo: entrega.responsavelCargo,
     observacoes: entrega.observacoes,
+    cancelamento: entrega.cancelada
+      ? { motivo: entrega.motivoCancelamento ?? "", em: entrega.canceladaEm }
+      : undefined,
   };
 }
 

@@ -13,8 +13,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2, Image as ImageIcon, Search } from "lucide-react";
-import { useEpiStore, normalizarCodigoEpi, type Epi } from "@/lib/epis-store";
+import { Plus, Pencil, Trash2, Image as ImageIcon, Search, SlidersHorizontal } from "lucide-react";
+import { useEpiStore, normalizarCodigoEpi, podeAjustarEstoque, type Epi } from "@/lib/epis-store";
+import { useCurrentUser } from "@/lib/current-user";
+import { AjusteEstoqueDialog } from "@/components/epis/AjusteEstoqueDialog";
 import { inteiro } from "@/lib/formato";
 import { EpiFormDialog } from "@/components/epis/EpiFormDialog";
 import { useEpisAcoes } from "@/components/epis/epis-acoes-contexto";
@@ -26,6 +28,9 @@ function AbaCatalogo() {
   const { pedirExclusao } = useEpisAcoes();
   const [epiForm, setEpiForm] = useState<Epi | "novo" | null>(null);
   const [busca, setBusca] = useState("");
+  const podeAjustar = podeAjustarEstoque(useCurrentUser().perfil);
+  // undefined = fechado; "" = aberto sem EPI escolhido.
+  const [ajuste, setAjuste] = useState<string | undefined>(undefined);
 
   // Busca por nome, código interno, C.A. e categoria. O código é
   // comparado sem espaços e sem diferenciar maiúsculas, como na leitura
@@ -46,13 +51,25 @@ function AbaCatalogo() {
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-[#213368]">Catálogo de EPIs</h3>
-          <Button
-            size="sm"
-            onClick={() => setEpiForm("novo")}
-            className="bg-[#213368] text-white hover:bg-[#2a4185]"
-          >
-            <Plus className="mr-1 h-4 w-4" /> Novo EPI
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {podeAjustar && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAjuste("")}
+                className="border-[#213368] text-[#213368]"
+              >
+                <SlidersHorizontal className="mr-1 h-4 w-4" /> Ajuste de estoque
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() => setEpiForm("novo")}
+              className="bg-[#213368] text-white hover:bg-[#2a4185]"
+            >
+              <Plus className="mr-1 h-4 w-4" /> Novo EPI
+            </Button>
+          </div>
         </div>
         <div className="relative mb-3 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -122,6 +139,16 @@ function AbaCatalogo() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {podeAjustar && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Ajuste de estoque deste EPI"
+                            onClick={() => setAjuste(e.id)}
+                          >
+                            <SlidersHorizontal className="h-4 w-4 text-[#213368]" />
+                          </Button>
+                        )}
                         <Button size="icon" variant="ghost" onClick={() => setEpiForm(e)}>
                           <Pencil className="h-4 w-4 text-[#213368]" />
                         </Button>
@@ -141,6 +168,13 @@ function AbaCatalogo() {
           </Table>
         </div>
       </Card>
+
+      {ajuste !== undefined && (
+        <AjusteEstoqueDialog
+          epiIdInicial={ajuste || undefined}
+          onClose={() => setAjuste(undefined)}
+        />
+      )}
 
       {epiForm && (
         <EpiFormDialog epi={epiForm === "novo" ? null : epiForm} onClose={() => setEpiForm(null)} />

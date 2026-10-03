@@ -35,7 +35,6 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
     fabricante: epi?.fabricante ?? "",
     validadeDias: epi ? epi.validadeDias : (null as number | null),
     caValidade: epi?.caValidade ?? "",
-    estoque: epi ? epi.estoque : (0 as number | null),
     unidade: epi?.unidade ?? "un",
     fotoUrl: epi?.fotoUrl ?? "",
     ativo: epi?.ativo ?? true,
@@ -94,7 +93,6 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
       // String vazia (e não undefined) para que limpar a data realmente
       // grave null no banco — atualizarEpi ignora campos undefined.
       caValidade: form.caValidade,
-      estoque: Math.max(0, form.estoque ?? 0),
       unidade: form.unidade.trim() || "un",
       fotoUrl: form.fotoUrl,
       ativo: form.ativo,
@@ -105,7 +103,7 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
     // o formulário fica aberto com o que a pessoa digitou.
     const ok = epi
       ? (await epiActions.atualizarEpi(epi.id, payload)) === null
-      : (await epiActions.criarEpi(payload)) !== null;
+      : (await epiActions.criarEpi({ ...payload, estoque: 0 })) !== null;
     setSaving(false);
     if (!ok) return;
     toast.success(epi ? "EPI atualizado." : "EPI cadastrado.");
@@ -206,11 +204,13 @@ export function EpiFormDialog({ epi, onClose }: { epi: Epi | null; onClose: () =
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
+              {/* Só leitura: o saldo vem das compras e entregas (lotes). */}
               <Label>Estoque</Label>
-              <InputNumero
-                valor={form.estoque}
-                onChange={(v) => setForm({ ...form, estoque: v })}
-                casas={0}
+              <Input
+                value={epi ? String(epi.estoque) : "0"}
+                readOnly
+                disabled
+                title="O estoque muda pelas compras, entregas e pelo Ajuste de estoque"
               />
             </div>
             <div>
