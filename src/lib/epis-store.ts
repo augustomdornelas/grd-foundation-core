@@ -611,8 +611,9 @@ export const epiActions = {
    * cada um com seu próprio número, para que cada um assine o seu.
    *
    * Tudo acontece numa transação só no banco (epis_registrar_entregas, ver
-   * a migration 20260924100000): número do termo, itens com snapshot e
-   * validade, e baixa de estoque. Ou saem todos os termos, ou nenhum — a
+   * a migration 20261003100000): número do termo, itens com snapshot e
+   * validade, e baixa pelo livro — a função escolhe o lote com saldo e
+   * C.A. válido e lança SAIDA_ENTREGA. Ou saem todos os termos, ou nenhum — a
    * mensagem de erro diz qual funcionário barrou.
    */
   async registrarEntregaEmLote(input: NovaEntregaLoteInput): Promise<EntregaSalva[]> {

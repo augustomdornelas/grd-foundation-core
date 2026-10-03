@@ -121,7 +121,7 @@ export function EntregaEpiDialog({
   const linhasRef = useRef(linhas);
   linhasRef.current = linhas;
 
-  /** EPI lido com estoque zerado: avisa, mas deixa entregar (a contagem pode estar atrasada). */
+  /** EPI lido com estoque zerado: só avisa. Quem barra é o banco, que exige lote com saldo. */
   const avisarEstoque = (epi: Epi) => {
     if (epi.estoque <= 0) toast.warning(`${epi.nome}: estoque zerado no sistema. Confira antes de entregar.`);
   };
