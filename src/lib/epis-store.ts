@@ -45,6 +45,8 @@ export type Epi = {
   ativo: boolean;
   /** Código da etiqueta do almoxarifado (GRD-ALM-XX-000) — é o que o QR code contém. */
   codigoInterno?: string;
+  /** epis.exige_ca: compra e lote novo exigem Nº e validade do C.A. */
+  exigeCa: boolean;
 };
 
 export type MotivoEntrega =
@@ -209,6 +211,7 @@ function mapEpi(r: any): Epi {
     fotoUrl: r.foto_url ?? undefined,
     ativo: r.ativo ?? true,
     codigoInterno: r.codigo_interno ?? undefined,
+    exigeCa: r.exige_ca ?? false,
   };
 }
 
@@ -404,7 +407,7 @@ export function nomeFuncionario(s: State, id: string): string {
  * Insere um EPI no catálogo sem recarregar tudo — a compra pode criar
  * vários EPIs novos de uma vez e um fetchAll por item seria desperdício.
  */
-async function inserirEpi(input: Omit<Epi, "id">): Promise<{ id: string | null; erro: string | null }> {
+async function inserirEpi(input: Omit<Epi, "id" | "exigeCa">): Promise<{ id: string | null; erro: string | null }> {
   try {
     const { data, error } = await supabase
       .from("epis")
@@ -465,6 +468,10 @@ export type NovoCompraItemInput = {
   };
   quantidade: number;
   valorUnitario: number;
+  /** Do lote: obrigatórios quando o EPI exige C.A. (a RPC confere). */
+  numeroCa?: string;
+  validadeCa?: string;
+  tamanho?: string;
 };
 
 export type NovaCompraInput = {
@@ -535,7 +542,7 @@ export function podeAjustarEstoque(perfil: string): boolean {
 
 function msgRpc(error: { code?: string; message?: string }, funcao: string): string {
   if (error.code === "PGRST202") return `a função ${funcao} não existe no banco (falta aplicar a migration)`;
-  if (error.code === "42501") return "sem permissão: só Administrador ou Almoxarifado";
+  if (error.code === "42501") return `sem permissão (${error.message ?? "recusado pelo banco"})`;
   return error.message ?? "erro desconhecido";
 }
 
@@ -546,7 +553,7 @@ export const epiActions = {
   // existe — quem sai é desligado.
 
   // ----- EPIs (catálogo) -----
-  async criarEpi(input: Omit<Epi, "id">): Promise<string | null> {
+  async criarEpi(input: Omit<Epi, "id" | "exigeCa">): Promise<string | null> {
     const { id, erro } = await inserirEpi(input);
     if (erro) { toast.error(`Erro ao salvar EPI: ${erro}`); return null; }
     await fetchAll();
@@ -709,16 +716,21 @@ export const epiActions = {
   // ----- Compras (entrada de estoque) -----
   /**
    * Lança uma compra com vários EPIs de uma vez. Itens marcados como
-   * `novoEpi` são cadastrados no catálogo na hora (estoque zero) e só
-   * então recebem a quantidade comprada.
+   * `novoEpi` são cadastrados no catálogo na hora (estoque zero).
+   *
+   * A compra em si é SÓ a RPC registrar_compra_epi: numa transação ela
+   * grava compras_epi, compra_epi_itens, um epi_lotes por item e a
+   * ENTRADA_COMPRA — e o gatilho do livro sobe epis.estoque. Insert
+   * direto nas tabelas não gera lote e não soma estoque.
    */
-  async registrarCompra(input: NovaCompraInput): Promise<CompraEpi | null> {
+  async registrarCompra(input: NovaCompraInput): Promise<string | null> {
     if (!input.itens.length) { toast.error("Adicione ao menos um EPI"); return null; }
     if (!input.dataCompra) { toast.error("Informe a data da compra"); return null; }
 
     try {
       // 1) Cadastra os EPIs novos e resolve o epiId de cada item.
-      const resolvidos: { epiId: string; quantidade: number; valorUnitario: number }[] = [];
+      const resolvidos: (NovoCompraItemInput & { epiId: string })[] = [];
+      let criouEpi = false;
       for (const it of input.itens) {
         let epiId = it.epiId;
         if (!epiId && it.novoEpi?.nome?.trim()) {
@@ -733,68 +745,45 @@ export const epiActions = {
             unidade: it.novoEpi.unidade || "un",
             ativo: true,
           });
-          if (!id) { toast.error(`Erro ao cadastrar o EPI "${it.novoEpi.nome}": ${erro ?? "desconhecido"}`); continue; }
+          if (!id) {
+            toast.error(`Erro ao cadastrar o EPI "${it.novoEpi.nome}": ${erro ?? "desconhecido"}. A compra não foi lançada.`);
+            if (criouEpi) await fetchAll();
+            return null;
+          }
           epiId = id;
+          criouEpi = true;
         }
         if (!epiId) continue;
-        resolvidos.push({ epiId, quantidade: it.quantidade, valorUnitario: it.valorUnitario });
+        resolvidos.push({ ...it, epiId });
       }
       if (!resolvidos.length) { toast.error("Nenhum item válido para lançar"); return null; }
 
-      // Os EPIs recém-criados ainda não estão em `state` — recarrega para
-      // que os snapshots e a baixa de estoque enxerguem todos.
-      await fetchAll();
-
-      // 2) Cabeçalho da compra.
-      const { data: compraRow, error: compraErr } = await supabase
-        .from("compras_epi")
-        .insert(upperizePayload({
+      // 2) Compra + itens + lotes + ENTRADA_COMPRA, tudo no banco.
+      const { data, error } = await supabase.rpc("registrar_compra_epi", {
+        p_compra: upperizePayload({
+          data_compra: input.dataCompra,
           fornecedor_id: input.fornecedorId || null,
           fornecedor_nome: input.fornecedorNome ?? "",
           numero_nota: input.numeroNota ?? "",
-          data_compra: input.dataCompra,
           responsavel: input.responsavel ?? "",
           observacoes: input.observacoes ?? "",
-        }) as any)
-        .select("*")
-        .single();
-      if (compraErr || !compraRow) {
-        toast.error(`Erro ao registrar compra: ${compraErr?.message ?? "desconhecido"}`);
-        return null;
-      }
-      const compraId = compraRow.id as string;
-
-      // 3) Itens, com snapshot do catálogo.
-      const itensPayload = resolvidos.map(it => {
-        const epi = state.epis.find(e => e.id === it.epiId);
-        return {
-          compra_id: compraId,
+        }),
+        p_itens: resolvidos.map(it => ({
           epi_id: it.epiId,
-          epi_nome: epi?.nome ?? "",
-          ca: epi?.ca ?? "",
-          unidade: epi?.unidade ?? "un",
-          quantidade: it.quantidade,
-          valor_unitario: it.valorUnitario,
-        };
+          quantidade: Math.round(it.quantidade),
+          custo_unitario: it.valorUnitario,
+          numero_ca: it.numeroCa?.trim().toUpperCase() || null,
+          validade_ca: it.validadeCa || null,
+          tamanho: it.tamanho?.trim().toUpperCase() || null,
+        })),
       });
-      const { error: itErr } = await supabase
-        .from("compra_epi_itens")
-        .insert(itensPayload.map(p => upperizePayload(p)) as any);
-      if (itErr) {
-        // Compra sem itens não soma estoque nenhum — desfaz.
-        const erroDesfazer = await apagarConfirmado("compras_epi", compraId);
-        toast.error(
-          `Erro ao salvar os itens da compra: ${itErr.message}` +
-            (erroDesfazer ? ` — e a compra vazia ficou gravada (${erroDesfazer}); exclua-a na lista.` : ""),
-        );
-        await fetchAll();
+      if (error) {
+        toast.error(`A compra não foi lançada: ${msgRpc(error, "registrar_compra_epi")}`);
+        if (criouEpi) await fetchAll();
         return null;
       }
-
-      // 4) A entrada no estoque (lote + ENTRADA_COMPRA) é do banco.
       await fetchAll();
-
-      return state.compras.find(c => c.id === compraId) ?? mapCompra(compraRow);
+      return (data as string | null) ?? null;
     } catch (err) {
       toast.error(`Erro ao registrar compra: ${err instanceof Error ? err.message : "desconhecido"}`);
       return null;

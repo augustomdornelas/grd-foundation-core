@@ -92,7 +92,7 @@ export function AjusteEstoqueDialog({
   const lotesVisiveis = tipo === "AJUSTE_ENTRADA" ? lotes : lotes.filter((l) => l.saldo > 0);
   const lote = lotes.find((l) => l.id === loteId);
   const semLote = tipo === "AJUSTE_ENTRADA" && loteId === SEM_LOTE;
-  const exigeCa = semLote && !!epi?.ca.trim();
+  const exigeCa = semLote && !!epi?.exigeCa;
   const letras = motivo.replace(/[^\p{L}]/gu, "").length;
   const qtd = quantidade ?? 0;
   const excedeSaldo = tipo !== "AJUSTE_ENTRADA" && !!lote && qtd > lote.saldo;

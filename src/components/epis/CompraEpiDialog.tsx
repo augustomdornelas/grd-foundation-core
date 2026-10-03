@@ -3,7 +3,9 @@
 // Lança vários EPIs de uma vez com quantidade e valor unitário.
 // Cada linha pode escolher um EPI do catálogo ou cadastrar um
 // novo na hora — é comum a nota trazer item que ainda não existe.
-// Ao salvar, soma tudo ao estoque.
+// Ao salvar, a RPC registrar_compra_epi grava a compra, um lote por
+// item e a entrada no estoque. Cada lote leva o Nº e a validade do C.A.
+// — obrigatórios quando o EPI exige C.A.
 // ============================================================
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,9 @@ type Linha = {
   // O valor unitário é que precisa dos centavos.
   quantidade: number | null;
   valorUnitario: number | null;
+  // C.A. do lote. Vem do catálogo ao escolher o EPI, editável.
+  numeroCa: string;
+  validadeCa: string;
   // Preenchidos só quando epiId === NOVO.
   novoNome: string;
   novoCa: string;
@@ -39,7 +44,7 @@ type Linha = {
 
 function novaLinha(): Linha {
   return {
-    epiId: "", quantidade: 1, valorUnitario: null,
+    epiId: "", quantidade: 1, valorUnitario: null, numeroCa: "", validadeCa: "",
     novoNome: "", novoCa: "", novoFabricante: "", novoUnidade: "un", novoValidadeDias: null,
   };
 }
@@ -82,6 +87,11 @@ export function CompraEpiDialog({
   const setLinha = (i: number, patch: Partial<Linha>) =>
     setLinhas(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   const addLinha = () => setLinhas(prev => [...prev, novaLinha()]);
+  /** Trocar o EPI da linha traz o C.A. do catálogo para o lote. */
+  const escolherEpi = (i: number, epiId: string) => {
+    const epi = epis.find(e => e.id === epiId);
+    setLinha(i, { epiId, numeroCa: epi?.ca ?? "", validadeCa: epi?.caValidade ?? "" });
+  };
   const removeLinha = (i: number) =>
     setLinhas(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
 
@@ -93,9 +103,10 @@ export function CompraEpiDialog({
     setLinhas(prev => {
       const i = prev.findIndex(l => l.epiId === epi.id);
       if (i >= 0) return prev.map((l, idx) => idx === i ? { ...l, quantidade: (l.quantidade ?? 0) + 1 } : l);
+      const ca = { numeroCa: epi.ca ?? "", validadeCa: epi.caValidade ?? "" };
       const vazia = prev.findIndex(l => !l.epiId);
-      if (vazia >= 0) return prev.map((l, idx) => idx === vazia ? { ...l, epiId: epi.id, quantidade: 1 } : l);
-      return [...prev, { ...novaLinha(), epiId: epi.id, quantidade: 1 }];
+      if (vazia >= 0) return prev.map((l, idx) => idx === vazia ? { ...l, epiId: epi.id, quantidade: 1, ...ca } : l);
+      return [...prev, { ...novaLinha(), epiId: epi.id, quantidade: 1, ...ca }];
     });
 
   const subtotal = (l: Linha) => Math.max(1, l.quantidade ?? 1) * (l.valorUnitario ?? 0);
@@ -104,11 +115,22 @@ export function CompraEpiDialog({
   const salvar = async () => {
     if (saving) return;
 
+    const hoje = new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD local
     const itens: NovoCompraItemInput[] = [];
     for (const l of linhas) {
       if (!l.epiId) continue;
-      const quantidade = Math.max(1, l.quantidade ?? 1);
+      const quantidade = Math.max(1, Math.round(l.quantidade ?? 1));
       const valorUnitario = l.valorUnitario ?? 0;
+      const epi = epis.find(e => e.id === l.epiId);
+      const nomeItem = l.epiId === NOVO ? l.novoNome.trim() || "EPI novo" : epi?.nome ?? "EPI";
+      const numeroCa = (l.epiId === NOVO ? l.novoCa : l.numeroCa).trim();
+      if (epi?.exigeCa && (!numeroCa || !l.validadeCa)) {
+        toast.error(`${nomeItem}: informe o Nº e a validade do C.A.`); return;
+      }
+      if (l.validadeCa && l.validadeCa < hoje) {
+        toast.error(`${nomeItem}: a validade do C.A. já venceu.`); return;
+      }
+      const ca = { numeroCa, validadeCa: l.validadeCa };
       if (l.epiId === NOVO) {
         if (!l.novoNome.trim()) { toast.error("Informe o nome do EPI novo"); return; }
         itens.push({
@@ -121,12 +143,14 @@ export function CompraEpiDialog({
           },
           quantidade,
           valorUnitario,
+          ...ca,
         });
       } else {
-        itens.push({ epiId: l.epiId, quantidade, valorUnitario });
+        itens.push({ epiId: l.epiId, quantidade, valorUnitario, ...ca });
       }
     }
     if (!itens.length) return toast.error("Adicione ao menos um EPI");
+    if (itens.some(it => !(it.quantidade > 0))) return toast.error("Quantidade deve ser maior que zero");
     if (!dataCompra) return toast.error("Informe a data da compra");
 
     setSaving(true);
@@ -141,7 +165,7 @@ export function CompraEpiDialog({
         else { setSaving(false); return; }
       }
 
-      const compra = await epiActions.registrarCompra({
+      const compraId = await epiActions.registrarCompra({
         fornecedorId: idFornecedor || undefined,
         fornecedorNome: nomeFornecedor,
         numeroNota: numeroNota.trim(),
@@ -150,7 +174,7 @@ export function CompraEpiDialog({
         observacoes: obs.trim(),
         itens,
       });
-      if (!compra) { setSaving(false); return; }
+      if (!compraId) { setSaving(false); return; }
 
       toast.success(
         itens.length === 1
@@ -238,7 +262,7 @@ export function CompraEpiDialog({
                   <div className="col-span-12 md:col-span-5">
                     <Label className="text-xs">EPI</Label>
                     <div className="flex gap-1">
-                      <Select value={l.epiId} onValueChange={v => setLinha(i, { epiId: v })}>
+                      <Select value={l.epiId} onValueChange={v => escolherEpi(i, v)}>
                         <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Selecionar EPI" /></SelectTrigger>
                         <SelectContent>
                           {episAtivos.map(e => (
@@ -287,6 +311,22 @@ export function CompraEpiDialog({
                   </div>
                 </div>
 
+                {l.epiId && l.epiId !== NOVO && (() => {
+                  const exige = !!epis.find(e => e.id === l.epiId)?.exigeCa;
+                  return (
+                    <div className="mt-2 grid grid-cols-12 gap-2">
+                      <div className="col-span-6 md:col-span-4">
+                        <Label className="text-xs">Nº do C.A.{exige ? " *" : ""}</Label>
+                        <Input value={l.numeroCa} onChange={e => setLinha(i, { numeroCa: e.target.value })} />
+                      </div>
+                      <div className="col-span-6 md:col-span-4">
+                        <Label className="text-xs">Validade do C.A.{exige ? " *" : ""}</Label>
+                        <Input type="date" value={l.validadeCa} onChange={e => setLinha(i, { validadeCa: e.target.value })} />
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {l.epiId === NOVO && (
                   <div className="mt-2 grid grid-cols-12 gap-2 rounded-md border border-dashed border-[#F37032]/50 bg-white p-2">
                     <div className="col-span-12 flex items-center gap-1 text-xs font-semibold text-[#F37032]">
@@ -299,6 +339,10 @@ export function CompraEpiDialog({
                     <div className="col-span-6 md:col-span-3">
                       <Label className="text-xs">Nº do C.A.</Label>
                       <Input value={l.novoCa} onChange={e => setLinha(i, { novoCa: e.target.value })} />
+                    </div>
+                    <div className="col-span-6 md:col-span-4">
+                      <Label className="text-xs">Validade do C.A.</Label>
+                      <Input type="date" value={l.validadeCa} onChange={e => setLinha(i, { validadeCa: e.target.value })} />
                     </div>
                     <div className="col-span-6 md:col-span-4">
                       <Label className="text-xs">Fabricante</Label>
